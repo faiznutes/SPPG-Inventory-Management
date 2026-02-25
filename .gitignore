@@ -8,3 +8,4 @@ backend-api/.cookies.txt
 frontend-vue/.DS_Store
 backend-api/.DS_Store
 *.log
+coolify_*.json

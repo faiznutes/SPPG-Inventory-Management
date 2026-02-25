@@ -34,6 +34,13 @@ app.get('/health', (_req, res) => {
   })
 })
 
+app.get('/api/v1/health', (_req, res) => {
+  return res.json({
+    status: 'ok',
+    service: 'backend-api',
+  })
+})
+
 app.use('/api/v1/auth', authRouter)
 app.use('/api/v1/users', usersRouter)
 app.use('/api/v1/locations', locationsRouter)
