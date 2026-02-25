@@ -1,0 +1,332 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  PIC
+  WAREHOUSE
+  VIEWER
+}
+
+enum ItemType {
+  CONSUMABLE
+  ASSET
+  GAS
+}
+
+enum AssetStatus {
+  AVAILABLE
+  IN_USE
+  LOST
+  DAMAGED
+  MAINTENANCE
+}
+
+enum TransactionType {
+  IN
+  OUT
+  TRANSFER
+  ADJUST
+}
+
+enum ChecklistSchedule {
+  DAILY
+  WEEKLY
+  MONTHLY
+  ADHOC
+}
+
+enum ChecklistRunStatus {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+}
+
+enum ChecklistResult {
+  OK
+  LOW
+  OUT
+  DAMAGED
+  NA
+}
+
+enum PurchaseRequestStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  ORDERED
+  RECEIVED
+  CLOSED
+}
+
+enum MaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  ARCHIVED
+}
+
+model User {
+  id              String      @id @default(uuid())
+  name            String
+  email           String?     @unique
+  username        String      @unique
+  passwordHash    String      @map("password_hash")
+  role            UserRole
+  isActive        Boolean     @default(true) @map("is_active")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  refreshTokens   RefreshToken[]
+  assetsAssigned  Asset[]     @relation("AssetAssignedTo")
+  transactions    InventoryTransaction[] @relation("InventoryTransactionCreatedBy")
+  checklistRuns   ChecklistRun[] @relation("ChecklistRunCreatedBy")
+  purchaseRequestsCreated PurchaseRequest[] @relation("PurchaseRequestRequestedBy")
+  purchaseRequestsApproved PurchaseRequest[] @relation("PurchaseRequestApprovedBy")
+  purchaseRequestStatusHistory PurchaseRequestStatusHistory[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  tokenHash  String   @map("token_hash")
+  userId     String   @map("user_id")
+  expiresAt  DateTime @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Location {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  stocks      Stock[]
+  assets      Asset[]
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("locations")
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  items     Item[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("categories")
+}
+
+model Item {
+  id          String   @id @default(uuid())
+  name        String
+  sku         String?  @unique
+  categoryId  String?  @map("category_id")
+  type        ItemType
+  unit        String
+  minStock    Decimal  @default(0) @map("min_stock") @db.Decimal(12, 2)
+  reorderQty  Decimal? @map("reorder_qty") @db.Decimal(12, 2)
+  isActive    Boolean  @default(true) @map("is_active")
+  photoUrl    String?  @map("photo_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  category    Category? @relation(fields: [categoryId], references: [id])
+  stocks      Stock[]
+  assets      Asset[]
+
+  @@map("items")
+}
+
+model Stock {
+  id         String   @id @default(uuid())
+  itemId     String   @map("item_id")
+  locationId String   @map("location_id")
+  qty        Decimal  @default(0) @db.Decimal(12, 2)
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, locationId])
+  @@map("stocks")
+}
+
+model Asset {
+  id               String      @id @default(uuid())
+  itemId           String      @map("item_id")
+  assetTag         String      @unique @map("asset_tag")
+  serialNumber     String?     @map("serial_number")
+  locationId       String      @map("location_id")
+  status           AssetStatus @default(AVAILABLE)
+  assignedToUserId String?     @map("assigned_to_user_id")
+  notes            String?
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+  item             Item        @relation(fields: [itemId], references: [id])
+  location         Location    @relation(fields: [locationId], references: [id])
+  assignedTo       User?       @relation("AssetAssignedTo", fields: [assignedToUserId], references: [id])
+
+  @@map("assets")
+}
+
+model InventoryTransaction {
+  id             String          @id @default(uuid())
+  trxType        TransactionType @map("trx_type")
+  itemId         String          @map("item_id")
+  assetId        String?         @map("asset_id")
+  fromLocationId String?         @map("from_location_id")
+  toLocationId   String?         @map("to_location_id")
+  qty            Decimal?        @db.Decimal(12, 2)
+  reason         String?
+  createdBy      String          @map("created_by")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  actor          User            @relation("InventoryTransactionCreatedBy", fields: [createdBy], references: [id])
+
+  @@map("inventory_transactions")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorUserId String   @map("actor_user_id")
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  action      String
+  diffJson    Json?    @map("diff_json")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("audit_logs")
+}
+
+model ChecklistTemplate {
+  id        String            @id @default(uuid())
+  name      String
+  schedule  ChecklistSchedule
+  locationId String?          @map("location_id")
+  isActive  Boolean           @default(true) @map("is_active")
+  createdBy String            @map("created_by")
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+  items     ChecklistTemplateItem[]
+  runs      ChecklistRun[]
+
+  @@map("checklist_templates")
+}
+
+model ChecklistTemplateItem {
+  id          String            @id @default(uuid())
+  templateId  String            @map("template_id")
+  title       String
+  description String?
+  sortOrder   Int               @default(0) @map("sort_order")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  template    ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("checklist_template_items")
+}
+
+model ChecklistRun {
+  id         String             @id @default(uuid())
+  templateId String             @map("template_id")
+  locationId String?            @map("location_id")
+  runDate    DateTime           @map("run_date") @db.Date
+  status     ChecklistRunStatus @default(DRAFT)
+  createdBy  String             @map("created_by")
+  createdAt  DateTime           @default(now()) @map("created_at")
+  updatedAt  DateTime           @updatedAt @map("updated_at")
+  actor      User               @relation("ChecklistRunCreatedBy", fields: [createdBy], references: [id])
+  template   ChecklistTemplate  @relation(fields: [templateId], references: [id])
+  items      ChecklistRunItem[]
+
+  @@unique([templateId, runDate, locationId])
+  @@map("checklist_runs")
+}
+
+model ChecklistRunItem {
+  id             String          @id @default(uuid())
+  checklistRunId String          @map("checklist_run_id")
+  templateItemId String?         @map("template_item_id")
+  title          String
+  result         ChecklistResult @default(NA)
+  notes          String?
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  checklistRun   ChecklistRun    @relation(fields: [checklistRunId], references: [id], onDelete: Cascade)
+
+  @@map("checklist_run_items")
+}
+
+model PurchaseRequest {
+  id          String               @id @default(uuid())
+  prNumber    String               @unique @map("pr_number")
+  status      PurchaseRequestStatus @default(DRAFT)
+  requestedBy String               @map("requested_by")
+  approvedBy  String?              @map("approved_by")
+  notes       String?
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+  items       PurchaseRequestItem[]
+  history     PurchaseRequestStatusHistory[]
+  requester   User                 @relation("PurchaseRequestRequestedBy", fields: [requestedBy], references: [id])
+  approver    User?                @relation("PurchaseRequestApprovedBy", fields: [approvedBy], references: [id])
+
+  @@map("purchase_requests")
+}
+
+model PurchaseRequestItem {
+  id                 String   @id @default(uuid())
+  purchaseRequestId  String   @map("purchase_request_id")
+  itemId             String?  @map("item_id")
+  itemName           String   @map("item_name")
+  qty                Decimal  @db.Decimal(12, 2)
+  unitPrice          Decimal  @map("unit_price") @db.Decimal(14, 2)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  purchaseRequest    PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+
+  @@map("purchase_request_items")
+}
+
+model PurchaseRequestStatusHistory {
+  id                String               @id @default(uuid())
+  purchaseRequestId String               @map("purchase_request_id")
+  status            PurchaseRequestStatus
+  notes             String?
+  changedBy         String               @map("changed_by")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  purchaseRequest   PurchaseRequest      @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+  changedByUser     User                 @relation(fields: [changedBy], references: [id])
+
+  @@map("purchase_request_status_history")
+}
+
+model MaintenanceTicket {
+  id          String            @id @default(uuid())
+  assetId     String            @map("asset_id")
+  title       String
+  description String
+  status      MaintenanceStatus @default(OPEN)
+  createdBy   String            @map("created_by")
+  assignedTo  String?           @map("assigned_to")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  @@map("maintenance_tickets")
+}

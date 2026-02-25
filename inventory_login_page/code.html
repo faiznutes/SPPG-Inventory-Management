@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Inventory Login Page</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display antialiased">
+<div class="relative flex min-h-screen flex-col overflow-hidden">
+<!-- Background Decoration -->
+<div class="absolute inset-0 z-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#137fec 1px, transparent 1px); background-size: 32px 32px;">
+</div>
+<div class="layout-container flex h-full grow flex-col relative z-10">
+<!-- Header -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-slate-800 px-10 py-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
+<div class="flex items-center gap-4 text-slate-900 dark:text-slate-100">
+<div class="size-8 text-primary">
+<svg class="w-full h-full" fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M4 42.4379C4 42.4379 14.0962 36.0744 24 41.1692C35.0664 46.8624 44 42.2078 44 42.2078L44 7.01134C44 7.01134 35.068 11.6577 24.0031 5.96913C14.0971 0.876274 4 7.27094 4 7.27094L4 42.4379Z" fill="currentColor"></path>
+</svg>
+</div>
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">Inventory</h2>
+</div>
+<div class="flex items-center gap-9">
+<a class="text-slate-600 dark:text-slate-400 text-sm font-medium hover:text-primary transition-colors" href="#">Contact Support</a>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex flex-1 items-center justify-center p-4 sm:p-8">
+<div class="flex w-full max-w-[1000px] flex-col lg:flex-row overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-800">
+<!-- Left Column: Image/Banner -->
+<div class="hidden lg:flex lg:w-1/2 flex-col justify-end p-8 bg-cover bg-center relative min-h-[500px]" data-alt="Modern warehouse interior with organized shelving" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuB0aK1ARiYUJcUktlQnkLCNl0l62yMyFXPW_BNlmVgqvbXQfGj6qWRF8x00098bog9jezgFeZVLE0_l-vR0iLelfp-rGT4jLpleL6RydF-HYws6Yn83Bx2uDhPkD1QmqmyT39n_cbE9l9LwhM8ACjUit1zYRJCrZFGlmeibc3Wla42GJrt_bcuehVrngXSkqebHkKEIXBPMJldsSeJEgrboyT6yGEjJURpCxKrRkR3KvESkjz7hq9ZjY8hjzzYpF9UTCL8i5AeFdlw");'>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+<div class="relative z-10 text-white">
+<div class="mb-2 inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 backdrop-blur-md">
+<span class="material-symbols-outlined text-sm mr-2">inventory_2</span>
+<span class="text-xs font-medium uppercase tracking-wide">System v2.4</span>
+</div>
+<h1 class="text-3xl font-bold leading-tight mb-2">Efficient Tracking</h1>
+<p class="text-slate-200 text-sm leading-relaxed max-w-sm">
+                                Streamline your operations with real-time stock monitoring, automated purchase requests, and comprehensive transaction logs.
+                            </p>
+</div>
+</div>
+<!-- Right Column: Login Form -->
+<div class="flex w-full lg:w-1/2 flex-col justify-center p-8 sm:p-12 lg:p-16">
+<div class="mb-8">
+<h3 class="text-2xl font-bold text-slate-900 dark:text-white mb-2">Welcome Back</h3>
+<p class="text-slate-500 dark:text-slate-400 text-sm">Please enter your details to sign in.</p>
+</div>
+<form action="#" class="flex flex-col gap-5">
+<!-- Username Field -->
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-semibold text-slate-900 dark:text-slate-200" for="username">Username</label>
+<div class="relative flex items-center">
+<span class="absolute left-4 text-slate-400">
+<span class="material-symbols-outlined text-[20px]">person</span>
+</span>
+<input class="form-input w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 pl-11 text-slate-900 placeholder:text-slate-400 focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500 transition-all" id="username" placeholder="Enter your username" type="text" value="admin_user"/>
+</div>
+</div>
+<!-- Password Field -->
+<div class="flex flex-col gap-1.5">
+<div class="flex justify-between items-center">
+<label class="text-sm font-semibold text-slate-900 dark:text-slate-200" for="password">Password</label>
+<a class="text-xs font-medium text-primary hover:text-blue-600" href="#">Forgot password?</a>
+</div>
+<div class="relative flex items-center group">
+<span class="absolute left-4 text-slate-400">
+<span class="material-symbols-outlined text-[20px]">lock</span>
+</span>
+<input class="form-input w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 pl-11 pr-11 text-slate-900 placeholder:text-slate-400 focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500 transition-all" id="password" placeholder="Enter your password" type="password"/>
+<button class="absolute right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 focus:outline-none flex items-center" type="button">
+<span class="material-symbols-outlined text-[20px]">visibility_off</span>
+</button>
+</div>
+</div>
+<!-- Remember Me -->
+<div class="flex items-center gap-3 py-1">
+<div class="relative flex items-center">
+<input class="peer h-5 w-5 cursor-pointer appearance-none rounded border border-slate-300 bg-white checked:border-primary checked:bg-primary hover:border-primary focus:ring-0 focus:ring-offset-0 dark:border-slate-600 dark:bg-slate-800" id="remember" style="background-image: var(--checkbox-tick-svg)" type="checkbox"/>
+<svg class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" height="12" viewbox="0 0 12 12" width="12" xmlns="http://www.w3.org/2000/svg">
+<path d="M10 3L4.5 8.5L2 6" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<label class="cursor-pointer select-none text-sm text-slate-600 dark:text-slate-400" for="remember">Keep me logged in for 30 days</label>
+</div>
+<!-- Submit Button -->
+<button class="mt-2 flex w-full items-center justify-center rounded-lg bg-primary py-3.5 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition-all hover:bg-blue-600 hover:shadow-lg hover:shadow-blue-500/30 active:scale-[0.98]">
+                                Sign In
+                            </button>
+</form>
+<div class="mt-8 text-center">
+<p class="text-sm text-slate-500 dark:text-slate-400">
+                                Don't have an account? <a class="font-semibold text-primary hover:underline" href="#">Request Access</a>
+</p>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</body></html>

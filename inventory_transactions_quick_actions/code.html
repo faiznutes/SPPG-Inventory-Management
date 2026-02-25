@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Inventory Transactions &amp; Quick Actions</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen flex flex-col overflow-x-hidden">
+<!-- Top Navigation Bar -->
+<header class="w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+<div class="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between">
+<!-- Logo & Title -->
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-3 text-slate-900 dark:text-white">
+<div class="size-8 text-primary">
+<span class="material-symbols-outlined text-3xl">inventory_2</span>
+</div>
+<h2 class="text-xl font-bold tracking-tight">Inventory Ops</h2>
+</div>
+<!-- Navigation Links -->
+<nav class="hidden md:flex items-center gap-6 ml-4">
+<a class="text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-primary text-sm font-semibold transition-colors" href="#">Dashboard</a>
+<a class="text-primary text-sm font-bold" href="#">Inventory</a>
+<a class="text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-primary text-sm font-semibold transition-colors" href="#">Requests</a>
+<a class="text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-primary text-sm font-semibold transition-colors" href="#">Reports</a>
+</nav>
+</div>
+<!-- Search & Profile -->
+<div class="flex items-center gap-4">
+<div class="hidden sm:flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg h-10 px-3 w-64">
+<span class="material-symbols-outlined text-slate-400 dark:text-slate-500 text-xl">search</span>
+<input class="bg-transparent border-none outline-none text-sm ml-2 w-full text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-0" placeholder="Search orders, items..." type="text"/>
+</div>
+<div class="bg-slate-200 dark:bg-slate-700 rounded-full h-9 w-9 flex items-center justify-center bg-cover bg-center" data-alt="User profile photo" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBOVaapZBX-GtuBASpWRseEzh3EI_u3MV72YZOrdE0xY2QA1IhZa7Qm0hISRhVhadZ2uqpSwp8mOxwbakiZasbpgxk6gUzhFX-oih8RcCnDBMyB9a3F_v-wpjsDjwZnbtrlrW3l8MG90eu3KT-yPD0DHhaWIJWBOdD137y-0xXfRh3qwMwLbjHV6UnoYK1ctMW87r6sCrUdFvfcvq9q6NZ3yPfHQ6ZGKUtbLhBqs8vhRoKtmIlsa0-7BzTCi7LPmPZx0aPpPQG7H3c');"></div>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-1 w-full max-w-[1280px] mx-auto px-6 py-8">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+<div>
+<h1 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-2">Stock Transactions</h1>
+<p class="text-slate-500 dark:text-slate-400 text-base">Manage inventory movements and view transaction history.</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[20px]">file_download</span>
+                    Export
+                </button>
+<button class="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors shadow-sm shadow-blue-200 dark:shadow-none">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                    New Request
+                </button>
+</div>
+</div>
+<!-- Quick Actions & Active Widget -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-10">
+<!-- Quick Action Buttons (Left Side) -->
+<div class="lg:col-span-3 flex flex-col gap-3">
+<h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Quick Actions</h3>
+<button class="group flex items-center justify-between p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-primary/50 dark:hover:border-primary/50 transition-all cursor-pointer shadow-sm hover:shadow-md">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+<span class="material-symbols-outlined">input</span>
+</div>
+<div class="text-left">
+<p class="font-bold text-slate-900 dark:text-white">Stock In</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Receive items</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">chevron_right</span>
+</button>
+<button class="group flex items-center justify-between p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-primary/50 dark:hover:border-primary/50 transition-all cursor-pointer shadow-sm hover:shadow-md">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
+<span class="material-symbols-outlined">output</span>
+</div>
+<div class="text-left">
+<p class="font-bold text-slate-900 dark:text-white">Stock Out</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Dispatch items</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">chevron_right</span>
+</button>
+<!-- Active State Indicator -->
+<button class="relative flex items-center justify-between p-4 bg-primary text-white rounded-xl shadow-lg ring-4 ring-primary/20 dark:ring-primary/10">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center text-white">
+<span class="material-symbols-outlined">swap_horiz</span>
+</div>
+<div class="text-left">
+<p class="font-bold">Transfer</p>
+<p class="text-xs text-blue-100">Move location</p>
+</div>
+</div>
+<div class="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-primary rotate-45 hidden lg:block"></div>
+<span class="material-symbols-outlined text-white lg:hidden">expand_more</span>
+</button>
+</div>
+<!-- Active Action Modal/Form (Right Side) -->
+<div class="lg:col-span-9">
+<div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col h-full">
+<div class="relative h-32 bg-slate-100 dark:bg-slate-900 overflow-hidden">
+<div class="absolute inset-0 bg-cover bg-center opacity-60 dark:opacity-40" data-alt="Warehouse shelves with boxes" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAR1L5YJhqfF1jbsffKS7hH6rtFUPbyNvn46663HKBObK9lFKnVTdvLioWpZaAxovaHiykRGXpG_gHpiN9FWduZoPZ87-Yr-8ZbExlfOxhFrBZs7sKw5ufMXGUtc2VHwzMK_rK4cTTRs8j4khC9L3-0FCazqqPCKte_xRhgltu_ywRQXTlAUTRPJwBllqJojfzZ5NVjLPQHFVXz4KIFgp8545H1Zliv2_2VJHfw9ubBJ3oODxzi_W0Oe5GgG0hZFYrL8lR-QA1tf7g');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-white dark:from-slate-800 to-transparent"></div>
+<div class="absolute bottom-4 left-6">
+<div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-primary text-xs font-bold uppercase tracking-wide mb-2">
+                                Active Action
+                            </div>
+<h2 class="text-2xl font-bold text-slate-900 dark:text-white">Quick Transfer</h2>
+</div>
+</div>
+<div class="p-6 md:p-8">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+<!-- Source -->
+<div class="space-y-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Source Location</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-slate-400">warehouse</span>
+</div>
+<select class="pl-10 block w-full rounded-lg border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 text-slate-900 dark:text-white focus:border-primary focus:ring-primary sm:text-sm h-11">
+<option>Main Warehouse (Zone A)</option>
+<option>Main Warehouse (Zone B)</option>
+<option>Retail Store #12</option>
+</select>
+</div>
+</div>
+<!-- Destination -->
+<div class="space-y-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Destination Location</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-slate-400">storefront</span>
+</div>
+<select class="pl-10 block w-full rounded-lg border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 text-slate-900 dark:text-white focus:border-primary focus:ring-primary sm:text-sm h-11">
+<option>Retail Store #05</option>
+<option>Distribution Center</option>
+<option>Damage Control</option>
+</select>
+</div>
+</div>
+<!-- Item Search -->
+<div class="space-y-2 md:col-span-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Select Items</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-slate-400">qr_code_scanner</span>
+</div>
+<input class="pl-10 block w-full rounded-lg border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 text-slate-900 dark:text-white focus:border-primary focus:ring-primary sm:text-sm h-11 placeholder:text-slate-400" placeholder="Scan barcode or search SKU..." type="text"/>
+<button class="absolute inset-y-1 right-1 px-3 bg-white dark:bg-slate-600 text-slate-600 dark:text-slate-200 rounded border border-slate-200 dark:border-slate-500 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-500">
+                                        Add
+                                    </button>
+</div>
+</div>
+</div>
+<!-- Item List Table (Mini) -->
+<div class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden mb-6">
+<table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+<thead class="bg-slate-50 dark:bg-slate-900/50">
+<tr>
+<th class="px-4 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider" scope="col">Item</th>
+<th class="px-4 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider" scope="col">SKU</th>
+<th class="px-4 py-3 text-right text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider" scope="col">Qty</th>
+<th class="px-4 py-3 text-center text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider" scope="col">Action</th>
+</tr>
+</thead>
+<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+<tr>
+<td class="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">MacBook Pro 16" M2</td>
+<td class="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 font-mono">APP-MBP-16-M2</td>
+<td class="px-4 py-3 text-sm text-slate-900 dark:text-white text-right">
+<input class="w-16 rounded border-slate-200 dark:border-slate-600 text-right p-1 text-sm bg-slate-50 dark:bg-slate-700" type="number" value="5"/>
+</td>
+<td class="px-4 py-3 text-center">
+<button class="text-slate-400 hover:text-red-500 transition-colors">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="flex justify-end gap-3 pt-2 border-t border-slate-100 dark:border-slate-700/50">
+<button class="px-6 py-2.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-sm">Cancel</button>
+<button class="px-6 py-2.5 rounded-lg bg-primary text-white font-bold hover:bg-blue-600 transition-colors shadow-lg shadow-blue-500/20 text-sm">Confirm Transfer</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Recent Transactions List -->
+<div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+<div class="px-6 py-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+<h3 class="text-lg font-bold text-slate-900 dark:text-white">Recent Transactions</h3>
+<div class="flex gap-2">
+<button class="p-2 text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+<button class="p-2 text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">download</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">Date &amp; Time</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">Item Details</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">Type</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 text-right">Quantity</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">User</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+<!-- Row 1 -->
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="text-sm font-semibold text-slate-900 dark:text-white">Oct 24, 2023</div>
+<div class="text-xs text-slate-500 dark:text-slate-400">10:42 AM</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center">
+<div class="h-10 w-10 flex-shrink-0 rounded bg-slate-100 dark:bg-slate-700 bg-cover bg-center" data-alt="Watch product" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBW1UjhiwLsyyikTwG1GWg3vCyraCS9xqptO_lL8F7TiaR2QAqBLGvDv5uLstPajKs7rtnic4jiiBZLk44C94qCH5DARWjmgoWifF-no12N5m7jtxO79LepCBmxK34Wygw5FXB7-AHSDQ7HhGEJ-_T6FfSfAoH-zw6VDKqLKhWE1if5Tbv10k5Qv4-ol-qKX7k1bZ9I78KwIdbrxJTn4p5Px795G3nztQ3r-tA_bWNZv8DwgPa75Vrnr2zuCyxHiFkC6UsFyRoZlx0')"></div>
+<div class="ml-4">
+<div class="text-sm font-medium text-slate-900 dark:text-white">Smart Watch Series 7</div>
+<div class="text-xs text-slate-500 dark:text-slate-400">SKU: SW-S7-BLK</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">
+<span class="material-symbols-outlined text-[14px]">arrow_downward</span>
+                                    Stock In
+                                </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-right">
+<div class="text-sm font-bold text-slate-900 dark:text-white">+120</div>
+<div class="text-xs text-slate-500 dark:text-slate-400">Units</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center">
+<div class="h-6 w-6 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] text-white font-bold mr-2">JS</div>
+<div class="text-sm text-slate-600 dark:text-slate-300">John Smith</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs font-bold uppercase">
+<div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                    Completed
+                                </div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="text-sm font-semibold text-slate-900 dark:text-white">Oct 24, 2023</div>
+<div class="text-xs text-slate-500 dark:text-slate-400">09:15 AM</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center">
+<div class="h-10 w-10 flex-shrink-0 rounded bg-slate-100 dark:bg-slate-700 bg-cover bg-center" data-alt="Headphones product" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBi_DMhzvKXvpb8LnWuZVNJxKc5KLVypL3e5LiET2gxE4H416SrMUBYzae41e-saY5SXr9MrgLj5qRXeiJOyJkuyuiA9YqPoF8BRLlQ9cjaFWwZBOFSxSfViAp1b5Ex8ogXZUZRltSbunxeYMrR-5BuLc7TEWLQ5oZ7Ot-zSkAwpdpz3gn_zQj-iPNz76fgbKVjvntJ8wHMHQiIQHlgedIS5RGaP5td5cXbQaX9_8s4PXTxKBhWCIAZGqHaHWFLdhzbDtGnbIGTo5s')"></div>
+<div class="ml-4">
+<div class="text-sm font-medium text-slate-900 dark:text-white">Wireless Headphones</div>
+<div class="text-xs text-slate-500 dark:text-slate-400">SKU: WH-XM4-SLV</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">
+<span class="material-symbols-outlined text-[14px]">swap_horiz</span>
+                                    Transfer
+                                </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-right">
+<div class="text-sm font-bold text-slate-900 dark:text-white">25</div>
+<div class="text-xs text-slate-500 dark:text-slate-400">Units</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center">
+<div class="h-6 w-6 rounded-full bg-pink-500 flex items-center justify-center text-[10px] text-white font-bold mr-2">AL</div>
+<div class="text-sm text-slate-600 dark:text-slate-300">Alice Lee</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs font-bold uppercase">
+<div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                    Completed
+                                </div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="text-sm font-semibold text-slate-900 dark:text-white">Oct 23, 2023</div>
+<div class="text-xs text-slate-500 dark:text-slate-400">04:30 PM</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center">
+<div class="h-10 w-10 flex-shrink-0 rounded bg-slate-100 dark:bg-slate-700 bg-cover bg-center" data-alt="Shoes product" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCKwPymzYtFnNBHY2mKSmzwsPXHKCv6pu8WyBdAACvI4OgRFeDHGfPAgkEMym77KIxCE-ohgWJdmzel-yelGaeQvmONpvvcVag9TY-cehDAaHiECOh-9KcDuHUB6WGuXP9tnwySBUtRr0orUgl2is7370XqJLu569JQNdROoSIj97slimuvXAFUWnuC50b5igrSBooXesUvJS-0A7QlDrVlouWKKN0NhkNE-yF9jBjXQwskSRy6oSkqahI4OcneHfydhsEGZKOqXXM')"></div>
+<div class="ml-4">
+<div class="text-sm font-medium text-slate-900 dark:text-white">Running Shoes V2</div>
+<div class="text-xs text-slate-500 dark:text-slate-400">SKU: NK-RN-V2</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span>
+                                    Stock Out
+                                </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-right">
+<div class="text-sm font-bold text-slate-900 dark:text-white">-45</div>
+<div class="text-xs text-slate-500 dark:text-slate-400">Units</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center">
+<div class="h-6 w-6 rounded-full bg-orange-500 flex items-center justify-center text-[10px] text-white font-bold mr-2">MD</div>
+<div class="text-sm text-slate-600 dark:text-slate-300">Mark Doe</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-xs font-bold uppercase">
+<div class="w-2 h-2 rounded-full bg-amber-500"></div>
+                                    Pending
+                                </div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group border-b-0">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="text-sm font-semibold text-slate-900 dark:text-white">Oct 23, 2023</div>
+<div class="text-xs text-slate-500 dark:text-slate-400">02:10 PM</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center">
+<div class="h-10 w-10 flex-shrink-0 rounded bg-slate-100 dark:bg-slate-700 bg-cover bg-center" data-alt="Water bottle product" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD1iihR7hEuLS_FAT0EMOP5k0sCyTRcs81NfWHkdAaL06ds75wTA8FR_7W4sMGcal71pD70ml4xkQmgv3djcSh1JtorjiYL-UW1PfbHCL2iYFrBXgI53PaeCAAVFsCF9KLYaTRZwCjFsF85Cad-R-5re63DzTUWW_lZiI1LqnRNRYPZUSbLbEH1IvENd0p-xyoD4g4dzDZ8HmUjOYwd78RJDdYPvUL8CgrYkd2J734F13dWegFoIlOXgmNJdS0tNLtP3K5A7h2YJfQ')"></div>
+<div class="ml-4">
+<div class="text-sm font-medium text-slate-900 dark:text-white">Insulated Water Bottle</div>
+<div class="text-xs text-slate-500 dark:text-slate-400">SKU: WB-INS-1L</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">
+<span class="material-symbols-outlined text-[14px]">arrow_downward</span>
+                                    Stock In
+                                </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-right">
+<div class="text-sm font-bold text-slate-900 dark:text-white">+200</div>
+<div class="text-xs text-slate-500 dark:text-slate-400">Units</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center">
+<div class="h-6 w-6 rounded-full bg-purple-500 flex items-center justify-center text-[10px] text-white font-bold mr-2">SJ</div>
+<div class="text-sm text-slate-600 dark:text-slate-300">Sarah Jenkins</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs font-bold uppercase">
+<div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                    Completed
+                                </div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="bg-slate-50 dark:bg-slate-800/50 px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
+<span class="text-sm text-slate-500 dark:text-slate-400">Showing <span class="font-bold text-slate-800 dark:text-slate-200">1-4</span> of <span class="font-bold text-slate-800 dark:text-slate-200">240</span> transactions</span>
+<div class="flex gap-2">
+<button class="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50">Previous</button>
+<button class="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700">Next</button>
+</div>
+</div>
+</div>
+</main>
+</body></html>

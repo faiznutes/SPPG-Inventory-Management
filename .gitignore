@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+backend-api/.pgdata/
+backend-api/.cookies.txt
+frontend-vue/.DS_Store
+backend-api/.DS_Store
+*.log

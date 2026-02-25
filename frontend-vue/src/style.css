@@ -1,0 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+@import 'tailwindcss';
+
+:root {
+  --c-primary: #137fec;
+  --c-bg: #f6f7f8;
+  --c-surface: #ffffff;
+  --c-border: #d9e1ea;
+  --c-text: #0f172a;
+  --c-muted: #64748b;
+  font-family: 'Manrope', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  color: var(--c-text);
+  background: linear-gradient(145deg, #f8fafc 0%, #f1f5f9 55%, #eef6ff 100%);
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+}

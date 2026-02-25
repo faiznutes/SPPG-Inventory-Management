@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Inventory Dashboard Overview</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100">
+<div class="relative flex h-auto min-h-screen w-full flex-row overflow-hidden">
+<!-- Sidebar -->
+<div class="hidden lg:flex flex-col w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
+<div class="flex flex-col h-full justify-between p-4">
+<div class="flex flex-col gap-4">
+<div class="flex flex-col px-2 py-2">
+<h1 class="text-slate-900 dark:text-white text-xl font-bold leading-normal flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-3xl">inventory_2</span>
+                            InvManage
+                        </h1>
+<p class="text-slate-500 dark:text-slate-400 text-xs font-normal leading-normal pl-9">v1.0.0</p>
+</div>
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 text-primary" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<p class="text-sm font-bold leading-normal">Dashboard</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">package_2</span>
+<p class="text-sm font-medium leading-normal">Inventory</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">swap_horiz</span>
+<p class="text-sm font-medium leading-normal">Transactions</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">description</span>
+<p class="text-sm font-medium leading-normal">Purchase Requests</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">warehouse</span>
+<p class="text-sm font-medium leading-normal">Warehouses</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<p class="text-sm font-medium leading-normal">Reports</p>
+</a>
+</nav>
+</div>
+<div class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<p class="text-sm font-medium leading-normal">Settings</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">help</span>
+<p class="text-sm font-medium leading-normal">Help Center</p>
+</a>
+<div class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center gap-3 px-2">
+<div class="size-10 rounded-full bg-slate-200 dark:bg-slate-700 bg-center bg-cover" data-alt="User profile picture" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCxpIK-vB_13J630mmOg40tMIibsv1XiNbtsoOd9aFYwquF_VUHDW9YgM_Z1MuwgfyQKL9NdHX-6yuf3tNfnFp_MTp-8p-vIgYuu9ac7eHb0NHDsDBK63d38m_9j9_K3sJaUdwA0160ABAwITW90B4hVilDhbpga_faCEutrFjPdZ7f_kjHLErKBPVJlh12OqauHqTBDGJmthQEDF1vbrHPKckOoglzXfnmrHOcnhHWUpGoLVla3osLkgTBZ5znzPsb9YtZAyiNQ_k');"></div>
+<div class="flex flex-col">
+<p class="text-sm font-bold text-slate-900 dark:text-white">Alex Morgan</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Warehouse Mgr</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Main Content -->
+<div class="flex flex-col flex-1 min-w-0 bg-background-light dark:bg-background-dark">
+<!-- Top Header -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4 lg:px-8">
+<div class="flex items-center gap-4 lg:hidden">
+<button class="text-slate-500 hover:text-primary">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="text-slate-900 dark:text-white text-lg font-bold">InvManage</h1>
+</div>
+<div class="hidden lg:flex items-center gap-4 text-slate-900 dark:text-white">
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">Dashboard Overview</h2>
+</div>
+<div class="flex items-center gap-4 lg:w-1/3 justify-end">
+<label class="hidden md:flex flex-col min-w-40 h-10 max-w-64 relative group">
+<div class="flex w-full flex-1 items-stretch rounded-lg h-full bg-slate-100 dark:bg-slate-800 group-focus-within:ring-2 ring-primary/50 transition-all">
+<div class="text-slate-400 flex items-center justify-center pl-3">
+<span class="material-symbols-outlined text-[20px]">search</span>
+</div>
+<input class="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-slate-900 dark:text-white focus:outline-0 bg-transparent placeholder:text-slate-400 px-3 text-sm font-normal leading-normal border-none focus:ring-0" placeholder="Search inventory..." value=""/>
+</div>
+</label>
+<div class="flex items-center gap-3">
+<button class="flex items-center justify-center size-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+</button>
+<button class="flex items-center justify-center size-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Dashboard Content -->
+<main class="flex-1 overflow-y-auto p-4 lg:p-8">
+<div class="max-w-7xl mx-auto flex flex-col gap-8">
+<!-- Stats Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Stat Card 1 -->
+<div class="flex flex-col gap-1 rounded-xl p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex justify-between items-start mb-2">
+<div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-primary">
+<span class="material-symbols-outlined">inventory_2</span>
+</div>
+<span class="flex items-center text-xs font-bold text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-full">
+                                    +2.5%
+                                    <span class="material-symbols-outlined text-[14px] ml-0.5">trending_up</span>
+</span>
+</div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Total Items</p>
+<p class="text-slate-900 dark:text-white text-2xl font-bold">12,450</p>
+</div>
+<!-- Stat Card 2 -->
+<div class="flex flex-col gap-1 rounded-xl p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex justify-between items-start mb-2">
+<div class="p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-orange-600">
+<span class="material-symbols-outlined">warning</span>
+</div>
+<span class="flex items-center text-xs font-bold text-red-600 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-full">
+                                    +12%
+                                    <span class="material-symbols-outlined text-[14px] ml-0.5">trending_up</span>
+</span>
+</div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Low Stock Alerts</p>
+<p class="text-slate-900 dark:text-white text-2xl font-bold">23</p>
+</div>
+<!-- Stat Card 3 -->
+<div class="flex flex-col gap-1 rounded-xl p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex justify-between items-start mb-2">
+<div class="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-purple-600">
+<span class="material-symbols-outlined">assignment</span>
+</div>
+<span class="flex items-center text-xs font-bold text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-full">
+                                    -5%
+                                    <span class="material-symbols-outlined text-[14px] ml-0.5">trending_down</span>
+</span>
+</div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Pending Requests</p>
+<p class="text-slate-900 dark:text-white text-2xl font-bold">8</p>
+</div>
+<!-- Stat Card 4 -->
+<div class="flex flex-col gap-1 rounded-xl p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex justify-between items-start mb-2">
+<div class="p-2 bg-teal-50 dark:bg-teal-900/20 rounded-lg text-teal-600">
+<span class="material-symbols-outlined">receipt_long</span>
+</div>
+<span class="flex items-center text-xs font-bold text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-full">
+                                    +8.1%
+                                    <span class="material-symbols-outlined text-[14px] ml-0.5">trending_up</span>
+</span>
+</div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Today's Transactions</p>
+<p class="text-slate-900 dark:text-white text-2xl font-bold">156</p>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Chart Section -->
+<div class="lg:col-span-2 flex flex-col rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+<div class="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+<h3 class="text-slate-900 dark:text-white text-lg font-bold">Stock Movement Trends</h3>
+<select class="bg-slate-50 dark:bg-slate-800 border-none text-xs rounded-lg text-slate-600 dark:text-slate-300 font-medium focus:ring-0 cursor-pointer py-1 px-3">
+<option>Last 30 Days</option>
+<option>Last Quarter</option>
+<option>Last Year</option>
+</select>
+</div>
+<div class="p-6">
+<div class="flex items-baseline gap-4 mb-6">
+<div>
+<p class="text-slate-500 dark:text-slate-400 text-sm">Total Movement</p>
+<p class="text-3xl font-bold text-slate-900 dark:text-white">4,285</p>
+</div>
+<div class="flex items-center gap-1 text-green-600 text-sm font-bold bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded">
+<span class="material-symbols-outlined text-[16px]">arrow_upward</span>
+                                        5.2%
+                                    </div>
+</div>
+<div class="w-full h-64 relative">
+<!-- Simplified Chart Representation -->
+<div class="absolute inset-0 flex items-end justify-between gap-2 px-2 pb-6">
+<!-- Vertical Bars representing data points -->
+<div class="w-full bg-primary/10 rounded-t-sm h-[30%] hover:bg-primary/20 transition-all relative group">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">Day 1: 30%</div>
+</div>
+<div class="w-full bg-primary/10 rounded-t-sm h-[45%] hover:bg-primary/20 transition-all relative group">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">Day 2: 45%</div>
+</div>
+<div class="w-full bg-primary/10 rounded-t-sm h-[35%] hover:bg-primary/20 transition-all relative group">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">Day 3: 35%</div>
+</div>
+<div class="w-full bg-primary/10 rounded-t-sm h-[60%] hover:bg-primary/20 transition-all relative group">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">Day 4: 60%</div>
+</div>
+<div class="w-full bg-primary/10 rounded-t-sm h-[50%] hover:bg-primary/20 transition-all relative group">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">Day 5: 50%</div>
+</div>
+<div class="w-full bg-primary/10 rounded-t-sm h-[75%] hover:bg-primary/20 transition-all relative group">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">Day 6: 75%</div>
+</div>
+<div class="w-full bg-primary/10 rounded-t-sm h-[65%] hover:bg-primary/20 transition-all relative group">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">Day 7: 65%</div>
+</div>
+<div class="w-full bg-primary/30 rounded-t-sm h-[80%] hover:bg-primary/40 transition-all relative group">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">Day 8: 80%</div>
+</div>
+</div>
+<!-- Y-Axis Lines (Decorative) -->
+<div class="absolute inset-0 flex flex-col justify-between pointer-events-none pb-6">
+<div class="w-full h-px bg-slate-100 dark:bg-slate-800 border-b border-dashed border-slate-200 dark:border-slate-700"></div>
+<div class="w-full h-px bg-slate-100 dark:bg-slate-800 border-b border-dashed border-slate-200 dark:border-slate-700"></div>
+<div class="w-full h-px bg-slate-100 dark:bg-slate-800 border-b border-dashed border-slate-200 dark:border-slate-700"></div>
+<div class="w-full h-px bg-slate-100 dark:bg-slate-800 border-b border-dashed border-slate-200 dark:border-slate-700"></div>
+<div class="w-full h-px bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700"></div>
+</div>
+</div>
+<div class="flex justify-between text-xs text-slate-400 mt-2 px-2">
+<span>Week 1</span>
+<span>Week 2</span>
+<span>Week 3</span>
+<span>Week 4</span>
+</div>
+</div>
+</div>
+<!-- Recent Activity/Alerts -->
+<div class="lg:col-span-1 flex flex-col rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+<h3 class="text-slate-900 dark:text-white text-lg font-bold">Recent Alerts</h3>
+<a class="text-primary text-sm font-semibold hover:underline" href="#">View All</a>
+</div>
+<div class="flex flex-col">
+<div class="p-4 border-b border-slate-50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+<div class="flex gap-3">
+<div class="size-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0 text-red-600">
+<span class="material-symbols-outlined text-xl">priority_high</span>
+</div>
+<div>
+<p class="text-slate-900 dark:text-white text-sm font-bold">Stock Out: Item #4021</p>
+<p class="text-slate-500 dark:text-slate-400 text-xs mt-1">Industrial Ball Bearings 5mm reached 0 qty.</p>
+<p class="text-slate-400 text-[10px] mt-2">10 mins ago</p>
+</div>
+</div>
+</div>
+<div class="p-4 border-b border-slate-50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+<div class="flex gap-3">
+<div class="size-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0 text-orange-600">
+<span class="material-symbols-outlined text-xl">low_priority</span>
+</div>
+<div>
+<p class="text-slate-900 dark:text-white text-sm font-bold">Low Stock: Item #8822</p>
+<p class="text-slate-500 dark:text-slate-400 text-xs mt-1">Copper Wire Spools below threshold.</p>
+<p class="text-slate-400 text-[10px] mt-2">2 hours ago</p>
+</div>
+</div>
+</div>
+<div class="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+<div class="flex gap-3">
+<div class="size-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0 text-primary">
+<span class="material-symbols-outlined text-xl">local_shipping</span>
+</div>
+<div>
+<p class="text-slate-900 dark:text-white text-sm font-bold">Shipment Arrived</p>
+<p class="text-slate-500 dark:text-slate-400 text-xs mt-1">PO #99201 from SteelWorks Inc.</p>
+<p class="text-slate-400 text-[10px] mt-2">5 hours ago</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Actions Row (Optional Extra) -->
+<div class="flex flex-col rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="px-6 py-5 border-b border-slate-100 dark:border-slate-800">
+<h3 class="text-slate-900 dark:text-white text-lg font-bold">Quick Actions</h3>
+</div>
+<div class="p-6 flex flex-wrap gap-4">
+<button class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold text-sm shadow-sm hover:shadow-md">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                                 Add New Item
+                             </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors font-semibold text-sm">
+<span class="material-symbols-outlined text-[18px]">note_add</span>
+                                 Create Purchase Request
+                             </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors font-semibold text-sm">
+<span class="material-symbols-outlined text-[18px]">print</span>
+                                 Print Stock Report
+                             </button>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</body></html>

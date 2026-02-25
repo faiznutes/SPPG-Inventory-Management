@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Inventory Settings - User Management</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#137fec",
+              "background-light": "#f6f7f8",
+              "background-dark": "#101922",
+              "text-primary": "#0f172a",
+              "text-secondary": "#475569",
+            },
+            fontFamily: {
+              display: ["Manrope", "sans-serif"],
+            },
+          },
+        },
+      }
+    </script>
+</head>
+<body class="bg-background-light font-display antialiased text-text-primary h-screen flex overflow-hidden">
+<!-- Sidebar -->
+<aside class="w-64 bg-white border-r border-slate-200 flex-shrink-0 flex flex-col h-full">
+<div class="p-4 flex items-center gap-3 border-b border-slate-100">
+<div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-2xl">inventory_2</span>
+</div>
+<div>
+<h1 class="font-bold text-lg leading-tight text-slate-900">InvTrack</h1>
+<p class="text-xs text-slate-500 font-medium">Admin Console</p>
+</div>
+</div>
+<nav class="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-primary transition-colors group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-primary transition-colors group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary">inventory</span>
+<span class="text-sm font-medium">Inventory</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-primary transition-colors group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary">swap_horiz</span>
+<span class="text-sm font-medium">Transactions</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-primary transition-colors group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary">description</span>
+<span class="text-sm font-medium">Reports</span>
+</a>
+<div class="my-2 border-t border-slate-100"></div>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/5 text-primary" href="#">
+<span class="material-symbols-outlined fill-1">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-primary transition-colors group" href="#">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary">help</span>
+<span class="text-sm font-medium">Support</span>
+</a>
+</nav>
+<div class="p-4 border-t border-slate-100">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-slate-200 bg-cover bg-center" data-alt="User profile picture" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDyWl8gSsFzqBFzmtE_X8LuDGwRFw7BtxIu-X-xKwTZeFtS3aJAssFfIOont6JX7-bXs6zd604apYKR1yhBXQ4Q3zBJqkbOBu6_LL5PvMNUJ3-UgeRPd1UU788k39HuWoKO6_WkhT0ofgFWKgkvZ8zQ61AYkzntuFsU9upj8MJTesw5qNIGig-9PCOthBLUqW4MAZhiYxxLz1vPmyufOJBhrVzCHMj_2bkxoFI74aVaPFlO9cUAJHR-AhkvuXnS7sWb8bwTqvSJoNk');"></div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-medium text-slate-900 truncate">Jonathan Reed</p>
+<p class="text-xs text-slate-500 truncate">jonathan@invtrack.com</p>
+</div>
+<button class="text-slate-400 hover:text-slate-600">
+<span class="material-symbols-outlined">logout</span>
+</button>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col min-w-0 overflow-hidden">
+<!-- Header Section -->
+<header class="bg-white border-b border-slate-200 pt-8 pb-0 px-8">
+<div class="max-w-6xl mx-auto w-full">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h2 class="text-3xl font-bold text-slate-900 mb-2">Settings</h2>
+<p class="text-slate-500">Manage system configurations, users, and locations.</p>
+</div>
+<div class="flex gap-3">
+</div>
+</div>
+<!-- Tabs -->
+<div class="flex gap-8 border-b border-slate-200">
+<a class="pb-3 border-b-2 border-primary text-primary font-medium text-sm px-1" href="#">
+                        User Management
+                    </a>
+<a class="pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-medium text-sm px-1 transition-colors" href="#">
+                        Locations
+                    </a>
+<a class="pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-medium text-sm px-1 transition-colors" href="#">
+                        Categories
+                    </a>
+<a class="pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-medium text-sm px-1 transition-colors" href="#">
+                        Notifications
+                    </a>
+</div>
+</div>
+</header>
+<!-- Content Area -->
+<div class="flex-1 overflow-y-auto p-8">
+<div class="max-w-6xl mx-auto w-full">
+<!-- Action Bar -->
+<div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+<div class="relative w-full sm:w-96">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-slate-400">search</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm" placeholder="Search users by name or email..." type="text"/>
+</div>
+<div class="flex gap-3 w-full sm:w-auto">
+<button class="inline-flex items-center justify-center px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary w-full sm:w-auto">
+<span class="material-symbols-outlined text-lg mr-2">filter_list</span>
+                            Filter
+                        </button>
+<button class="inline-flex items-center justify-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-primary hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary w-full sm:w-auto">
+<span class="material-symbols-outlined text-lg mr-2">add</span>
+                            Add New User
+                        </button>
+</div>
+</div>
+<!-- Users Table -->
+<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+<div class="overflow-x-auto">
+<table class="min-w-full divide-y divide-slate-200">
+<thead class="bg-slate-50">
+<tr>
+<th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-10" scope="col">
+<input class="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+</th>
+<th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider" scope="col">
+                                        User
+                                    </th>
+<th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider" scope="col">
+                                        Role
+                                    </th>
+<th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider" scope="col">
+                                        Status
+                                    </th>
+<th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider" scope="col">
+                                        Last Active
+                                    </th>
+<th class="relative px-6 py-4" scope="col">
+<span class="sr-only">Actions</span>
+</th>
+</tr>
+</thead>
+<tbody class="bg-white divide-y divide-slate-200">
+<!-- Row 1 -->
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4 whitespace-nowrap">
+<input class="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center">
+<div class="flex-shrink-0 h-10 w-10">
+<div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">
+                                                    AJ
+                                                </div>
+</div>
+<div class="ml-4">
+<div class="text-sm font-medium text-slate-900">Alex Johnson</div>
+<div class="text-sm text-slate-500">alex.j@company.com</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                                            Admin
+                                        </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+<span class="h-1.5 w-1.5 rounded-full bg-green-600"></span>
+                                            Active
+                                        </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                        2 mins ago
+                                    </td>
+<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+<button class="text-primary hover:text-blue-900 font-semibold mr-3">Edit</button>
+<button class="text-slate-400 hover:text-red-600">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4 whitespace-nowrap">
+<input class="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center">
+<div class="flex-shrink-0 h-10 w-10">
+<img alt="Sarah Williams profile" class="h-10 w-10 rounded-full object-cover" data-alt="Portrait of Sarah Williams" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBKVlSgs0jx_nb8FngSgYevvAia7-4kAZMQFQUimqYsJjDyNuR3a3h2xaKU7yEoxtleBHgiLGjvM9v6cwvCn3C5AxVk13riJTQXPhVz6mWafeEFu6c9Zy0t5rw-gtqAUs0UX3PgJfesmrfSM76uReNkAjkLKGlq5GEGp67PRe0dhty-o_g-BI-4XB3Jctg_Hwsst6V8FSZOp9x9kMeGBWXnH2c0d6PcsKwJDO4H6p8iAGapSi589dxX3BoJTbr1Mw5p3KubsaK7c2Y"/>
+</div>
+<div class="ml-4">
+<div class="text-sm font-medium text-slate-900">Sarah Williams</div>
+<div class="text-sm text-slate-500">sarah.w@company.com</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                            Manager
+                                        </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+<span class="h-1.5 w-1.5 rounded-full bg-green-600"></span>
+                                            Active
+                                        </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                        1 hour ago
+                                    </td>
+<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+<button class="text-primary hover:text-blue-900 font-semibold mr-3">Edit</button>
+<button class="text-slate-400 hover:text-red-600">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4 whitespace-nowrap">
+<input class="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center">
+<div class="flex-shrink-0 h-10 w-10">
+<div class="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-sm">
+                                                    MB
+                                                </div>
+</div>
+<div class="ml-4">
+<div class="text-sm font-medium text-slate-900">Michael Brown</div>
+<div class="text-sm text-slate-500">m.brown@company.com</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-800">
+                                            Staff
+                                        </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+<span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                                            Inactive
+                                        </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                        3 days ago
+                                    </td>
+<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+<button class="text-primary hover:text-blue-900 font-semibold mr-3">Edit</button>
+<button class="text-slate-400 hover:text-red-600">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4 whitespace-nowrap">
+<input class="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center">
+<div class="flex-shrink-0 h-10 w-10">
+<img alt="Emily Davis profile" class="h-10 w-10 rounded-full object-cover" data-alt="Portrait of Emily Davis" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBN4LGmN2dzSqMpyHiutrPnOdP2-eBau_Iy4LsVYUdn_d8ZyqyLGR0_hUNJFxJikfC40uGotbOihCTsYEx3RPqDpwdqXlhAjPX81vRtgbFyy-EgQKPTJpirPIQLPGWTW3FZpMbmv8ZNru86X99nQomCUc1GtDkQRpp0QoHO3gal2XSXlb5hiWzIy7SaUnC-9qQdm-qTw03-y-9R0CWsUgDu0vR84Wkd5Bvq4dHTBRrvaVtmDF-sqcvIwXp9_FOTU9tj82d4gAE-kp4"/>
+</div>
+<div class="ml-4">
+<div class="text-sm font-medium text-slate-900">Emily Davis</div>
+<div class="text-sm text-slate-500">emily.d@company.com</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-800">
+                                            Staff
+                                        </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+<span class="h-1.5 w-1.5 rounded-full bg-green-600"></span>
+                                            Active
+                                        </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                        5 hours ago
+                                    </td>
+<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+<button class="text-primary hover:text-blue-900 font-semibold mr-3">Edit</button>
+<button class="text-slate-400 hover:text-red-600">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4 whitespace-nowrap">
+<input class="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center">
+<div class="flex-shrink-0 h-10 w-10">
+<div class="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center text-pink-700 font-bold text-sm">
+                                                    DM
+                                                </div>
+</div>
+<div class="ml-4">
+<div class="text-sm font-medium text-slate-900">David Miller</div>
+<div class="text-sm text-slate-500">david.m@company.com</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
+                                            Viewer
+                                        </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+<span class="h-1.5 w-1.5 rounded-full bg-green-600"></span>
+                                            Active
+                                        </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                        1 day ago
+                                    </td>
+<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+<button class="text-primary hover:text-blue-900 font-semibold mr-3">Edit</button>
+<button class="text-slate-400 hover:text-red-600">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="bg-white px-4 py-3 border-t border-slate-200 flex items-center justify-between sm:px-6">
+<div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+<div>
+<p class="text-sm text-slate-700">
+                                    Showing <span class="font-medium">1</span> to <span class="font-medium">5</span> of <span class="font-medium">24</span> results
+                                </p>
+</div>
+<div>
+<nav aria-label="Pagination" class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+<a class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-slate-300 bg-white text-sm font-medium text-slate-500 hover:bg-slate-50" href="#">
+<span class="sr-only">Previous</span>
+<span class="material-symbols-outlined text-sm">chevron_left</span>
+</a>
+<a aria-current="page" class="z-10 bg-primary/10 border-primary text-primary relative inline-flex items-center px-4 py-2 border text-sm font-medium" href="#">
+                                        1
+                                    </a>
+<a class="bg-white border-slate-300 text-slate-500 hover:bg-slate-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium" href="#">
+                                        2
+                                    </a>
+<a class="bg-white border-slate-300 text-slate-500 hover:bg-slate-50 hidden md:inline-flex relative items-center px-4 py-2 border text-sm font-medium" href="#">
+                                        3
+                                    </a>
+<span class="relative inline-flex items-center px-4 py-2 border border-slate-300 bg-white text-sm font-medium text-slate-700">
+                                        ...
+                                    </span>
+<a class="bg-white border-slate-300 text-slate-500 hover:bg-slate-50 hidden md:inline-flex relative items-center px-4 py-2 border text-sm font-medium" href="#">
+                                        8
+                                    </a>
+<a class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-slate-300 bg-white text-sm font-medium text-slate-500 hover:bg-slate-50" href="#">
+<span class="sr-only">Next</span>
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+</a>
+</nav>
+</div>
+</div>
+</div>
+</div>
+<!-- Invite Section Teaser -->
+<div class="mt-8 bg-slate-50 rounded-xl p-6 border border-slate-200 border-dashed flex flex-col sm:flex-row items-center justify-between gap-4">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">group_add</span>
+</div>
+<div>
+<h3 class="text-sm font-bold text-slate-900">Invite Team Members</h3>
+<p class="text-sm text-slate-500">Send an invitation link to new staff members to join your workspace.</p>
+</div>
+</div>
+<button class="whitespace-nowrap px-4 py-2 text-sm font-medium text-primary hover:text-blue-700 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-colors">
+                        Copy Invite Link
+                    </button>
+</div>
+</div>
+</div>
+</main>
+</body></html>

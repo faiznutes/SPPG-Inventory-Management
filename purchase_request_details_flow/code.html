@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Purchase Request Details</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "primary-light": "#e0f0ff", // lighter shade for backgrounds
+                        "primary-dark": "#0b5db0", // darker shade for hover
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1a2632",
+                        "text-main-light": "#0d141b",
+                        "text-main-dark": "#e0e6ed",
+                        "text-secondary-light": "#4c739a",
+                        "text-secondary-dark": "#94a3b8",
+                        "border-light": "#e7edf3",
+                        "border-dark": "#2a3b4d",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-text-main-light dark:text-text-main-dark transition-colors duration-200">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+<!-- Header -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark px-10 py-3 sticky top-0 z-50">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-4 text-text-main-light dark:text-text-main-dark">
+<div class="size-8 flex items-center justify-center rounded bg-primary/10 text-primary">
+<span class="material-symbols-outlined text-2xl">inventory_2</span>
+</div>
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">Inventory Ops</h2>
+</div>
+<div class="hidden md:flex items-center gap-9">
+<a class="text-text-secondary-light dark:text-text-secondary-dark hover:text-primary dark:hover:text-primary text-sm font-medium leading-normal transition-colors" href="#">Dashboard</a>
+<a class="text-text-secondary-light dark:text-text-secondary-dark hover:text-primary dark:hover:text-primary text-sm font-medium leading-normal transition-colors" href="#">Inventory</a>
+<a class="text-text-main-light dark:text-text-main-dark text-sm font-bold leading-normal" href="#">Requests</a>
+<a class="text-text-secondary-light dark:text-text-secondary-dark hover:text-primary dark:hover:text-primary text-sm font-medium leading-normal transition-colors" href="#">Reports</a>
+</div>
+</div>
+<div class="flex flex-1 justify-end gap-8">
+<label class="flex flex-col min-w-40 !h-10 max-w-64">
+<div class="flex w-full flex-1 items-stretch rounded-lg h-full ring-1 ring-border-light dark:ring-border-dark focus-within:ring-2 focus-within:ring-primary overflow-hidden">
+<div class="text-text-secondary-light dark:text-text-secondary-dark flex border-none bg-background-light dark:bg-surface-dark items-center justify-center pl-4">
+<span class="material-symbols-outlined text-xl">search</span>
+</div>
+<input class="flex w-full min-w-0 flex-1 resize-none overflow-hidden text-text-main-light dark:text-text-main-dark focus:outline-0 border-none bg-background-light dark:bg-surface-dark placeholder:text-text-secondary-light dark:placeholder:text-text-secondary-dark px-4 pl-2 text-sm font-normal leading-normal" placeholder="Search requests..." value=""/>
+</div>
+</label>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 ring-2 ring-surface-light dark:ring-surface-dark shadow-sm" data-alt="User profile picture" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBNSsDtT6R8-S1o94cDKcOnC7C5m3tevol5Vo5OC5LNmYSkLud_miDdO906_u_Y1uofPRS4BJcSUFFVWg8oIMK7ZpHg5OByjHpM6acsZSambQSHHczHZdvSn2uLyrwpYYl3rfa2JBnxLFksSOLVYX6jxNhshKB4lU07NXOkO3opPOnQDo-nHzmCb0ul_eK1i0tlhrBKLBZsLD2H5WmuLCbsWbm_hQoas36iwtPz8wa9o_nRTxjBb9nnUvi_IcwhN_6cmUZQ9mma30I");'></div>
+</div>
+</header>
+<div class="flex flex-1 justify-center py-5 px-4 md:px-10 lg:px-20">
+<div class="flex flex-col max-w-[1200px] flex-1 gap-6">
+<!-- Breadcrumbs -->
+<div class="flex flex-wrap gap-2 px-4">
+<a class="text-text-secondary-light dark:text-text-secondary-dark hover:text-primary text-sm font-medium leading-normal" href="#">Home</a>
+<span class="text-text-secondary-light dark:text-text-secondary-dark text-sm font-medium leading-normal">/</span>
+<a class="text-text-secondary-light dark:text-text-secondary-dark hover:text-primary text-sm font-medium leading-normal" href="#">Purchase Requests</a>
+<span class="text-text-secondary-light dark:text-text-secondary-dark text-sm font-medium leading-normal">/</span>
+<span class="text-text-main-light dark:text-text-main-dark text-sm font-medium leading-normal">PR-2023-8492</span>
+</div>
+<!-- Main Content Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Left Column: Details & Items (Span 2) -->
+<div class="lg:col-span-2 flex flex-col gap-6">
+<!-- Header Section -->
+<div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 p-6 bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark">
+<div class="flex flex-col gap-2">
+<div class="flex items-center gap-3">
+<h1 class="text-text-main-light dark:text-text-main-dark text-3xl font-black leading-tight tracking-[-0.033em]">PR-2023-8492</h1>
+<span class="px-3 py-1 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-bold uppercase tracking-wider">Pending Review</span>
+</div>
+<p class="text-text-secondary-light dark:text-text-secondary-dark text-sm font-normal">Created on Oct 24, 2023 by <span class="text-text-main-light dark:text-text-main-dark font-medium">John Doe</span></p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 cursor-pointer justify-center overflow-hidden rounded-lg h-10 px-4 bg-background-light dark:bg-background-dark hover:bg-border-light dark:hover:bg-border-dark border border-border-light dark:border-border-dark text-text-main-light dark:text-text-main-dark text-sm font-bold transition-all">
+<span class="material-symbols-outlined text-lg">edit</span>
+<span>Edit</span>
+</button>
+<button class="flex items-center gap-2 cursor-pointer justify-center overflow-hidden rounded-lg h-10 px-4 bg-background-light dark:bg-background-dark hover:bg-red-50 dark:hover:bg-red-900/20 border border-border-light dark:border-border-dark text-red-600 dark:text-red-400 text-sm font-bold transition-all">
+<span class="material-symbols-outlined text-lg">close</span>
+<span>Reject</span>
+</button>
+<button class="flex items-center gap-2 cursor-pointer justify-center overflow-hidden rounded-lg h-10 px-6 bg-primary hover:bg-primary-dark text-white text-sm font-bold shadow-md shadow-blue-500/20 transition-all">
+<span class="material-symbols-outlined text-lg">check</span>
+<span>Approve</span>
+</button>
+</div>
+</div>
+<!-- Requested Items Table -->
+<div class="flex flex-col bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
+<div class="flex items-center justify-between px-6 py-4 border-b border-border-light dark:border-border-dark">
+<h2 class="text-text-main-light dark:text-text-main-dark text-lg font-bold">Requested Items</h2>
+<span class="text-text-secondary-light dark:text-text-secondary-dark text-sm">4 Items</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-sm">
+<thead class="bg-background-light dark:bg-background-dark text-text-secondary-light dark:text-text-secondary-dark font-medium border-b border-border-light dark:border-border-dark">
+<tr>
+<th class="px-6 py-3">Item Details</th>
+<th class="px-6 py-3 text-right">Unit Price</th>
+<th class="px-6 py-3 text-center">Qty</th>
+<th class="px-6 py-3 text-right">Total</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-border-light dark:divide-border-dark">
+<!-- Item 1 -->
+<tr class="hover:bg-background-light/50 dark:hover:bg-background-dark/50 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-4">
+<div class="size-10 rounded bg-background-light dark:bg-background-dark flex items-center justify-center text-text-secondary-light dark:text-text-secondary-dark">
+<span class="material-symbols-outlined">laptop_mac</span>
+</div>
+<div>
+<p class="font-bold text-text-main-light dark:text-text-main-dark">MacBook Pro 16"</p>
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark">Electronics - IT Dept</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 text-right text-text-main-light dark:text-text-main-dark">$2,499.00</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center justify-center px-2 py-1 rounded bg-background-light dark:bg-background-dark text-text-main-light dark:text-text-main-dark font-medium">2</span>
+</td>
+<td class="px-6 py-4 text-right font-bold text-text-main-light dark:text-text-main-dark">$4,998.00</td>
+</tr>
+<!-- Item 2 -->
+<tr class="hover:bg-background-light/50 dark:hover:bg-background-dark/50 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-4">
+<div class="size-10 rounded bg-background-light dark:bg-background-dark flex items-center justify-center text-text-secondary-light dark:text-text-secondary-dark">
+<span class="material-symbols-outlined">monitor</span>
+</div>
+<div>
+<p class="font-bold text-text-main-light dark:text-text-main-dark">Dell UltraSharp 27"</p>
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark">Electronics - IT Dept</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 text-right text-text-main-light dark:text-text-main-dark">$450.00</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center justify-center px-2 py-1 rounded bg-background-light dark:bg-background-dark text-text-main-light dark:text-text-main-dark font-medium">4</span>
+</td>
+<td class="px-6 py-4 text-right font-bold text-text-main-light dark:text-text-main-dark">$1,800.00</td>
+</tr>
+<!-- Item 3 -->
+<tr class="hover:bg-background-light/50 dark:hover:bg-background-dark/50 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-4">
+<div class="size-10 rounded bg-background-light dark:bg-background-dark flex items-center justify-center text-text-secondary-light dark:text-text-secondary-dark">
+<span class="material-symbols-outlined">keyboard</span>
+</div>
+<div>
+<p class="font-bold text-text-main-light dark:text-text-main-dark">Mechanical Keyboards</p>
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark">Accessories - IT Dept</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 text-right text-text-main-light dark:text-text-main-dark">$120.00</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center justify-center px-2 py-1 rounded bg-background-light dark:bg-background-dark text-text-main-light dark:text-text-main-dark font-medium">5</span>
+</td>
+<td class="px-6 py-4 text-right font-bold text-text-main-light dark:text-text-main-dark">$600.00</td>
+</tr>
+<!-- Item 4 -->
+<tr class="hover:bg-background-light/50 dark:hover:bg-background-dark/50 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-4">
+<div class="size-10 rounded bg-background-light dark:bg-background-dark flex items-center justify-center text-text-secondary-light dark:text-text-secondary-dark">
+<span class="material-symbols-outlined">mouse</span>
+</div>
+<div>
+<p class="font-bold text-text-main-light dark:text-text-main-dark">Logitech MX Master 3S</p>
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark">Accessories - IT Dept</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 text-right text-text-main-light dark:text-text-main-dark">$99.00</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center justify-center px-2 py-1 rounded bg-background-light dark:bg-background-dark text-text-main-light dark:text-text-main-dark font-medium">5</span>
+</td>
+<td class="px-6 py-4 text-right font-bold text-text-main-light dark:text-text-main-dark">$495.00</td>
+</tr>
+</tbody>
+<tfoot class="bg-background-light dark:bg-surface-dark border-t border-border-light dark:border-border-dark">
+<tr>
+<td class="px-6 py-4 text-right text-text-secondary-light dark:text-text-secondary-dark font-medium" colspan="3">Subtotal</td>
+<td class="px-6 py-4 text-right font-bold text-text-main-light dark:text-text-main-dark">$7,893.00</td>
+</tr>
+<tr>
+<td class="px-6 py-2 text-right text-text-secondary-light dark:text-text-secondary-dark font-medium" colspan="3">Tax (8%)</td>
+<td class="px-6 py-2 text-right font-bold text-text-main-light dark:text-text-main-dark">$631.44</td>
+</tr>
+<tr>
+<td class="px-6 py-4 text-right text-lg font-bold text-text-main-light dark:text-text-main-dark" colspan="3">Grand Total</td>
+<td class="px-6 py-4 text-right text-xl font-black text-primary">$8,524.44</td>
+</tr>
+</tfoot>
+</table>
+</div>
+</div>
+</div>
+<!-- Right Column: Approval Flow (Span 1) -->
+<div class="flex flex-col gap-6">
+<!-- Timeline Card -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark p-6 sticky top-24">
+<h3 class="text-text-main-light dark:text-text-main-dark text-lg font-bold mb-6">Approval Timeline</h3>
+<div class="grid grid-cols-[32px_1fr] gap-x-3">
+<!-- Step 1: Completed -->
+<div class="flex flex-col items-center">
+<div class="flex items-center justify-center size-8 rounded-full bg-primary/10 text-primary">
+<span class="material-symbols-outlined text-lg">check_circle</span>
+</div>
+<div class="w-[2px] bg-primary/20 h-full min-h-[40px]"></div>
+</div>
+<div class="pb-8 pt-1">
+<p class="text-text-main-light dark:text-text-main-dark text-sm font-bold">Request Created</p>
+<p class="text-text-secondary-light dark:text-text-secondary-dark text-xs mt-1">Oct 24, 10:00 AM</p>
+<div class="flex items-center gap-2 mt-2">
+<div class="size-6 rounded-full bg-cover bg-center" data-alt="John Doe avatar" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBXhY5iiXe98Bsal17CcKu0Pj4TmvqqCJLPtgvDWmt02Wq2kWVGGOXqfbLFEY4XRGlz5PSt6SnrWgzdvFXBKHrERQLWzYScy2cF-nmd4SAA3BkUB1EwYD056YQVEAEVlqy-zagOeBc1UuHGD_odOqy4_HgaqJLPOem0473gGK8stzyYPWzX3H2iocalR3s1j_lgdDZAuwKO-s8kcUku9RtVX4PFY4GwbsQN8mrDsc4srZgh23L7mPd3naRvp4DBw65ecHIHOdarx6Q");'></div>
+<span class="text-xs font-medium text-text-main-light dark:text-text-main-dark">John Doe</span>
+</div>
+</div>
+<!-- Step 2: Current -->
+<div class="flex flex-col items-center">
+<div class="flex items-center justify-center size-8 rounded-full bg-primary text-white shadow-lg shadow-blue-500/30 relative z-10">
+<span class="material-symbols-outlined text-lg">sync</span>
+</div>
+<div class="w-[2px] bg-border-light dark:bg-border-dark h-full min-h-[40px]"></div>
+</div>
+<div class="pb-8 pt-1">
+<p class="text-primary text-sm font-bold">Manager Review</p>
+<p class="text-text-secondary-light dark:text-text-secondary-dark text-xs mt-1">Pending approval from Sarah Manager</p>
+<div class="mt-3 p-3 bg-background-light dark:bg-background-dark rounded-lg border border-border-light dark:border-border-dark">
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark italic">"Please ensure this fits within the Q4 budget allocation before approving."</p>
+</div>
+</div>
+<!-- Step 3: Upcoming -->
+<div class="flex flex-col items-center">
+<div class="flex items-center justify-center size-8 rounded-full bg-background-light dark:bg-surface-dark border-2 border-border-light dark:border-border-dark text-text-secondary-light dark:text-text-secondary-dark">
+<span class="material-symbols-outlined text-lg">attach_money</span>
+</div>
+<div class="w-[2px] bg-border-light dark:bg-border-dark h-full min-h-[40px]"></div>
+</div>
+<div class="pb-8 pt-1 opacity-60">
+<p class="text-text-main-light dark:text-text-main-dark text-sm font-bold">Finance Approval</p>
+<p class="text-text-secondary-light dark:text-text-secondary-dark text-xs mt-1">Scheduled for Finance Dept</p>
+</div>
+<!-- Step 4: Upcoming -->
+<div class="flex flex-col items-center">
+<div class="flex items-center justify-center size-8 rounded-full bg-background-light dark:bg-surface-dark border-2 border-border-light dark:border-border-dark text-text-secondary-light dark:text-text-secondary-dark">
+<span class="material-symbols-outlined text-lg">verified</span>
+</div>
+</div>
+<div class="pt-1 opacity-60">
+<p class="text-text-main-light dark:text-text-main-dark text-sm font-bold">Final Approval</p>
+<p class="text-text-secondary-light dark:text-text-secondary-dark text-xs mt-1">Purchase Order Generation</p>
+</div>
+</div>
+</div>
+<!-- Attachments Card -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark p-6">
+<h3 class="text-text-main-light dark:text-text-main-dark text-lg font-bold mb-4">Attachments</h3>
+<div class="flex flex-col gap-3">
+<a class="group flex items-center p-3 rounded-lg border border-border-light dark:border-border-dark hover:border-primary hover:bg-primary/5 transition-all" href="#">
+<div class="size-10 flex items-center justify-center bg-red-100 text-red-600 rounded mr-3">
+<span class="material-symbols-outlined">picture_as_pdf</span>
+</div>
+<div class="flex-1 overflow-hidden">
+<p class="text-sm font-bold text-text-main-light dark:text-text-main-dark truncate group-hover:text-primary">Vendor_Quote_v2.pdf</p>
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark">2.4 MB</p>
+</div>
+<span class="material-symbols-outlined text-text-secondary-light group-hover:text-primary">download</span>
+</a>
+<a class="group flex items-center p-3 rounded-lg border border-border-light dark:border-border-dark hover:border-primary hover:bg-primary/5 transition-all" href="#">
+<div class="size-10 flex items-center justify-center bg-blue-100 text-blue-600 rounded mr-3">
+<span class="material-symbols-outlined">description</span>
+</div>
+<div class="flex-1 overflow-hidden">
+<p class="text-sm font-bold text-text-main-light dark:text-text-main-dark truncate group-hover:text-primary">Specifications_Sheet.docx</p>
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark">850 KB</p>
+</div>
+<span class="material-symbols-outlined text-text-secondary-light group-hover:text-primary">download</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>
