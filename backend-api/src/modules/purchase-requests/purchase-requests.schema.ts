@@ -1,4 +1,4 @@
-import { PurchaseRequestStatus } from '@prisma/client'
+import { PurchaseRequestStatus } from '../../lib/prisma-client.js'
 import { z } from 'zod'
 
 export const createPurchaseRequestSchema = z.object({

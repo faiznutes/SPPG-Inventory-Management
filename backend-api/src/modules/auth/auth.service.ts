@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs'
-import { UserRole } from '@prisma/client'
+import { UserRole } from '../../lib/prisma-client.js'
 import { prisma } from '../../lib/prisma.js'
 import { ApiError } from '../../utils/api-error.js'
 import {

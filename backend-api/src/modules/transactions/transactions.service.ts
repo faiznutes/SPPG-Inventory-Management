@@ -1,9 +1,10 @@
-import { Prisma, TransactionType } from '@prisma/client'
+import { Prisma, TransactionType } from '../../lib/prisma-client.js'
+import type { Prisma as PrismaNamespace, TransactionType as TransactionTypeType } from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
 import { ApiError } from '../../utils/api-error.js'
 
 type CreateTransactionInput = {
-  trxType: TransactionType
+  trxType: TransactionTypeType
   itemId: string
   fromLocationId?: string
   toLocationId?: string
@@ -11,7 +12,7 @@ type CreateTransactionInput = {
   reason?: string
 }
 
-async function getOrCreateStock(tx: Prisma.TransactionClient, itemId: string, locationId: string) {
+async function getOrCreateStock(tx: PrismaNamespace.TransactionClient, itemId: string, locationId: string) {
   const existing = await tx.stock.findUnique({
     where: {
       itemId_locationId: {

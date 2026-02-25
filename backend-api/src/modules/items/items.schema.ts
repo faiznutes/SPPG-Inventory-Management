@@ -1,4 +1,4 @@
-import { ItemType } from '@prisma/client'
+import { ItemType } from '../../lib/prisma-client.js'
 import { z } from 'zod'
 
 export const createItemSchema = z.object({

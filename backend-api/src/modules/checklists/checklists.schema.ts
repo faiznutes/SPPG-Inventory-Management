@@ -1,4 +1,4 @@
-import { ChecklistResult, ChecklistRunStatus } from '@prisma/client'
+import { ChecklistResult, ChecklistRunStatus } from '../../lib/prisma-client.js'
 import { z } from 'zod'
 
 export const submitChecklistSchema = z.object({

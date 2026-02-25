@@ -1,4 +1,4 @@
-import { TransactionType } from '@prisma/client'
+import { TransactionType } from '../../lib/prisma-client.js'
 import { z } from 'zod'
 
 export const createTransactionSchema = z.object({

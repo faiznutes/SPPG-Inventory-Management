@@ -1,4 +1,8 @@
-import { ChecklistResult, ChecklistRunStatus, ChecklistSchedule } from '@prisma/client'
+import { ChecklistResult, ChecklistRunStatus, ChecklistSchedule } from '../../lib/prisma-client.js'
+import type {
+  ChecklistResult as ChecklistResultType,
+  ChecklistRunStatus as ChecklistRunStatusType,
+} from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
 import { ApiError } from '../../utils/api-error.js'
 
@@ -93,10 +97,10 @@ export async function getTodayChecklist(userId: string) {
 
 type SubmitChecklistInput = {
   runId: string
-  status: ChecklistRunStatus
+  status: ChecklistRunStatusType
   items: Array<{
     id: string
-    result: ChecklistResult
+    result: ChecklistResultType
     notes?: string
   }>
 }

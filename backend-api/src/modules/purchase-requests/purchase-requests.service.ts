@@ -1,4 +1,5 @@
-import { PurchaseRequestStatus } from '@prisma/client'
+import { PurchaseRequestStatus } from '../../lib/prisma-client.js'
+import type { PurchaseRequestStatus as PurchaseRequestStatusType } from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
 import { ApiError } from '../../utils/api-error.js'
 
@@ -166,7 +167,7 @@ export async function getPurchaseRequestDetail(id: string) {
 export async function updatePurchaseRequestStatus(
   id: string,
   userId: string,
-  status: PurchaseRequestStatus,
+  status: PurchaseRequestStatusType,
   notes?: string,
 ) {
   const existing = await prisma.purchaseRequest.findUnique({ where: { id } })
