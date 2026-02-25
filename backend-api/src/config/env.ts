@@ -11,6 +11,9 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(16),
   ACCESS_TOKEN_EXPIRES: z.string().default('15m'),
   REFRESH_TOKEN_EXPIRES_DAYS: z.coerce.number().int().positive().default(7),
+  CORS_ORIGIN: z.string().default('*'),
+  TRUST_PROXY: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  COOKIE_SECURE: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
 })
 
 export const env = envSchema.parse(process.env)

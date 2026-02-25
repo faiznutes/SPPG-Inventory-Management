@@ -34,6 +34,9 @@ Jika `docker` tidak tersedia, bisa pakai PostgreSQL lokal:
 1. Salin env:
    - `copy .env.example .env`
 2. Sesuaikan `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`.
+   - `CORS_ORIGIN` untuk whitelist origin frontend (pisahkan dengan koma)
+   - `TRUST_PROXY=true` bila backend ada di balik reverse proxy
+   - `COOKIE_SECURE=true` bila akses via HTTPS
 3. Generate Prisma Client:
    - `npm run prisma:generate`
 4. Jalankan migrasi:
@@ -84,3 +87,4 @@ Server default: `http://localhost:4000`
 Catatan:
 - Saat pertama login, sistem auto-seed user admin bila belum ada.
 - Gunakan password admin default hanya untuk local dev, lalu ganti.
+- Untuk LAN HTTP gunakan `COOKIE_SECURE=false`, untuk HTTPS wajib `COOKIE_SECURE=true`.

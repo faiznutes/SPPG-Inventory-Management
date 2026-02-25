@@ -1,6 +1,6 @@
 # Tasks Backend SPPG/MBG (API Auth + Database)
 
-Terakhir diperbarui: 2026-02-25 (larut malam)
+Terakhir diperbarui: 2026-02-26 (siang)
 
 ## Gambaran Phase
 
@@ -14,6 +14,7 @@ Terakhir diperbarui: 2026-02-25 (larut malam)
 | 6 | Modul master data (users/locations/categories) | 1 hari | DONE |
 | 7 | Modul inventory inti (items/stocks/transactions) | 1 hari | DONE |
 | 8 | Modul checklist dan purchase request | 1.5 hari | DONE |
+| 9 | Hardening baseline production (cors/cookie/proxy) | 0.5 hari | DONE |
 
 ## Checklist Implementasi
 
@@ -71,9 +72,16 @@ Terakhir diperbarui: 2026-02-25 (larut malam)
 - [x] Tambah model detail PR + history status di database
 - [x] Smoke test checklist dan purchase request dengan token admin
 
+### Phase 9 (DONE)
+- [x] Tambah env `CORS_ORIGIN`, `TRUST_PROXY`, `COOKIE_SECURE`
+- [x] Implement whitelist CORS berbasis env
+- [x] Cookie refresh token mengikuti env `COOKIE_SECURE`
+- [x] Tambah catatan konfigurasi keamanan di README dan `.env.example`
+
 ## Catatan Update
 - `2026-02-25 - Phase 1-4 DONE - fondasi backend auth + schema database selesai`
 - `2026-02-25 - Phase 5 DONE - PostgreSQL lokal diinit via pg_ctl, migrasi berhasil, dan auth e2e test berhasil`
 - `2026-02-25 - Phase 6 DONE - API master data users/locations/categories aktif dan lulus smoke test`
 - `2026-02-25 - Phase 7 DONE - API items/stocks/transactions aktif dengan validasi stok dan lulus smoke test`
 - `2026-02-26 - Phase 8 DONE - API checklist dan purchase request aktif dengan detail item + history status`
+- `2026-02-26 - Phase 9 DONE - baseline hardening CORS/cookie/proxy via environment selesai`

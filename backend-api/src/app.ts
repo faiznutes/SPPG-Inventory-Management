@@ -13,13 +13,34 @@ import { transactionsRouter } from './modules/transactions/transactions.routes.j
 import { checklistsRouter } from './modules/checklists/checklists.routes.js'
 import { purchaseRequestsRouter } from './modules/purchase-requests/purchase-requests.routes.js'
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js'
+import { env } from './config/env.js'
 
 export const app = express()
 
+function createCorsOrigin() {
+  if (env.CORS_ORIGIN === '*') {
+    return true
+  }
+
+  const allowedOrigins = env.CORS_ORIGIN.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+
+  return (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    if (!origin) {
+      callback(null, true)
+      return
+    }
+
+    callback(null, allowedOrigins.includes(origin))
+  }
+}
+
 app.use(helmet())
+app.set('trust proxy', env.TRUST_PROXY)
 app.use(
   cors({
-    origin: true,
+    origin: createCorsOrigin(),
     credentials: true,
   }),
 )

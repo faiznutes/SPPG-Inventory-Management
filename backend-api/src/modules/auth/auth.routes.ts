@@ -2,8 +2,18 @@ import { Router } from 'express'
 import { loginSchema, refreshSchema } from './auth.schema.js'
 import { ensureAdminSeed, login, logout, me, refresh } from './auth.service.js'
 import { requireAuth } from '../../middleware/auth.js'
+import { env } from '../../config/env.js'
 
 const authRouter = Router()
+
+function getRefreshCookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    secure: env.COOKIE_SECURE,
+    maxAge: env.REFRESH_TOKEN_EXPIRES_DAYS * 24 * 60 * 60 * 1000,
+  }
+}
 
 authRouter.post('/login', async (req, res, next) => {
   try {
@@ -11,12 +21,7 @@ authRouter.post('/login', async (req, res, next) => {
     const body = loginSchema.parse(req.body)
     const data = await login(body)
 
-    res.cookie('refreshToken', data.refreshToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: false,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    })
+    res.cookie('refreshToken', data.refreshToken, getRefreshCookieOptions())
 
     return res.json(data)
   } catch (error) {
@@ -30,12 +35,7 @@ authRouter.post('/refresh', async (req, res, next) => {
     const refreshToken = body.refreshToken || req.cookies.refreshToken
     const data = await refresh(refreshToken)
 
-    res.cookie('refreshToken', data.refreshToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: false,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    })
+    res.cookie('refreshToken', data.refreshToken, getRefreshCookieOptions())
 
     return res.json(data)
   } catch (error) {
