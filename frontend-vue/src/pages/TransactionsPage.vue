@@ -40,7 +40,7 @@ const trxLabelMap = {
 
 const filteredRows = computed(() => {
   if (activeTab.value === 'Semua') return rows.value
-  return rows.value.filter((row) => row.tipe === activeTab.value)
+  return rows.value.filter((row) => row.kategoriTrx === activeTab.value)
 })
 
 function openAction(type) {
@@ -70,7 +70,7 @@ async function loadData() {
     rows.value = transactionsData.map((row) => ({
       id: row.id,
       tanggal: new Date(row.createdAt).toLocaleString('id-ID'),
-      tipe: trxLabelMap[row.trxType] || row.trxType,
+      kategoriTrx: trxLabelMap[row.trxType] || row.trxType,
       item: itemNameMap[row.itemId] || row.itemId,
       qty: row.qty,
       user: row.actor?.name || row.actor?.username || userNameMap[row.createdBy] || '-',
@@ -155,12 +155,29 @@ onMounted(async () => {
         </button>
       </div>
 
-      <div class="overflow-x-auto">
+      <div class="space-y-2 p-3 sm:hidden">
+        <article v-if="isLoading" class="rounded-lg border border-slate-200 p-3 text-sm text-slate-500">Memuat transaksi...</article>
+        <article v-for="row in filteredRows" :key="`m-${row.id}`" class="rounded-lg border border-slate-200 p-3">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <p class="text-sm font-bold text-slate-900">{{ row.item }}</p>
+              <p class="text-xs text-slate-500">{{ row.tanggal }}</p>
+            </div>
+            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700">{{ row.kategoriTrx }}</span>
+          </div>
+          <div class="mt-2 flex items-center justify-between text-sm">
+            <p class="font-semibold text-slate-800">Qty: {{ row.qty }}</p>
+            <p class="text-slate-600">{{ row.user }}</p>
+          </div>
+        </article>
+      </div>
+
+      <div class="hidden overflow-x-auto sm:block">
         <table class="min-w-full text-left text-sm">
           <thead class="border-b border-slate-200 text-slate-500">
             <tr>
               <th class="px-3 py-3 font-semibold">Tanggal</th>
-              <th class="px-3 py-3 font-semibold">Tipe</th>
+                <th class="px-3 py-3 font-semibold">Kategori Transaksi</th>
               <th class="px-3 py-3 font-semibold">Item</th>
               <th class="px-3 py-3 font-semibold">Jumlah</th>
               <th class="px-3 py-3 font-semibold">Penginput</th>
@@ -172,7 +189,7 @@ onMounted(async () => {
             </tr>
             <tr v-for="row in filteredRows" :key="row.id" class="border-b border-slate-100">
               <td class="px-3 py-3 text-slate-700">{{ row.tanggal }}</td>
-              <td class="px-3 py-3 font-bold text-slate-900">{{ row.tipe }}</td>
+              <td class="px-3 py-3 font-bold text-slate-900">{{ row.kategoriTrx }}</td>
               <td class="px-3 py-3 text-slate-700">{{ row.item }}</td>
               <td class="px-3 py-3 font-semibold text-slate-900">{{ row.qty }}</td>
               <td class="px-3 py-3 text-slate-700">{{ row.user }}</td>

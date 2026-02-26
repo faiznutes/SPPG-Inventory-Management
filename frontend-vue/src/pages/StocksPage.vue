@@ -67,7 +67,7 @@ const filteredRows = computed(() => {
   const normalizedSearch = search.value.trim().toLowerCase()
 
   return rows.value.filter((row) => {
-    const passType = activeType.value === 'Semua' || row.tipe === activeType.value
+    const passType = activeType.value === 'Semua' || row.kategori === activeType.value
     const passSearch =
       !normalizedSearch ||
       row.item.toLowerCase().includes(normalizedSearch) ||
@@ -120,7 +120,7 @@ async function loadData() {
       itemId: row.itemId,
       locationId: row.locationId,
       item: row.itemName,
-      tipe: typeMap[row.itemType] || row.itemType,
+      kategori: typeMap[row.itemType] || row.itemType,
       lokasi: row.locationName,
       qty: row.qty,
       unit: row.unit,
@@ -257,7 +257,21 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div class="mt-4 overflow-x-auto">
+      <div class="mt-4 space-y-2 sm:hidden">
+        <article v-if="isLoading" class="rounded-lg border border-slate-200 p-3 text-sm text-slate-500">Memuat data stok...</article>
+        <article v-for="row in filteredRows" :key="`m-${row.item}-${row.lokasi}`" class="rounded-lg border border-slate-200 p-3">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <p class="text-sm font-bold text-slate-900">{{ row.item }}</p>
+              <p class="text-xs text-slate-500">{{ row.kategori }} - {{ row.lokasi }}</p>
+            </div>
+            <span class="rounded-full px-2 py-0.5 text-[11px] font-bold" :class="statusClass(row.status)">{{ row.status }}</span>
+          </div>
+          <p class="mt-2 text-sm font-semibold text-slate-800">{{ row.qty }} {{ row.unit }}</p>
+        </article>
+      </div>
+
+      <div class="mt-4 hidden overflow-x-auto sm:block">
         <table class="min-w-full text-left text-sm">
           <thead class="border-b border-slate-200 text-slate-500">
             <tr>
@@ -273,7 +287,7 @@ onMounted(async () => {
             </tr>
             <tr v-for="row in filteredRows" :key="`${row.item}-${row.lokasi}`" class="border-b border-slate-100">
               <td class="px-3 py-3 font-semibold text-slate-900">{{ row.item }}</td>
-              <td class="px-3 py-3 text-slate-600">{{ row.lokasi }}</td>
+              <td class="px-3 py-3 text-slate-600">{{ row.kategori }} - {{ row.lokasi }}</td>
               <td class="px-3 py-3 text-right font-semibold text-slate-900">{{ row.qty }} {{ row.unit }}</td>
               <td class="px-3 py-3 text-center">
                 <span class="rounded-full px-2.5 py-1 text-xs font-bold" :class="statusClass(row.status)">
@@ -350,7 +364,7 @@ onMounted(async () => {
 
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label class="block">
-            <span class="mb-1 block text-sm font-semibold text-slate-700">Tipe</span>
+            <span class="mb-1 block text-sm font-semibold text-slate-700">Kategori</span>
             <select v-model="createItemForm.type" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
               <option value="CONSUMABLE">Consumable</option>
               <option value="GAS">Gas</option>
