@@ -103,7 +103,7 @@ Terakhir diperbarui: 2026-02-26 (malam)
 ### Phase 12 - UI Multi-tenant (TODO)
 - [ ] Tambah konteks tenant aktif di store auth/session.
 - [ ] Tambah selector tenant (untuk super admin).
-- [ ] Batasi fitur create user hanya untuk super admin di UI.
+- [x] Batasi fitur create user hanya untuk super admin di UI.
 - [ ] Uji 1 tenant dengan banyak staff dan role berbeda.
 
 ---
@@ -149,3 +149,4 @@ Update aktual:
 - `2026-02-26 - Phase lanjutan 9-12 ditambahkan untuk anti-401, de-hardcode, notifikasi route, dan multi-tenant UI`
 - `2026-02-26 - Progress Phase 10/11 - dashboard & notifikasi tidak hardcode, route /notifications aktif, data notifikasi sudah dari API`
 - `2026-02-26 - Dashboard kini pakai endpoint /dashboard/summary dan /dashboard/low-stock (tanpa kalkulasi hardcode di frontend)`
+- `2026-02-26 - Pengaturan user dibatasi ke role SUPER_ADMIN, role form disesuaikan ke tenant governance`

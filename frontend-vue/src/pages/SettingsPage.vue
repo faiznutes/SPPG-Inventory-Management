@@ -19,10 +19,12 @@ const form = reactive({
   name: '',
   username: '',
   email: '',
-  role: 'PIC',
+  role: 'STAFF',
   password: '',
   description: '',
 })
+
+const canManageUsers = computed(() => authStore.user?.role === 'SUPER_ADMIN')
 
 const currentRows = computed(() => {
   if (activeTab.value === 'Lokasi') return locations.value
@@ -40,7 +42,7 @@ function resetForm() {
   form.name = ''
   form.username = ''
   form.email = ''
-  form.role = 'PIC'
+  form.role = 'STAFF'
   form.password = ''
   form.description = ''
 }
@@ -54,11 +56,15 @@ async function loadData() {
 
   isLoading.value = true
   try {
-    const [usersData, locationsData, categoriesData] = await Promise.all([
-      api.listUsers(authStore.accessToken),
+    const [locationsData, categoriesData] = await Promise.all([
       api.listLocations(authStore.accessToken),
       api.listCategories(authStore.accessToken),
     ])
+
+    let usersData = []
+    if (canManageUsers.value) {
+      usersData = await api.listUsers(authStore.accessToken)
+    }
 
     users.value = usersData.map((item) => ({
       nama: item.name,
@@ -87,6 +93,11 @@ async function loadData() {
 async function saveData() {
   try {
     if (activeTab.value === 'Pengguna') {
+      if (!canManageUsers.value) {
+        notifications.showPopup('Akses ditolak', 'Hanya Super Admin yang dapat menambahkan pengguna.', 'error')
+        return
+      }
+
       await api.createUser(authStore.accessToken, {
         name: form.name,
         username: form.username,
@@ -124,11 +135,19 @@ onMounted(async () => {
   <div class="space-y-5">
     <PageHeader title="Pengaturan" subtitle="Kelola user, lokasi, kategori, dan konfigurasi dasar">
       <template #actions>
-        <button class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white" @click="showInputModal = true">
+        <button
+          class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          :disabled="activeTab === 'Pengguna' && !canManageUsers"
+          @click="showInputModal = true"
+        >
           Tambah {{ activeTab }}
         </button>
       </template>
     </PageHeader>
+
+    <div v-if="activeTab === 'Pengguna' && !canManageUsers" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
+      Hanya Super Admin yang dapat menambah atau mengelola pengguna.
+    </div>
 
     <section class="rounded-xl border border-slate-200 bg-white p-4">
       <div class="mb-4 flex flex-wrap gap-2 border-b border-slate-200 pb-3">
@@ -195,10 +214,11 @@ onMounted(async () => {
         <label v-if="activeTab === 'Pengguna'" class="block">
           <span class="mb-1 block text-sm font-semibold text-slate-700">Role</span>
           <select v-model="form.role" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
-            <option value="ADMIN">ADMIN</option>
-            <option value="PIC">PIC</option>
-            <option value="WAREHOUSE">WAREHOUSE</option>
-            <option value="VIEWER">VIEWER</option>
+            <option value="TENANT_ADMIN">TENANT_ADMIN</option>
+            <option value="KOORD_DAPUR">KOORD_DAPUR</option>
+            <option value="KOORD_KEBERSIHAN">KOORD_KEBERSIHAN</option>
+            <option value="KOORD_LAPANGAN">KOORD_LAPANGAN</option>
+            <option value="STAFF">STAFF</option>
           </select>
         </label>
 

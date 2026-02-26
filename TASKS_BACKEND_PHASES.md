@@ -94,10 +94,10 @@ Terakhir diperbarui: 2026-02-26 (malam)
 - [x] Pastikan semua endpoint di atas tidak pakai data hardcode
 
 ### Phase 12 (TODO)
-- [ ] Tambah model `Tenant` dan `TenantMembership` di schema
+- [x] Tambah model `Tenant` dan `TenantMembership` di schema
 - [ ] Tambah role baru: `SUPER_ADMIN`, `TENANT_ADMIN`, `KOORD_DAPUR`, `KOORD_KEBERSIHAN`, `KOORD_LAPANGAN`, `STAFF`
 - [ ] Middleware akses tenant-aware (`tenant_id` scope)
-- [ ] Atur rule: hanya `SUPER_ADMIN` bisa create user/staff/admin
+- [x] Atur rule: hanya `SUPER_ADMIN` bisa create user/staff/admin
 
 ### Phase 13 (TODO)
 - [ ] Migrasi data existing ke tenant default (`SPPG Pusat`)

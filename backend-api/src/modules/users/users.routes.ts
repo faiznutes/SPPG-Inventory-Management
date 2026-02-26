@@ -6,7 +6,7 @@ import { createUser, listUsers, updateUserStatus } from './users.service.js'
 
 const usersRouter = Router()
 
-usersRouter.use(requireAuth, requireRole(['ADMIN']))
+usersRouter.use(requireAuth, requireRole(['SUPER_ADMIN']))
 
 usersRouter.get('/', async (_req, res, next) => {
   try {

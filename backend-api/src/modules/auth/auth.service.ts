@@ -22,19 +22,77 @@ function getRefreshExpiryDate() {
 }
 
 export async function ensureAdminSeed() {
-  const admin = await prisma.user.findFirst({ where: { role: UserRole.ADMIN } })
+  const superAdmin = await prisma.user.findFirst({ where: { role: UserRole.SUPER_ADMIN } })
+  if (superAdmin) return
 
-  if (admin) return
+  const legacyAdmin = await prisma.user.findFirst({ where: { role: UserRole.ADMIN } })
+  if (legacyAdmin) {
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: legacyAdmin.id },
+        data: { role: UserRole.SUPER_ADMIN },
+      })
+
+      const defaultTenant = await tx.tenant.upsert({
+        where: { code: 'sppg-pusat' },
+        create: {
+          name: 'SPPG Pusat',
+          code: 'sppg-pusat',
+        },
+        update: {},
+      })
+
+      await tx.tenantMembership.upsert({
+        where: {
+          userId_tenantId: {
+            userId: legacyAdmin.id,
+            tenantId: defaultTenant.id,
+          },
+        },
+        create: {
+          userId: legacyAdmin.id,
+          tenantId: defaultTenant.id,
+          role: UserRole.SUPER_ADMIN,
+          isDefault: true,
+        },
+        update: {
+          role: UserRole.SUPER_ADMIN,
+          isDefault: true,
+        },
+      })
+    })
+    return
+  }
 
   const passwordHash = await bcrypt.hash('admin12345', 10)
-  await prisma.user.create({
-    data: {
-      name: 'Admin SPPG',
-      username: 'admin',
-      email: 'admin@sppg.local',
-      passwordHash,
-      role: UserRole.ADMIN,
-    },
+  await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        name: 'Admin SPPG',
+        username: 'admin',
+        email: 'admin@sppg.local',
+        passwordHash,
+        role: UserRole.SUPER_ADMIN,
+      },
+    })
+
+    const defaultTenant = await tx.tenant.upsert({
+      where: { code: 'sppg-pusat' },
+      create: {
+        name: 'SPPG Pusat',
+        code: 'sppg-pusat',
+      },
+      update: {},
+    })
+
+    await tx.tenantMembership.create({
+      data: {
+        userId: user.id,
+        tenantId: defaultTenant.id,
+        role: UserRole.SUPER_ADMIN,
+        isDefault: true,
+      },
+    })
   })
 }
 
