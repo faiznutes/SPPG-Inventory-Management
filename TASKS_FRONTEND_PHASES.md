@@ -90,13 +90,13 @@ Terakhir diperbarui: 2026-02-26 (malam)
 - [ ] Jika refresh gagal, clear session + redirect ke `/login`.
 
 ### Phase 10 - De-hardcode Dashboard + Notifikasi (TODO)
-- [ ] Hapus data statis di dashboard (`stats`, low-stock list, aksi contoh).
-- [ ] Hapus notifikasi seed statis pada store notifikasi.
-- [ ] Integrasikan dashboard dan notifikasi ke endpoint backend.
+- [x] Hapus data statis di dashboard (`stats`, low-stock list, aksi contoh).
+- [x] Hapus notifikasi seed statis pada store notifikasi.
+- [x] Integrasikan dashboard dan notifikasi ke endpoint backend.
 
 ### Phase 11 - Notifikasi Ter-route + Role-aware Menu (TODO)
-- [ ] Tambah halaman `NotificationsPage.vue`.
-- [ ] Tambah route `/notifications` dan navigasi dari tombol lonceng.
+- [x] Tambah halaman `NotificationsPage.vue`.
+- [x] Tambah route `/notifications` dan navigasi dari tombol lonceng.
 - [ ] Tampilkan badge unread dari API.
 - [ ] Pastikan menu sensitif hanya tampil sesuai role.
 
@@ -147,3 +147,4 @@ Update aktual:
 - `2026-02-25 - Integrasi Stok/Transaksi FE-BE DONE - halaman Stok dan Transaksi terhubung ke API inventory`
 - `2026-02-26 - Integrasi Checklist/PR FE-BE DONE - Checklist Hari Ini dan PR List/Detail terhubung ke API backend`
 - `2026-02-26 - Phase lanjutan 9-12 ditambahkan untuk anti-401, de-hardcode, notifikasi route, dan multi-tenant UI`
+- `2026-02-26 - Progress Phase 10/11 - dashboard & notifikasi tidak hardcode, route /notifications aktif, data notifikasi sudah dari API`

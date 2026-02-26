@@ -12,6 +12,7 @@ import { stocksRouter } from './modules/stocks/stocks.routes.js'
 import { transactionsRouter } from './modules/transactions/transactions.routes.js'
 import { checklistsRouter } from './modules/checklists/checklists.routes.js'
 import { purchaseRequestsRouter } from './modules/purchase-requests/purchase-requests.routes.js'
+import { notificationsRouter } from './modules/notifications/notifications.routes.js'
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js'
 import { env } from './config/env.js'
 
@@ -71,6 +72,7 @@ app.use('/api/v1/stocks', stocksRouter)
 app.use('/api/v1/transactions', transactionsRouter)
 app.use('/api/v1/checklists', checklistsRouter)
 app.use('/api/v1/purchase-requests', purchaseRequestsRouter)
+app.use('/api/v1/notifications', notificationsRouter)
 
 app.use(notFoundHandler)
 app.use(errorHandler)

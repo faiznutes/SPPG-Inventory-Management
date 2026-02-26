@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { RouterLink, RouterView } from 'vue-router'
 import { useUiStore } from '../stores/ui'
@@ -29,6 +29,16 @@ async function handleLogout() {
   notifications.showPopup('Sesi berakhir', 'Kamu sudah berhasil logout.', 'info')
   router.push('/login')
 }
+
+onMounted(async () => {
+  if (!authStore.accessToken) return
+
+  try {
+    await notifications.loadFromApi(authStore.accessToken)
+  } catch {
+    // keep UI responsive even when notifications endpoint fails
+  }
+})
 </script>
 
 <template>

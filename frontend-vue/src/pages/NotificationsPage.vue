@@ -1,11 +1,25 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import { useNotificationsStore } from '../stores/notifications'
+import { useAuthStore } from '../stores/auth'
 
 const notifications = useNotificationsStore()
+const authStore = useAuthStore()
+const isLoading = ref(false)
 
 const rows = computed(() => notifications.items)
+
+onMounted(async () => {
+  if (!authStore.accessToken) return
+
+  isLoading.value = true
+  try {
+    await notifications.loadFromApi(authStore.accessToken)
+  } finally {
+    isLoading.value = false
+  }
+})
 </script>
 
 <template>
@@ -13,7 +27,11 @@ const rows = computed(() => notifications.items)
     <PageHeader title="Notifikasi" subtitle="Daftar notifikasi aktivitas sistem" />
 
     <section class="rounded-xl border border-slate-200 bg-white p-4">
-      <div v-if="rows.length === 0" class="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
+      <div v-if="isLoading" class="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
+        Memuat notifikasi...
+      </div>
+
+      <div v-else-if="rows.length === 0" class="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
         Belum ada notifikasi.
       </div>
 

@@ -222,4 +222,9 @@ export const api = {
       headers: authHeader(accessToken),
       body: JSON.stringify(body),
     }),
+
+  listNotifications: (accessToken) =>
+    request('/notifications', {
+      headers: authHeader(accessToken),
+    }),
 }

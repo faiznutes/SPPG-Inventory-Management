@@ -90,7 +90,7 @@ Terakhir diperbarui: 2026-02-26 (malam)
 ### Phase 11 (TODO)
 - [ ] Tambah endpoint `GET /api/v1/dashboard/summary`
 - [ ] Tambah endpoint `GET /api/v1/dashboard/low-stock`
-- [ ] Tambah endpoint `GET /api/v1/notifications`
+- [x] Tambah endpoint `GET /api/v1/notifications`
 - [ ] Pastikan semua endpoint di atas tidak pakai data hardcode
 
 ### Phase 12 (TODO)

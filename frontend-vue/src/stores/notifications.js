@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { api } from '../lib/api'
 
 let toastTimeoutId
 
@@ -13,6 +14,35 @@ export const useNotificationsStore = defineStore('notifications', {
     items: [],
   }),
   actions: {
+    formatRelativeTime(isoTime) {
+      const date = new Date(isoTime)
+      if (Number.isNaN(date.getTime())) return '-'
+
+      const diffMs = Date.now() - date.getTime()
+      const diffMin = Math.floor(diffMs / 60000)
+      if (diffMin <= 0) return 'Baru saja'
+      if (diffMin < 60) return `${diffMin} menit lalu`
+
+      const diffHour = Math.floor(diffMin / 60)
+      if (diffHour < 24) return `${diffHour} jam lalu`
+
+      const diffDay = Math.floor(diffHour / 24)
+      return `${diffDay} hari lalu`
+    },
+
+    async loadFromApi(accessToken) {
+      if (!accessToken) return
+
+      const rows = await api.listNotifications(accessToken)
+      this.items = rows.map((item) => ({
+        id: item.id,
+        title: item.title,
+        message: item.message,
+        time: this.formatRelativeTime(item.time),
+        type: item.type,
+      }))
+    },
+
     showPopup(title, message, variant = 'info') {
       this.toast = {
         show: true,
@@ -36,6 +66,7 @@ export const useNotificationsStore = defineStore('notifications', {
         title,
         message,
         time: 'Baru saja',
+        type: 'info',
       })
     },
   },
