@@ -27,6 +27,10 @@ type TenantContext = {
   code: string
 }
 
+function isMissingTenantMembershipTable(error: unknown) {
+  return Boolean((error as { code?: string })?.code === 'P2021')
+}
+
 async function listTenantMemberships(userId: string) {
   try {
     const memberships = await prisma.tenantMembership.findMany({
@@ -291,6 +295,8 @@ export async function login(input: LoginInput) {
     },
   })
 
+  const memberships = await listTenantMemberships(user.id)
+
   return {
     accessToken,
     refreshToken,
@@ -300,7 +306,7 @@ export async function login(input: LoginInput) {
       username: user.username,
       role: user.role,
       tenant,
-      availableTenants: await listTenantMemberships(user.id),
+      availableTenants: memberships.length ? memberships : [{ ...DEFAULT_TENANT, role: user.role, isDefault: true }],
     },
   }
 }
@@ -398,7 +404,8 @@ export async function me(userId: string) {
   }
 
   const tenant = await getDefaultTenantContext(user.id)
-  const availableTenants = await listTenantMemberships(user.id)
+  const memberships = await listTenantMemberships(user.id)
+  const availableTenants = memberships.length ? memberships : [{ ...DEFAULT_TENANT, role: user.role, isDefault: true }]
 
   return {
     ...user,
@@ -414,24 +421,81 @@ export async function myTenants(userId: string) {
 }
 
 export async function selectTenant(userId: string, tenantId: string) {
-  const membership = await prisma.tenantMembership.findFirst({
-    where: {
-      userId,
-      tenantId,
-      tenant: {
-        isActive: true,
+  let membership
+  try {
+    membership = await prisma.tenantMembership.findFirst({
+      where: {
+        userId,
+        tenantId,
+        tenant: {
+          isActive: true,
+        },
       },
-    },
-    include: {
-      tenant: {
+      include: {
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+      },
+    })
+  } catch (error) {
+    if (isMissingTenantMembershipTable(error)) {
+      if (tenantId !== DEFAULT_TENANT.id) {
+        throw new ApiError(403, 'FORBIDDEN', 'Tenant ini belum tersedia pada sistem saat ini.')
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
         select: {
           id: true,
           name: true,
-          code: true,
+          username: true,
+          role: true,
+          isActive: true,
         },
-      },
-    },
-  })
+      })
+
+      if (!user || !user.isActive) {
+        throw new ApiError(401, 'AUTH_INVALID', 'User tidak valid untuk mengganti tenant.')
+      }
+
+      const payload = {
+        sub: user.id,
+        role: user.role,
+        username: user.username,
+        tenantId: DEFAULT_TENANT.id,
+      }
+
+      const accessToken = generateAccessToken(payload)
+      const refreshToken = generateRefreshToken(payload)
+
+      await prisma.refreshToken.create({
+        data: {
+          tokenHash: hashToken(refreshToken),
+          userId: user.id,
+          expiresAt: getRefreshExpiryDate(),
+        },
+      })
+
+      return {
+        accessToken,
+        refreshToken,
+        user: {
+          id: user.id,
+          name: user.name,
+          username: user.username,
+          role: user.role,
+          tenant: DEFAULT_TENANT,
+          availableTenants: [{ ...DEFAULT_TENANT, role: user.role, isDefault: true }],
+        },
+      }
+    }
+
+    throw error
+  }
 
   if (!membership) {
     throw new ApiError(403, 'FORBIDDEN', 'Kamu tidak memiliki akses ke tenant ini.')
