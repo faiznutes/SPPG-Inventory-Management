@@ -42,6 +42,11 @@ function resultFromCondition(conditionPercent: number) {
   return ChecklistResult.OUT
 }
 
+function needsRunItemUpgrade(runItems: Array<{ title: string }>) {
+  const titles = new Set(runItems.map((item) => item.title))
+  return DEFAULT_TEMPLATE_ITEMS.some((item) => !titles.has(item.title))
+}
+
 function toDateOnly(date: Date) {
   const yyyy = date.getFullYear()
   const mm = String(date.getMonth() + 1).padStart(2, '0')
@@ -136,6 +141,33 @@ export async function getTodayChecklist(userId: string) {
         items: true,
         template: true,
       },
+    })
+  } else if (run.status === ChecklistRunStatus.DRAFT && needsRunItemUpgrade(run.items)) {
+    run = await prisma.$transaction(async (tx) => {
+      await tx.checklistRunItem.deleteMany({
+        where: {
+          checklistRunId: run!.id,
+        },
+      })
+
+      await tx.checklistRunItem.createMany({
+        data: template.items.map((item) => ({
+          checklistRunId: run!.id,
+          templateItemId: item.id,
+          title: item.title,
+          result: ChecklistResult.NA,
+        })),
+      })
+
+      const refreshed = await tx.checklistRun.findUnique({
+        where: { id: run!.id },
+        include: {
+          items: true,
+          template: true,
+        },
+      })
+
+      return refreshed || run!
     })
   }
 
