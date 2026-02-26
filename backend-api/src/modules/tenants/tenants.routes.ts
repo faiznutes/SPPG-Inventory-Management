@@ -13,6 +13,7 @@ import {
   addTenantLocation,
   addTenantUser,
   createTenant,
+  deleteTenant,
   getTenantTelegramSettings,
   getTenantDetail,
   listTenants,
@@ -39,6 +40,15 @@ tenantsRouter.post('/', async (req, res, next) => {
     const body = createTenantSchema.parse(req.body)
     const data = await createTenant(req.user!.id, body)
     return res.status(201).json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+tenantsRouter.delete('/:tenantId', async (req, res, next) => {
+  try {
+    const data = await deleteTenant(req.user!.id, req.params.tenantId)
+    return res.json(data)
   } catch (error) {
     return next(error)
   }

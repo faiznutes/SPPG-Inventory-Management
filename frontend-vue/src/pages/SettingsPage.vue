@@ -354,6 +354,27 @@ async function saveTenantTelegramSettings() {
   }
 }
 
+async function removeTenant(row) {
+  if (!row?.id) return
+  const ok = window.confirm(`Hapus tenant \"${row.nama}\"? Tenant akan dinonaktifkan dan user tenant tidak bisa akses lagi.`)
+  if (!ok) return
+
+  try {
+    await api.deleteTenant(authStore.accessToken, row.id)
+    if (selectedTenant.value?.id === row.id) {
+      showTenantDetailModal.value = false
+      selectedTenant.value = null
+      tenantUsers.value = []
+      tenantLocations.value = []
+      resetTenantTelegramForm()
+    }
+    notifications.showPopup('Tenant dihapus', 'Tenant berhasil dinonaktifkan.', 'success')
+    await loadData()
+  } catch (error) {
+    notifications.showPopup('Gagal hapus tenant', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+  }
+}
+
 async function addUserToTenant() {
   if (!selectedTenant.value) return
   try {
@@ -588,7 +609,10 @@ onMounted(async () => {
             </span>
           </div>
           <div v-if="activeTab === 'Tenant'" class="mt-2 text-right">
-            <button class="text-xs font-bold text-blue-600" @click="openTenantDetail(row)">Buka Detail Tenant</button>
+            <div class="inline-flex gap-2">
+              <button class="text-xs font-bold text-blue-600" @click="openTenantDetail(row)">Buka Detail Tenant</button>
+              <button class="text-xs font-bold text-rose-600" @click="removeTenant(row)">Hapus Tenant</button>
+            </div>
           </div>
         </article>
       </div>
@@ -620,6 +644,13 @@ onMounted(async () => {
                 >
                   {{ row.status || 'Aktif' }}
                 </span>
+                <button
+                  v-if="activeTab === 'Tenant'"
+                  class="ml-2 rounded border border-rose-200 px-2 py-0.5 text-[11px] font-bold text-rose-700"
+                  @click.stop="removeTenant(row)"
+                >
+                  Hapus
+                </button>
               </td>
             </tr>
           </tbody>
@@ -690,6 +721,16 @@ onMounted(async () => {
 
     <BaseModal :show="showTenantDetailModal" :title="`Detail Tenant ${selectedTenant?.name || ''}`" max-width-class="max-w-4xl" @close="showTenantDetailModal = false">
       <div class="space-y-4">
+        <div class="flex justify-end">
+          <button
+            v-if="selectedTenant"
+            class="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-700"
+            @click="removeTenant({ id: selectedTenant.id, nama: selectedTenant.name })"
+          >
+            Hapus Tenant Ini
+          </button>
+        </div>
+
         <section class="rounded-lg border border-slate-200 p-3">
           <p class="text-sm font-bold text-slate-900">User Tenant</p>
           <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-4">

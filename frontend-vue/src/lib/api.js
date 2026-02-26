@@ -189,6 +189,12 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  deleteTenant: (accessToken, tenantId) =>
+    request(`/tenants/${tenantId}`, {
+      method: 'DELETE',
+      headers: authHeader(accessToken),
+    }),
+
   getTenantDetail: (accessToken, tenantId) =>
     request(`/tenants/${tenantId}`, {
       headers: authHeader(accessToken),

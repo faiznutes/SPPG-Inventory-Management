@@ -82,6 +82,56 @@ export async function listTenants() {
   })
 }
 
+export async function deleteTenant(actorUserId: string, tenantId: string) {
+  const tenant = await getTenantOrThrow(tenantId)
+
+  if (!tenant.isActive) {
+    return {
+      code: 'TENANT_ALREADY_INACTIVE',
+      message: 'Tenant sudah nonaktif.',
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.tenant.update({
+      where: { id: tenantId },
+      data: {
+        isActive: false,
+      },
+    })
+
+    await tx.tenantMembership.updateMany({
+      where: {
+        tenantId,
+      },
+      data: {
+        isDefault: false,
+        canView: false,
+        canEdit: false,
+      },
+    })
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId,
+        entityType: 'tenants',
+        entityId: tenantId,
+        action: 'DELETE',
+        diffJson: {
+          name: tenant.name,
+          code: tenant.code,
+          isActive: false,
+        },
+      },
+    })
+  })
+
+  return {
+    code: 'TENANT_DELETED',
+    message: 'Tenant berhasil dihapus (dinonaktifkan).',
+  }
+}
+
 export async function createTenant(actorUserId: string, input: CreateTenantInput) {
   const normalizedCode = toSlug(input.code || input.name)
   if (!normalizedCode) {

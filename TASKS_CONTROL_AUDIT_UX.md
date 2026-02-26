@@ -25,8 +25,9 @@ Last update: 2026-02-26
 | T-12 | Regression pass add/edit/delete/export + hardening validasi form | DONE |
 | T-13 | Final hardening error field-level untuk flow transaksi/PR/checklist | DONE |
 | T-14 | Sweep copy text minor agar tidak ada istilah teknis lama di UI utama | DONE |
-| T-15 | Integrasi Telegram per tenant untuk export checklist (print + kirim PDF) | IN PROGRESS |
+| T-15 | Integrasi Telegram per tenant untuk export checklist (print + kirim PDF) | DONE |
 | T-16 | Stabilisasi API simpan item dan keselarasan akses frontend-backend | DONE |
+| T-17 | Tambah aksi hapus tenant dari panel SUPER_ADMIN | DONE |
 
 ## Acceptance Checklist
 - [x] Checklist submit tidak gagal validasi.
@@ -62,7 +63,8 @@ Last update: 2026-02-26
 - [x] Endpoint tambah item pakai actor user aktual untuk audit log dan validasi error DB lebih jelas.
 - [x] Hak akses tambah item di frontend diselaraskan dengan backend (SUPER_ADMIN/ADMIN).
 - [x] Startup backend distabilkan dengan alur migrasi `prisma migrate deploy` tanpa langkah resolve manual yang memicu noise error.
-- [ ] Integrasi Telegram per tenant (SUPER_ADMIN setting) + auto kirim PDF saat export checklist.
+- [x] Integrasi Telegram per tenant (SUPER_ADMIN setting) + auto kirim PDF saat export checklist.
+- [x] SUPER_ADMIN bisa hapus tenant (soft delete/nonaktif) dari daftar tenant dan detail tenant.
 
 ## Notes
 - Untuk repo hygiene, file operasional yang tidak perlu di root akan didaftarkan agar bisa dipindah manual ke folder `docs/` oleh owner.
