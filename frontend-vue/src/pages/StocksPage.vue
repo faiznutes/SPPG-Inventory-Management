@@ -58,9 +58,9 @@ const createItemForm = reactive({
 })
 
 const typeMap = {
-  CONSUMABLE: 'Consumable',
-  GAS: 'Gas',
-  ASSET: 'Asset',
+  CONSUMABLE: 'Barang habis beli lagi',
+  GAS: 'Habis tapi isi ulang',
+  ASSET: 'Tidak habis tapi bisa rusak',
 }
 
 const filteredRows = computed(() => {
@@ -163,14 +163,25 @@ async function submitCreateProduct() {
       return
     }
 
+    const minStock = Number(createItemForm.minStock || 0)
+    const reorderQty = createItemForm.reorderQty ? Number(createItemForm.reorderQty) : undefined
+    if (!Number.isFinite(minStock) || minStock < 0) {
+      notifications.showPopup('Minimal stok tidak valid', 'Isi minimal stok dengan angka 0 atau lebih.', 'error')
+      return
+    }
+    if (reorderQty !== undefined && (!Number.isFinite(reorderQty) || reorderQty < 0)) {
+      notifications.showPopup('Reorder qty tidak valid', 'Isi reorder qty dengan angka 0 atau lebih.', 'error')
+      return
+    }
+
     await api.createItem(authStore.accessToken, {
       name: productName,
       sku: sku || undefined,
       categoryId: createItemForm.categoryId || undefined,
       type: createItemForm.type,
       unit: createItemForm.unit,
-      minStock: Number(createItemForm.minStock || 0),
-      reorderQty: createItemForm.reorderQty ? Number(createItemForm.reorderQty) : undefined,
+      minStock,
+      reorderQty,
     })
 
     showCreateItemModal.value = false
@@ -195,12 +206,24 @@ async function submitAdjustStock() {
       return
     }
 
+    const qty = Number(adjustForm.qty)
+    if (!Number.isFinite(qty) || qty === 0) {
+      notifications.showPopup('Qty tidak valid', 'Isi perubahan qty dengan angka, tidak boleh 0.', 'error')
+      return
+    }
+
+    const reason = adjustForm.reason.trim()
+    if (!reason) {
+      notifications.showPopup('Alasan wajib', 'Isi alasan penyesuaian stok.', 'error')
+      return
+    }
+
     await api.createTransaction(authStore.accessToken, {
       trxType: 'ADJUST',
       itemId: adjustForm.itemId,
       fromLocationId: adjustForm.locationId,
-      qty: Number(adjustForm.qty),
-      reason: adjustForm.reason,
+      qty,
+      reason,
     })
 
     showAdjustModal.value = false
@@ -246,7 +269,7 @@ onMounted(async () => {
         />
         <div class="flex flex-wrap gap-2">
           <button
-            v-for="type in ['Semua', 'Consumable', 'Gas', 'Asset']"
+            v-for="type in ['Semua', typeMap.CONSUMABLE, typeMap.GAS, typeMap.ASSET]"
             :key="type"
             class="rounded-lg px-3 py-2 text-sm font-semibold"
             :class="activeType === type ? 'border border-blue-200 bg-blue-50 text-blue-700' : 'border border-slate-200 text-slate-600'"
@@ -364,11 +387,11 @@ onMounted(async () => {
 
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label class="block">
-            <span class="mb-1 block text-sm font-semibold text-slate-700">Kategori</span>
+            <span class="mb-1 block text-sm font-semibold text-slate-700">Model Kategori Operasional</span>
             <select v-model="createItemForm.type" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
-              <option value="CONSUMABLE">Consumable</option>
-              <option value="GAS">Gas</option>
-              <option value="ASSET">Asset</option>
+              <option value="CONSUMABLE">Barang habis beli lagi</option>
+              <option value="GAS">Habis tapi isi ulang</option>
+              <option value="ASSET">Tidak habis tapi bisa rusak</option>
             </select>
           </label>
 

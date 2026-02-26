@@ -58,6 +58,16 @@ const passwordForm = reactive({
 const canManageUsers = computed(() => authStore.user?.role === 'SUPER_ADMIN')
 const canAddInTab = computed(() => activeTab.value !== 'Pengguna' || canManageUsers.value)
 
+const categoryModelLabelMap = {
+  CONSUMABLE: 'Barang habis beli lagi',
+  GAS: 'Habis tapi isi ulang',
+  ASSET: 'Tidak habis tapi bisa rusak',
+}
+
+function categoryModelLabel(value) {
+  return categoryModelLabelMap[value] || value || '-'
+}
+
 const currentRows = computed(() => {
   if (activeTab.value === 'Tenant') return tenants.value
   if (activeTab.value === 'Lokasi') return locations.value
@@ -68,7 +78,7 @@ const currentRows = computed(() => {
 const tableHeaders = computed(() => {
   if (activeTab.value === 'Tenant') return ['Nama Tenant', 'Kode', 'Status']
   if (activeTab.value === 'Lokasi') return ['Nama', 'Deskripsi', 'Status']
-  if (activeTab.value === 'Kategori') return ['Nama', 'Kode', 'Status']
+  if (activeTab.value === 'Kategori') return ['Nama', 'Model Kategori', 'Status']
   return ['Nama', 'Role', 'Status']
 })
 
@@ -94,6 +104,11 @@ function slugify(value) {
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
+}
+
+function isValidEmail(value) {
+  if (!value) return true
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 }
 
 function modeToFlags(mode) {
@@ -162,7 +177,7 @@ async function loadData() {
 
     categories.value = categoriesData.map((item) => ({
       nama: item.name?.replace(/^(CONSUMABLE|GAS|ASSET)\s-\s/i, ''),
-      kode: item.type || 'CONSUMABLE',
+      kode: categoryModelLabel(item.type || 'CONSUMABLE'),
       status: 'Aktif',
     }))
 
@@ -187,9 +202,16 @@ async function saveData() {
         return
       }
 
+      const tenantName = form.name.trim()
+      const tenantCode = slugify(form.code || form.name)
+      if (tenantName.length < 3 || tenantCode.length < 3) {
+        notifications.showPopup('Data tenant belum valid', 'Nama dan kode tenant minimal 3 karakter.', 'error')
+        return
+      }
+
       await api.createTenant(authStore.accessToken, {
-        name: form.name.trim(),
-        code: slugify(form.code || form.name),
+        name: tenantName,
+        code: tenantCode,
       })
     } else if (activeTab.value === 'Pengguna') {
       if (!canManageUsers.value) {
@@ -197,26 +219,50 @@ async function saveData() {
         return
       }
 
+      const name = form.name.trim()
+      const username = form.username.trim()
+      const email = form.email.trim()
+      if (name.length < 2 || username.length < 3) {
+        notifications.showPopup('Data pengguna belum valid', 'Nama minimal 2 karakter dan username minimal 3 karakter.', 'error')
+        return
+      }
+      if (!isValidEmail(email)) {
+        notifications.showPopup('Email tidak valid', 'Format email pengguna belum benar.', 'error')
+        return
+      }
+      if (String(form.password || '').length < 6) {
+        notifications.showPopup('Password belum valid', 'Password minimal 6 karakter.', 'error')
+        return
+      }
+
       await api.createUser(authStore.accessToken, {
-        name: form.name,
-        username: form.username,
-        email: form.email || undefined,
+        name,
+        username,
+        email: email || undefined,
         role: form.role,
         password: form.password,
       })
     } else if (activeTab.value === 'Lokasi') {
+      const name = form.name.trim()
+      const description = form.description.trim()
+      if (name.length < 2) {
+        notifications.showPopup('Nama lokasi wajib', 'Nama lokasi minimal 2 karakter.', 'error')
+        return
+      }
+
       await api.createLocation(authStore.accessToken, {
-        name: form.name,
-        description: form.description || undefined,
+        name,
+        description: description || undefined,
       })
     } else {
-      if (!form.name?.trim()) {
+      const name = form.name.trim()
+      if (!name) {
         notifications.showPopup('Nama kategori wajib', 'Isi nama kategori dulu.', 'error')
         return
       }
 
       await api.createCategory(authStore.accessToken, {
-        name: form.name.trim(),
+        name,
         type: form.categoryType,
       })
     }
@@ -258,16 +304,42 @@ async function addUserToTenant() {
       return
     }
 
+    const name = tenantUserForm.name.trim()
+    const username = tenantUserForm.username.trim()
+    const email = tenantUserForm.email?.trim() || ''
+    const jabatan = tenantUserForm.jabatan.trim()
+    const password = tenantUserForm.password || ''
+
+    if (name.length < 2 || username.length < 3 || jabatan.length < 2) {
+      notifications.showPopup('Data user tenant belum valid', 'Nama minimal 2 karakter, username 3 karakter, dan jabatan 2 karakter.', 'error')
+      return
+    }
+
+    if (!isValidEmail(email)) {
+      notifications.showPopup('Email tidak valid', 'Format email user tenant belum benar.', 'error')
+      return
+    }
+
+    if (!tenantUserForm.id && password.length < 6) {
+      notifications.showPopup('Password wajib', 'Password minimal 6 karakter saat menambah user tenant.', 'error')
+      return
+    }
+
+    if (tenantUserForm.id && password && password.length < 6) {
+      notifications.showPopup('Password belum valid', 'Password reset minimal 6 karakter.', 'error')
+      return
+    }
+
     const visibility = modeToFlags(tenantUserForm.visibilityMode)
     const payload = {
-      name: tenantUserForm.name.trim(),
-      username: tenantUserForm.username.trim(),
-      email: tenantUserForm.email?.trim() || undefined,
+      name,
+      username,
+      email: email || undefined,
       role: tenantUserForm.role,
-      jabatan: tenantUserForm.jabatan.trim(),
+      jabatan,
       canView: visibility.canView,
       canEdit: visibility.canEdit,
-      password: tenantUserForm.password,
+      password,
     }
 
     if (tenantUserForm.id) {
@@ -295,15 +367,22 @@ async function addLocationToTenant() {
       return
     }
 
+    const name = tenantLocationForm.name.trim()
+    const description = tenantLocationForm.description.trim()
+    if (name.length < 2) {
+      notifications.showPopup('Nama lokasi belum valid', 'Nama lokasi tenant minimal 2 karakter.', 'error')
+      return
+    }
+
     if (tenantLocationForm.id) {
       await api.updateTenantLocation(authStore.accessToken, selectedTenant.value.id, tenantLocationForm.id, {
-        name: tenantLocationForm.name.trim(),
-        description: tenantLocationForm.description || undefined,
+        name,
+        description: description || undefined,
       })
     } else {
       await api.addTenantLocation(authStore.accessToken, selectedTenant.value.id, {
-        name: tenantLocationForm.name.trim(),
-        description: tenantLocationForm.description || undefined,
+        name,
+        description: description || undefined,
       })
     }
     resetTenantLocationForm()
@@ -427,7 +506,31 @@ onMounted(async () => {
         </button>
       </div>
 
-      <div class="overflow-x-auto">
+      <div class="space-y-2 sm:hidden">
+        <article
+          v-for="row in currentRows"
+          :key="`m-${row.id || row.nama}`"
+          class="rounded-lg border border-slate-200 p-3"
+        >
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <p class="text-sm font-bold text-slate-900">{{ row.nama }}</p>
+              <p class="text-xs text-slate-500">{{ row.role || row.deskripsi || row.kode }}</p>
+            </div>
+            <span
+              class="rounded-full px-2 py-0.5 text-[11px] font-bold"
+              :class="(row.status || 'Aktif') === 'Aktif' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'"
+            >
+              {{ row.status || 'Aktif' }}
+            </span>
+          </div>
+          <div v-if="activeTab === 'Tenant'" class="mt-2 text-right">
+            <button class="text-xs font-bold text-blue-600" @click="openTenantDetail(row)">Buka Detail Tenant</button>
+          </div>
+        </article>
+      </div>
+
+      <div class="hidden overflow-x-auto sm:block">
         <table class="min-w-full text-left text-sm">
           <thead class="border-b border-slate-200 text-slate-500">
             <tr>
@@ -483,11 +586,11 @@ onMounted(async () => {
         </label>
 
         <label v-if="activeTab === 'Kategori'" class="block">
-          <span class="mb-1 block text-sm font-semibold text-slate-700">Jenis</span>
+          <span class="mb-1 block text-sm font-semibold text-slate-700">Model Kategori Operasional</span>
           <select v-model="form.categoryType" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
-            <option value="CONSUMABLE">Consumable</option>
-            <option value="GAS">Gas</option>
-            <option value="ASSET">Asset</option>
+            <option value="CONSUMABLE">Barang habis beli lagi</option>
+            <option value="GAS">Habis tapi isi ulang</option>
+            <option value="ASSET">Tidak habis tapi bisa rusak</option>
           </select>
         </label>
 
@@ -546,7 +649,26 @@ onMounted(async () => {
             <button class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700" @click="resetTenantUserForm">Reset</button>
             <button class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white" @click="addUserToTenant">{{ tenantUserForm.id ? 'Update User Tenant' : 'Tambah User Tenant' }}</button>
           </div>
-          <div class="mt-3 overflow-x-auto">
+          <div class="mt-3 space-y-2 sm:hidden">
+            <article v-for="u in tenantUsers" :key="`mu-${u.id}`" class="rounded-lg border border-slate-200 p-2 text-xs">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <p class="font-bold text-slate-900">{{ u.name }}</p>
+                  <p class="text-slate-500">{{ u.username }} - {{ u.role }}</p>
+                </div>
+                <span class="rounded-full px-2 py-0.5 font-bold" :class="u.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'">
+                  {{ u.isActive ? 'Aktif' : 'Nonaktif' }}
+                </span>
+              </div>
+              <p class="mt-1 text-slate-600">Jabatan: {{ u.jabatan || '-' }}</p>
+              <p class="text-slate-600">Mode: {{ u.canView ? (u.canEdit ? 'Bisa Edit' : 'Lihat Saja') : 'Tidak Bisa Akses' }}</p>
+              <p class="text-slate-600">Email: {{ u.email || '-' }}</p>
+              <div class="mt-2 text-right">
+                <button class="rounded border border-slate-200 px-2 py-1 font-semibold text-slate-700" @click="editTenantUser(u)">Edit</button>
+              </div>
+            </article>
+          </div>
+          <div class="mt-3 hidden overflow-x-auto sm:block">
             <table class="min-w-full text-left text-xs">
               <thead class="border-b border-slate-200 text-slate-500">
                 <tr>
@@ -588,7 +710,16 @@ onMounted(async () => {
               <button class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white" @click="addLocationToTenant">{{ tenantLocationForm.id ? 'Update Lokasi Tenant' : 'Tambah Lokasi Tenant' }}</button>
             </div>
           </div>
-          <div class="mt-3 overflow-x-auto">
+          <div class="mt-3 space-y-2 sm:hidden">
+            <article v-for="loc in tenantLocations" :key="`ml-${loc.id}`" class="rounded-lg border border-slate-200 p-2 text-xs">
+              <p class="font-bold text-slate-900">{{ loc.name }}</p>
+              <p class="mt-1 text-slate-600">{{ loc.description || '-' }}</p>
+              <div class="mt-2 text-right">
+                <button class="rounded border border-slate-200 px-2 py-1 font-semibold text-slate-700" @click="editTenantLocation(loc)">Edit</button>
+              </div>
+            </article>
+          </div>
+          <div class="mt-3 hidden overflow-x-auto sm:block">
             <table class="min-w-full text-left text-xs">
               <thead class="border-b border-slate-200 text-slate-500">
                 <tr>

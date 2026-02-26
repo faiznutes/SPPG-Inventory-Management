@@ -17,7 +17,7 @@ categoriesRouter.get('/', async (_req, res, next) => {
   }
 })
 
-categoriesRouter.post('/', requireRole(['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN']), async (req, res, next) => {
+categoriesRouter.post('/', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req, res, next) => {
   try {
     const body = createCategorySchema.parse(req.body)
     const data = await createCategory(req.user!.id, body)
@@ -27,7 +27,7 @@ categoriesRouter.post('/', requireRole(['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN'])
   }
 })
 
-categoriesRouter.patch('/:id', requireRole(['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN']), async (req, res, next) => {
+categoriesRouter.patch('/:id', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req, res, next) => {
   try {
     const body = updateCategorySchema.parse(req.body)
     const data = await updateCategory(req.user!.id, String(req.params.id), body)
@@ -37,7 +37,7 @@ categoriesRouter.patch('/:id', requireRole(['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMI
   }
 })
 
-categoriesRouter.delete('/:id', requireRole(['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN']), async (req, res, next) => {
+categoriesRouter.delete('/:id', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req, res, next) => {
   try {
     const data = await deleteCategory(req.user!.id, String(req.params.id))
     return res.json(data)

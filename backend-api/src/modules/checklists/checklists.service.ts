@@ -8,15 +8,15 @@ import { ApiError } from '../../utils/api-error.js'
 
 const DEFAULT_TEMPLATE_NAME = 'Checklist Harian Operasional'
 const DEFAULT_TEMPLATE_ITEMS = [
-  { title: 'Cek Gas', description: 'Pastikan gas cukup untuk operasional', sortOrder: 1 },
-  { title: 'Cek Stok Consumable Utama', description: 'Contoh: beras, minyak, sabun cuci (bisa berkurang)', sortOrder: 2 },
-  { title: 'Kondisi Asset Utama', description: 'Contoh: kompor, kulkas (isi kondisi dalam %)', sortOrder: 3 },
+  { title: 'Habis tapi isi ulang', description: 'Pastikan stok gas/isi ulang cukup untuk operasional.', sortOrder: 1 },
+  { title: 'Barang habis beli lagi', description: 'Contoh: beras, minyak, sabun cuci. Jika habis perlu beli lagi.', sortOrder: 2 },
+  { title: 'Tidak habis tapi bisa rusak', description: 'Contoh: kompor, kulkas. Isi kondisi dalam % untuk pemantauan.', sortOrder: 3 },
 ]
 
 function detectChecklistItemType(title: string) {
   const text = title.toLowerCase()
-  if (text.includes('asset') || text.includes('alat') || text.includes('kondisi')) return 'ASSET'
-  if (text.includes('gas')) return 'GAS'
+  if (text.includes('asset') || text.includes('alat') || text.includes('kondisi') || text.includes('rusak')) return 'ASSET'
+  if (text.includes('gas') || text.includes('isi ulang')) return 'GAS'
   return 'CONSUMABLE'
 }
 

@@ -41,9 +41,9 @@ function itemTypeBadgeClass(itemType) {
 }
 
 function itemTypeLabel(itemType) {
-  if (itemType === 'ASSET') return 'Asset'
-  if (itemType === 'GAS') return 'Gas'
-  return 'Consumable'
+  if (itemType === 'ASSET') return 'Tidak habis tapi bisa rusak'
+  if (itemType === 'GAS') return 'Habis tapi isi ulang'
+  return 'Barang habis beli lagi'
 }
 
 const tenantName = computed(() => authStore.user?.tenant?.name || authStore.tenantName || 'SPPG')
@@ -137,7 +137,7 @@ function exportPdfA4() {
           <thead>
             <tr>
               <th>Item</th>
-              <th>Jenis</th>
+              <th>Model Kategori</th>
               <th>Status</th>
               <th>Kondisi (%)</th>
               <th>Catatan</th>
@@ -151,15 +151,21 @@ function exportPdfA4() {
 
   const printWindow = window.open('', '_blank')
   if (!printWindow) return
+  let didClose = false
+  const closePrintWindow = () => {
+    if (didClose) return
+    didClose = true
+    printWindow.close()
+    window.focus()
+  }
+
+  printWindow.onafterprint = closePrintWindow
   printWindow.document.open()
   printWindow.document.write(html)
   printWindow.document.close()
   printWindow.focus()
   printWindow.print()
-  setTimeout(() => {
-    printWindow.close()
-    window.focus()
-  }, 400)
+  setTimeout(closePrintWindow, 700)
 }
 
 async function loadChecklist() {
@@ -192,6 +198,16 @@ function openConfirm(mode) {
 
 async function processChecklist() {
   try {
+    if (!runId.value) {
+      notifications.showPopup('Checklist belum siap', 'Muat ulang halaman lalu coba submit kembali.', 'error')
+      return
+    }
+
+    if (!items.value.length) {
+      notifications.showPopup('Checklist kosong', 'Tidak ada item checklist yang bisa disubmit.', 'error')
+      return
+    }
+
     const payloadItems = items.value.map((item) => {
       const parsedCondition = Number(item.conditionPercent)
       const hasValidCondition = Number.isFinite(parsedCondition) && parsedCondition >= 0 && parsedCondition <= 100
@@ -265,7 +281,7 @@ onMounted(async () => {
 
         <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
           <label v-if="item.itemType === 'ASSET'" class="sm:col-span-1">
-            <span class="mb-1 block text-xs font-semibold text-slate-600">Kondisi Asset (%)</span>
+            <span class="mb-1 block text-xs font-semibold text-slate-600">Kondisi Barang (%)</span>
             <input
               v-model.number="item.conditionPercent"
               type="number"
