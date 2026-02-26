@@ -17,7 +17,7 @@ locationsRouter.get('/', async (_req, res, next) => {
   }
 })
 
-locationsRouter.post('/', requireRole(['ADMIN']), async (req, res, next) => {
+locationsRouter.post('/', requireRole(['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN']), async (req, res, next) => {
   try {
     const body = createLocationSchema.parse(req.body)
     const data = await createLocation(body)

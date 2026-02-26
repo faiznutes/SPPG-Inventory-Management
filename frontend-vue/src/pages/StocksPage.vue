@@ -18,8 +18,27 @@ const activeType = ref('Semua')
 const search = ref('')
 const showAdjustModal = ref(false)
 const showCreateItemModal = ref(false)
+const showCategoryPicker = ref(false)
+const categorySearch = ref('')
+const categoryTypeFilter = ref('ALL')
 
 const canCreateProduct = computed(() => ['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN', 'WAREHOUSE'].includes(authStore.user?.role || ''))
+
+const selectedCategoryLabel = computed(() => {
+  if (!createItemForm.categoryId) return 'Tanpa kategori'
+  const found = categories.value.find((row) => row.id === createItemForm.categoryId)
+  if (!found) return 'Tanpa kategori'
+  return `${categoryDisplayName(found.name)} (${typeMap[found.type] || found.type})`
+})
+
+const filteredCategories = computed(() => {
+  const q = categorySearch.value.trim().toLowerCase()
+  return categories.value.filter((row) => {
+    const passType = categoryTypeFilter.value === 'ALL' || row.type === categoryTypeFilter.value
+    const passSearch = !q || categoryDisplayName(row.name).toLowerCase().includes(q)
+    return passType && passSearch
+  })
+})
 
 const adjustForm = reactive({
   itemId: '',
@@ -66,6 +85,22 @@ function statusClass(status) {
 
 function categoryDisplayName(name) {
   return String(name || '').replace(/^(CONSUMABLE|GAS|ASSET)\s-\s/i, '')
+}
+
+function openCategoryPicker() {
+  categorySearch.value = ''
+  categoryTypeFilter.value = createItemForm.type || 'ALL'
+  showCategoryPicker.value = true
+}
+
+function chooseCategory(category) {
+  createItemForm.categoryId = category.id
+  createItemForm.type = category.type || createItemForm.type
+  showCategoryPicker.value = false
+}
+
+function clearCategory() {
+  createItemForm.categoryId = ''
 }
 
 async function loadData() {
@@ -301,10 +336,12 @@ onMounted(async () => {
 
         <label class="block">
           <span class="mb-1 block text-sm font-semibold text-slate-700">Kategori</span>
-          <select v-model="createItemForm.categoryId" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
-            <option value="">Tanpa kategori</option>
-            <option v-for="category in categories" :key="category.id" :value="category.id">{{ categoryDisplayName(category.name) }}</option>
-          </select>
+          <div class="flex gap-2">
+            <button type="button" class="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-left text-sm" @click="openCategoryPicker">
+              {{ selectedCategoryLabel }}
+            </button>
+            <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700" @click="clearCategory">Reset</button>
+          </div>
         </label>
 
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -340,6 +377,35 @@ onMounted(async () => {
           <button type="submit" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white">Simpan Produk</button>
         </div>
       </form>
+    </BaseModal>
+
+    <BaseModal :show="showCategoryPicker" title="Pilih Kategori" max-width-class="max-w-xl" @close="showCategoryPicker = false">
+      <div class="space-y-3">
+        <input v-model="categorySearch" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Cari kategori..." />
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="type in ['ALL', 'CONSUMABLE', 'GAS', 'ASSET']"
+            :key="type"
+            class="rounded-lg px-2.5 py-1.5 text-xs font-bold"
+            :class="categoryTypeFilter === type ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'border border-slate-200 text-slate-600'"
+            @click="categoryTypeFilter = type"
+          >
+            {{ type === 'ALL' ? 'Semua' : typeMap[type] }}
+          </button>
+        </div>
+        <div class="max-h-72 overflow-auto rounded-lg border border-slate-200">
+          <button
+            v-for="category in filteredCategories"
+            :key="category.id"
+            type="button"
+            class="flex w-full items-center justify-between border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-slate-50"
+            @click="chooseCategory(category)"
+          >
+            <span class="font-semibold text-slate-800">{{ categoryDisplayName(category.name) }}</span>
+            <span class="text-xs font-bold text-slate-500">{{ typeMap[category.type] || category.type }}</span>
+          </button>
+        </div>
+      </div>
     </BaseModal>
   </div>
 </template>

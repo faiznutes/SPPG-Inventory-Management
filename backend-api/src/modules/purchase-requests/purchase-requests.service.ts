@@ -3,6 +3,8 @@ import type { PurchaseRequestStatus as PurchaseRequestStatusType } from '@prisma
 import { prisma } from '../../lib/prisma.js'
 import { ApiError } from '../../utils/api-error.js'
 
+type TxClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+
 type CreatePurchaseRequestInput = {
   notes?: string
   items: Array<{
@@ -176,42 +178,88 @@ export async function updatePurchaseRequestStatus(
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.purchaseRequest.update({
-      where: { id },
-      data: {
-        status,
-        approvedBy:
-          status === PurchaseRequestStatus.APPROVED || status === PurchaseRequestStatus.RECEIVED
-            ? userId
-            : existing.approvedBy,
-      },
-    })
-
-    await tx.purchaseRequestStatusHistory.create({
-      data: {
-        purchaseRequestId: id,
-        status,
-        notes,
-        changedBy: userId,
-      },
-    })
-
-    await tx.auditLog.create({
-      data: {
-        actorUserId: userId,
-        entityType: 'purchase_requests',
-        entityId: id,
-        action: 'STATUS_UPDATE',
-        diffJson: {
-          status,
-          notes,
-        },
-      },
-    })
+    await applyStatusUpdate(tx, existing.id, existing.approvedBy, userId, status, notes)
   })
 
   return {
     code: 'PR_STATUS_UPDATED',
     message: 'Status purchase request berhasil diperbarui.',
+  }
+}
+
+async function applyStatusUpdate(
+  tx: TxClient,
+  id: string,
+  currentApprovedBy: string | null,
+  userId: string,
+  status: PurchaseRequestStatusType,
+  notes?: string,
+) {
+  await tx.purchaseRequest.update({
+    where: { id },
+    data: {
+      status,
+      approvedBy:
+        status === PurchaseRequestStatus.APPROVED || status === PurchaseRequestStatus.RECEIVED
+          ? userId
+          : currentApprovedBy,
+    },
+  })
+
+  await tx.purchaseRequestStatusHistory.create({
+    data: {
+      purchaseRequestId: id,
+      status,
+      notes,
+      changedBy: userId,
+    },
+  })
+
+  await tx.auditLog.create({
+    data: {
+      actorUserId: userId,
+      entityType: 'purchase_requests',
+      entityId: id,
+      action: 'STATUS_UPDATE',
+      diffJson: {
+        status,
+        notes,
+      },
+    },
+  })
+}
+
+export async function bulkUpdatePurchaseRequestStatus(
+  ids: string[],
+  userId: string,
+  status: PurchaseRequestStatusType,
+  notes?: string,
+) {
+  const existing = await prisma.purchaseRequest.findMany({
+    where: {
+      id: {
+        in: ids,
+      },
+    },
+    select: {
+      id: true,
+      approvedBy: true,
+    },
+  })
+
+  if (!existing.length) {
+    throw new ApiError(404, 'PR_NOT_FOUND', 'Purchase request tidak ditemukan.')
+  }
+
+  await prisma.$transaction(async (tx) => {
+    for (const row of existing) {
+      await applyStatusUpdate(tx, row.id, row.approvedBy, userId, status, notes)
+    }
+  })
+
+  return {
+    code: 'PR_BULK_STATUS_UPDATED',
+    message: `${existing.length} purchase request berhasil diperbarui.`,
+    count: existing.length,
   }
 }

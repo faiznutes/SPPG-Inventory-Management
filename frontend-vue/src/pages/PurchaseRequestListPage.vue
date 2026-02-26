@@ -15,12 +15,14 @@ const rows = ref([])
 const isLoading = ref(false)
 const activeStatus = ref('Semua')
 const showCreateModal = ref(false)
+const showBulkModal = ref(false)
+const selectedIds = ref([])
+const bulkStatus = ref('SUBMITTED')
+const bulkNotes = ref('')
 
 const form = reactive({
-  itemName: '',
-  qty: '',
-  unitPrice: '',
   notes: '',
+  items: [{ itemName: '', qty: '', unitPrice: '' }],
 })
 
 const statusMap = {
@@ -62,21 +64,26 @@ async function loadRows() {
 
 async function submitCreatePr() {
   try {
+    const normalizedItems = form.items
+      .map((item) => ({
+        itemName: item.itemName.trim(),
+        qty: Number(item.qty),
+        unitPrice: Number(item.unitPrice),
+      }))
+      .filter((item) => item.itemName && item.qty > 0)
+
+    if (!normalizedItems.length) {
+      notifications.showPopup('Item PR kosong', 'Tambahkan minimal 1 item valid.', 'error')
+      return
+    }
+
     await api.createPurchaseRequest(authStore.accessToken, {
       notes: form.notes,
-      items: [
-        {
-          itemName: form.itemName,
-          qty: Number(form.qty),
-          unitPrice: Number(form.unitPrice),
-        },
-      ],
+      items: normalizedItems,
     })
 
     showCreateModal.value = false
-    form.itemName = ''
-    form.qty = ''
-    form.unitPrice = ''
+    form.items = [{ itemName: '', qty: '', unitPrice: '' }]
     form.notes = ''
     notifications.addNotification('PR dibuat', 'Permintaan pembelian baru berhasil dibuat.')
     notifications.showPopup('PR baru tersimpan', 'Permintaan pembelian berhasil dibuat.', 'success')
@@ -84,6 +91,49 @@ async function submitCreatePr() {
   } catch (error) {
     notifications.showPopup('Gagal simpan PR', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
+}
+
+function toggleRowSelection(id) {
+  if (selectedIds.value.includes(id)) {
+    selectedIds.value = selectedIds.value.filter((rowId) => rowId !== id)
+    return
+  }
+  selectedIds.value.push(id)
+}
+
+function openBulkModal() {
+  if (!selectedIds.value.length) {
+    notifications.showPopup('Belum ada pilihan', 'Pilih minimal 1 PR untuk aksi bulk.', 'error')
+    return
+  }
+  bulkStatus.value = 'SUBMITTED'
+  bulkNotes.value = ''
+  showBulkModal.value = true
+}
+
+async function submitBulkStatus() {
+  try {
+    await api.bulkUpdatePurchaseRequestStatus(authStore.accessToken, {
+      ids: selectedIds.value,
+      status: bulkStatus.value,
+      notes: bulkNotes.value || undefined,
+    })
+    showBulkModal.value = false
+    notifications.showPopup('Bulk berhasil', 'Status PR terpilih berhasil diperbarui.', 'success')
+    selectedIds.value = []
+    await loadRows()
+  } catch (error) {
+    notifications.showPopup('Bulk gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+  }
+}
+
+function addItemRow() {
+  form.items.push({ itemName: '', qty: '', unitPrice: '' })
+}
+
+function removeItemRow(index) {
+  if (form.items.length === 1) return
+  form.items.splice(index, 1)
 }
 
 onMounted(async () => {
@@ -97,6 +147,9 @@ onMounted(async () => {
       <template #actions>
         <button class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white" @click="showCreateModal = true">
           Buat PR Baru
+        </button>
+        <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="openBulkModal">
+          Bulk Status
         </button>
       </template>
     </PageHeader>
@@ -124,11 +177,12 @@ onMounted(async () => {
               <th class="px-3 py-3 text-right font-semibold">Total</th>
               <th class="px-3 py-3 text-center font-semibold">Status</th>
               <th class="px-3 py-3 text-right font-semibold">Aksi</th>
+              <th class="px-3 py-3 text-center font-semibold">Pilih</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="isLoading">
-              <td class="px-3 py-3 text-slate-500" colspan="6">Memuat data PR...</td>
+              <td class="px-3 py-3 text-slate-500" colspan="7">Memuat data PR...</td>
             </tr>
 
             <tr v-for="row in filteredRows" :key="row.id" class="border-b border-slate-100">
@@ -144,6 +198,9 @@ onMounted(async () => {
                   Lihat Detail
                 </RouterLink>
               </td>
+              <td class="px-3 py-3 text-center">
+                <input :checked="selectedIds.includes(row.id)" type="checkbox" @change="toggleRowSelection(row.id)" />
+              </td>
             </tr>
           </tbody>
         </table>
@@ -152,19 +209,28 @@ onMounted(async () => {
 
     <BaseModal :show="showCreateModal" title="Buat Permintaan Pembelian" @close="showCreateModal = false">
       <form class="space-y-3" @submit.prevent="submitCreatePr">
-        <label class="block">
-          <span class="mb-1 block text-sm font-semibold text-slate-700">Nama Item</span>
-          <input v-model="form.itemName" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Masukkan item" required />
-        </label>
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <label class="block">
-            <span class="mb-1 block text-sm font-semibold text-slate-700">Qty</span>
-            <input v-model="form.qty" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Jumlah" required />
-          </label>
-          <label class="block">
-            <span class="mb-1 block text-sm font-semibold text-slate-700">Harga Estimasi</span>
-            <input v-model="form.unitPrice" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Rp" required />
-          </label>
+        <div class="space-y-2">
+          <div v-for="(item, idx) in form.items" :key="idx" class="rounded-lg border border-slate-200 p-3">
+            <div class="mb-2 flex items-center justify-between">
+              <p class="text-xs font-bold text-slate-500">Item {{ idx + 1 }}</p>
+              <button type="button" class="text-xs font-bold text-rose-600" @click="removeItemRow(idx)">Hapus</button>
+            </div>
+            <label class="block">
+              <span class="mb-1 block text-sm font-semibold text-slate-700">Nama Item</span>
+              <input v-model="item.itemName" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Masukkan item" required />
+            </label>
+            <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label class="block">
+                <span class="mb-1 block text-sm font-semibold text-slate-700">Qty</span>
+                <input v-model="item.qty" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Jumlah" required />
+              </label>
+              <label class="block">
+                <span class="mb-1 block text-sm font-semibold text-slate-700">Harga Estimasi</span>
+                <input v-model="item.unitPrice" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Rp" required />
+              </label>
+            </div>
+          </div>
+          <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700" @click="addItemRow">+ Tambah Baris Item</button>
         </div>
         <label class="block">
           <span class="mb-1 block text-sm font-semibold text-slate-700">Catatan</span>
@@ -174,6 +240,30 @@ onMounted(async () => {
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="showCreateModal = false">Batal</button>
           <button type="submit" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white">Simpan PR</button>
+        </div>
+      </form>
+    </BaseModal>
+
+    <BaseModal :show="showBulkModal" title="Bulk Status PR" @close="showBulkModal = false">
+      <form class="space-y-3" @submit.prevent="submitBulkStatus">
+        <p class="text-sm text-slate-600">Dipilih: <span class="font-bold">{{ selectedIds.length }}</span> PR</p>
+        <label class="block">
+          <span class="mb-1 block text-sm font-semibold text-slate-700">Status Baru</span>
+          <select v-model="bulkStatus" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+            <option value="DRAFT">Draf</option>
+            <option value="SUBMITTED">Diajukan</option>
+            <option value="APPROVED">Disetujui</option>
+            <option value="REJECTED">Ditolak</option>
+            <option value="RECEIVED">Diterima</option>
+          </select>
+        </label>
+        <label class="block">
+          <span class="mb-1 block text-sm font-semibold text-slate-700">Catatan</span>
+          <textarea v-model="bulkNotes" class="min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Catatan bulk opsional" />
+        </label>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="showBulkModal = false">Batal</button>
+          <button type="submit" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white">Terapkan Bulk</button>
         </div>
       </form>
     </BaseModal>

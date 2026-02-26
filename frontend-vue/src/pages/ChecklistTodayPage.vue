@@ -60,6 +60,88 @@ function toApiResult(label) {
   return 'NA'
 }
 
+function exportCsv() {
+  const headers = ['Tanggal', 'Template', 'Item', 'Jenis', 'Status', 'Kondisi(%)', 'Catatan']
+  const today = new Date().toLocaleDateString('id-ID')
+  const lines = items.value.map((item) => [
+    today,
+    templateName.value,
+    item.title,
+    itemTypeLabel(item.itemType),
+    item.label,
+    item.itemType === 'ASSET' ? String(item.conditionPercent ?? '') : '-',
+    (item.notes || '').replaceAll('\n', ' '),
+  ])
+
+  const csv = [headers, ...lines]
+    .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
+    .join('\n')
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `checklist-${new Date().toISOString().slice(0, 10)}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function exportPdfA4() {
+  const rowsHtml = items.value
+    .map(
+      (item) => `
+        <tr>
+          <td>${item.title}</td>
+          <td>${itemTypeLabel(item.itemType)}</td>
+          <td>${item.label}</td>
+          <td>${item.itemType === 'ASSET' ? (item.conditionPercent ?? '-') : '-'}</td>
+          <td>${item.notes || '-'}</td>
+        </tr>`,
+    )
+    .join('')
+
+  const html = `
+    <html>
+      <head>
+        <title>Checklist Harian</title>
+        <style>
+          @page { size: A4; margin: 14mm; }
+          body { font-family: Arial, sans-serif; font-size: 12px; color: #0f172a; }
+          h1 { font-size: 18px; margin: 0 0 4px; }
+          p { margin: 0 0 8px; color: #475569; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th, td { border: 1px solid #cbd5e1; padding: 6px; text-align: left; vertical-align: top; }
+          th { background: #f8fafc; }
+        </style>
+      </head>
+      <body>
+        <h1>${templateName.value}</h1>
+        <p>Tanggal: ${new Date().toLocaleDateString('id-ID')}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Jenis</th>
+              <th>Status</th>
+              <th>Kondisi (%)</th>
+              <th>Catatan</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </body>
+    </html>
+  `
+
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) return
+  printWindow.document.open()
+  printWindow.document.write(html)
+  printWindow.document.close()
+  printWindow.focus()
+  printWindow.print()
+}
+
 async function loadChecklist() {
   if (!authStore.accessToken) return
 
@@ -118,6 +200,12 @@ onMounted(async () => {
 <template>
   <div class="space-y-5">
     <PageHeader title="Checklist Hari Ini" :subtitle="subtitle" />
+    <section class="rounded-xl border border-slate-200 bg-white p-3">
+      <div class="flex flex-wrap justify-end gap-2">
+        <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="exportCsv">Export CSV</button>
+        <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="exportPdfA4">Export PDF A4</button>
+      </div>
+    </section>
 
     <section class="space-y-3">
       <article v-if="isLoading" class="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">

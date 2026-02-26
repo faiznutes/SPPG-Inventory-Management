@@ -9,7 +9,7 @@ export const submitChecklistSchema = z.object({
       id: z.string().uuid(),
       result: z.nativeEnum(ChecklistResult),
       notes: z.string().optional(),
-      conditionPercent: z.number().min(0).max(100).optional(),
+      conditionPercent: z.number().min(0).max(100).nullable().optional(),
     }),
   ),
 })

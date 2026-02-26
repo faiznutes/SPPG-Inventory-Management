@@ -150,6 +150,37 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  listTenants: (accessToken) =>
+    request('/tenants', {
+      headers: authHeader(accessToken),
+    }),
+
+  createTenant: (accessToken, body) =>
+    request('/tenants', {
+      method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
+
+  getTenantDetail: (accessToken, tenantId) =>
+    request(`/tenants/${tenantId}`, {
+      headers: authHeader(accessToken),
+    }),
+
+  addTenantUser: (accessToken, tenantId, body) =>
+    request(`/tenants/${tenantId}/users`, {
+      method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
+
+  addTenantLocation: (accessToken, tenantId, body) =>
+    request(`/tenants/${tenantId}/locations`, {
+      method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
+
   listLocations: (accessToken) =>
     request('/locations', {
       headers: authHeader(accessToken),
@@ -247,6 +278,13 @@ export const api = {
 
   updatePurchaseRequestStatus: (accessToken, id, body) =>
     request(`/purchase-requests/${id}/status`, {
+      method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
+
+  bulkUpdatePurchaseRequestStatus: (accessToken, body) =>
+    request('/purchase-requests/bulk/status', {
       method: 'POST',
       headers: authHeader(accessToken),
       body: JSON.stringify(body),

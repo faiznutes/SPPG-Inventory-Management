@@ -19,3 +19,9 @@ export const updatePurchaseRequestStatusSchema = z.object({
   status: z.nativeEnum(PurchaseRequestStatus),
   notes: z.string().optional(),
 })
+
+export const bulkUpdatePurchaseRequestStatusSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1),
+  status: z.nativeEnum(PurchaseRequestStatus),
+  notes: z.string().optional(),
+})

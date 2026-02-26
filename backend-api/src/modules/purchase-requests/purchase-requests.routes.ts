@@ -1,10 +1,12 @@
 import { Router } from 'express'
 import { requireAuth } from '../../middleware/auth.js'
 import {
+  bulkUpdatePurchaseRequestStatusSchema,
   createPurchaseRequestSchema,
   updatePurchaseRequestStatusSchema,
 } from './purchase-requests.schema.js'
 import {
+  bulkUpdatePurchaseRequestStatus,
   createPurchaseRequest,
   getPurchaseRequestDetail,
   listPurchaseRequests,
@@ -37,6 +39,16 @@ purchaseRequestsRouter.post('/', async (req, res, next) => {
 purchaseRequestsRouter.get('/:id', async (req, res, next) => {
   try {
     const data = await getPurchaseRequestDetail(req.params.id)
+    return res.json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+purchaseRequestsRouter.post('/bulk/status', async (req, res, next) => {
+  try {
+    const body = bulkUpdatePurchaseRequestStatusSchema.parse(req.body)
+    const data = await bulkUpdatePurchaseRequestStatus(body.ids, req.user!.id, body.status, body.notes)
     return res.json(data)
   } catch (error) {
     return next(error)

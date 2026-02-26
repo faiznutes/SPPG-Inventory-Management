@@ -196,7 +196,7 @@ type SubmitChecklistInput = {
     id: string
     result: ChecklistResultType
     notes?: string
-    conditionPercent?: number
+    conditionPercent?: number | null
   }>
 }
 
