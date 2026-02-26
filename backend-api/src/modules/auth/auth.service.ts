@@ -16,29 +16,43 @@ type LoginInput = {
 }
 
 async function getDefaultTenantContext(userId: string) {
-  const membership = await prisma.tenantMembership.findFirst({
-    where: {
-      userId,
-      tenant: {
-        isActive: true,
-      },
-    },
-    include: {
-      tenant: {
-        select: {
-          id: true,
-          name: true,
-          code: true,
+  try {
+    const membership = await prisma.tenantMembership.findFirst({
+      where: {
+        userId,
+        tenant: {
+          isActive: true,
         },
       },
-    },
-    orderBy: [
-      { isDefault: 'desc' },
-      { createdAt: 'asc' },
-    ],
-  })
+      include: {
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+      },
+      orderBy: [
+        { isDefault: 'desc' },
+        { createdAt: 'asc' },
+      ],
+    })
 
-  return membership?.tenant || null
+    return (
+      membership?.tenant || {
+        id: 'tenant-default',
+        name: 'SPPG Tambak Wedi',
+        code: 'sppg-tambak-wedi',
+      }
+    )
+  } catch {
+    return {
+      id: 'tenant-default',
+      name: 'SPPG Tambak Wedi',
+      code: 'sppg-tambak-wedi',
+    }
+  }
 }
 
 function getRefreshExpiryDate() {
