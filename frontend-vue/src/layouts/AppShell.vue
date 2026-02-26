@@ -188,6 +188,7 @@ onMounted(async () => {
       :title="notifications.toast.title"
       :message="notifications.toast.message"
       :variant="notifications.toast.variant"
+      @close="notifications.closePopup"
     />
   </div>
 </template>

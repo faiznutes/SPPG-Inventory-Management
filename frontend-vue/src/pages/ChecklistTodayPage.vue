@@ -211,7 +211,6 @@ async function processChecklist() {
     })
 
     showConfirmModal.value = false
-    notifications.addNotification('Checklist disimpan', 'Checklist harian berhasil diperbarui.')
     notifications.showPopup('Checklist tersimpan', 'Checklist harian berhasil disimpan.', 'success')
     await loadChecklist()
   } catch (error) {

@@ -68,21 +68,23 @@ export const useNotificationsStore = defineStore('notifications', {
       clearTimeout(toastTimeoutId)
       toastTimeoutId = setTimeout(() => {
         this.toast.show = false
-      }, 2500)
+      }, 3200)
     },
     closePopup() {
       this.toast.show = false
       clearTimeout(toastTimeoutId)
     },
-    addNotification(title, message) {
+    addNotification(title, message, variant = 'info') {
       this.items.unshift({
         id: Date.now(),
         title,
         message,
         time: new Date().toISOString(),
         relativeTime: 'Baru saja',
-        type: 'info',
+        type: variant,
       })
+
+      this.showPopup(title, message, variant)
     },
   },
 })

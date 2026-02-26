@@ -12,7 +12,9 @@ const authStore = useAuthStore()
 const rows = ref([])
 const isLoading = ref(false)
 const showCreateModal = ref(false)
+const showDeleteModal = ref(false)
 const editId = ref('')
+const deleteTarget = ref(null)
 const form = reactive({
   name: '',
   type: 'CONSUMABLE',
@@ -104,12 +106,18 @@ function closeModal() {
 async function removeCategory(row) {
   if (!canManageCategories.value) return
 
-  const ok = window.confirm(`Hapus kategori ${row.name}?`)
-  if (!ok) return
+  deleteTarget.value = row
+  showDeleteModal.value = true
+}
+
+async function confirmDeleteCategory() {
+  if (!deleteTarget.value) return
 
   try {
-    await api.deleteCategory(authStore.accessToken, row.id)
+    await api.deleteCategory(authStore.accessToken, deleteTarget.value.id)
     notifications.showPopup('Kategori dihapus', 'Kategori berhasil dihapus.', 'success')
+    showDeleteModal.value = false
+    deleteTarget.value = null
     await loadCategories()
   } catch (error) {
     notifications.showPopup('Gagal hapus kategori', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
@@ -219,6 +227,18 @@ onMounted(async () => {
           <button type="submit" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white">Simpan</button>
         </div>
       </form>
+    </BaseModal>
+
+    <BaseModal :show="showDeleteModal" title="Hapus Kategori" max-width-class="max-w-md" @close="showDeleteModal = false">
+      <p class="text-sm text-slate-600">
+        Hapus kategori
+        <span class="font-bold text-slate-900">{{ deleteTarget?.name }}</span>
+        ? Tindakan ini tidak bisa dibatalkan.
+      </p>
+      <div class="mt-4 flex justify-end gap-2">
+        <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="showDeleteModal = false">Batal</button>
+        <button class="rounded-lg bg-rose-600 px-3 py-2 text-sm font-bold text-white" @click="confirmDeleteCategory">Hapus</button>
+      </div>
     </BaseModal>
   </div>
 </template>

@@ -107,7 +107,6 @@ async function submitTransaction() {
     })
 
     showActionModal.value = false
-    notifications.addNotification('Transaksi tersimpan', `Transaksi ${action.value} berhasil dibuat.`)
     notifications.showPopup('Transaksi berhasil', `Transaksi ${action.value} berhasil disimpan.`, 'success')
     await loadData()
   } catch (error) {

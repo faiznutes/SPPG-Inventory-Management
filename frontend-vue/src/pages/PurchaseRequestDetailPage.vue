@@ -63,7 +63,6 @@ async function submitAction() {
     })
 
     showActionModal.value = false
-    notifications.addNotification('Status PR berubah', `PR ${detail.value?.prNumber || route.params.id} diperbarui.`)
     notifications.showPopup('Status diperbarui', 'Status PR berhasil diperbarui.', 'success')
     await loadDetail()
   } catch (error) {

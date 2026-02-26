@@ -208,7 +208,6 @@ async function submitAdjustStock() {
     adjustForm.locationId = ''
     adjustForm.qty = ''
     adjustForm.reason = ''
-    notifications.addNotification('Penyesuaian stok', 'Perubahan stok berhasil disimpan.')
     notifications.showPopup('Stok diperbarui', 'Penyesuaian stok berhasil diproses.', 'success')
     await loadData()
   } catch (error) {

@@ -222,7 +222,6 @@ async function saveData() {
     }
 
     showInputModal.value = false
-    notifications.addNotification('Pengaturan diperbarui', `${activeTab.value} berhasil diperbarui.`)
     notifications.showPopup('Data tersimpan', `${activeTab.value} berhasil disimpan.`, 'success')
     resetForm()
     await loadData()

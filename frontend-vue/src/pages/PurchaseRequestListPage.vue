@@ -94,7 +94,6 @@ async function submitCreatePr() {
     showCreateModal.value = false
     form.items = [{ itemName: '', qty: '', unitPrice: '' }]
     form.notes = ''
-    notifications.addNotification('PR dibuat', 'Permintaan pembelian baru berhasil dibuat.')
     notifications.showPopup('PR baru tersimpan', 'Permintaan pembelian berhasil dibuat.', 'success')
     await loadRows()
   } catch (error) {
