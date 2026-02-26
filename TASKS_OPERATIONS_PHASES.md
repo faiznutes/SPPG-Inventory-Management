@@ -10,9 +10,10 @@ Terakhir diperbarui: 2026-02-26 (siang)
 | 2 | Baseline limit resource container per project | 0.5 hari | DONE |
 | 3 | Mode headless server + rollback mudah | 0.5 hari | DONE |
 | 4 | Maintenance otomatis build cache Docker | 0.25 hari | DONE |
-| 5 | Hardening network port exposure | 0.5 hari | TODO |
+| 5 | Hardening network port exposure | 0.5 hari | DONE |
 | 6 | Backup/restore drill database berkala | 0.5 hari | TODO |
 | 7 | Monitoring + alert ringan | 0.5 hari | TODO |
+| 8 | Incident handling hipam-id unavailable | 0.25 hari | DONE |
 
 ## Checklist
 
@@ -32,9 +33,9 @@ Terakhir diperbarui: 2026-02-26 (siang)
 ### Phase 4 (DONE)
 - [x] Buat timer cleanup build cache docker setiap 14 hari
 
-### Phase 5 (TODO)
-- [ ] Batasi port direct host (`3000`, `3001`, `5432`, `3307`, `8082`, `8088`) sesuai kebutuhan LAN
-- [ ] Definisikan allowlist subnet dan fallback akses admin
+### Phase 5 (DONE)
+- [x] Batasi port direct host (`3000`, `3001`, `5432`, `3307`, `8082`, `8088`) hanya untuk LAN `192.168.1.0/24` + localhost
+- [x] Pasang timer `docker-port-guard.timer` agar rule tetap konsisten
 
 ### Phase 6 (TODO)
 - [ ] Tambah backup harian DB (minimal dump PostgreSQL app)
@@ -43,3 +44,9 @@ Terakhir diperbarui: 2026-02-26 (siang)
 ### Phase 7 (TODO)
 - [ ] Tambah healthcheck script periodik endpoint kritikal
 - [ ] Tambah notifikasi gagal deploy/health (Telegram/WhatsApp/webhook)
+
+### Phase 8 (DONE)
+- [x] Cek insiden `hipam-id.com` menampilkan `no available server`
+- [x] Temukan akar masalah: `hipam-db` container sempat stop (status exited), aplikasi jadi HTTP 500 dan health turun
+- [x] Perbaikan: start ulang `hipam-db`, verifikasi app kembali 200 internal/public, status Coolify kembali `running:healthy`
+- [x] Catat bahwa limit memory bukan pemicu OOM langsung (OOMKilled=false), tetap monitor restart/exit code DB

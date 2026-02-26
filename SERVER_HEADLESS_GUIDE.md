@@ -102,3 +102,28 @@ systemctl is-enabled cloudflared.service
 systemctl is-active cloudflared.service
 docker ps --format '{{.Names}}' | grep -E 'tunnel|quicktunnel'
 ```
+
+## Guard Port Docker (LAN Only)
+
+Untuk mengurangi risiko overexposure, port direct container berikut dibatasi hanya untuk LAN `192.168.1.0/24` dan localhost:
+
+- `3000`, `3001`, `5432`, `3307`, `8082`, `8088`
+
+Implementasi:
+
+- Script: `/usr/local/sbin/apply-docker-port-guard.sh`
+- Service: `/etc/systemd/system/docker-port-guard.service`
+- Timer: `/etc/systemd/system/docker-port-guard.timer`
+
+Cek status:
+
+```bash
+systemctl status docker-port-guard.timer
+iptables -S DOCKER-USER
+```
+
+Jalankan manual:
+
+```bash
+systemctl start docker-port-guard.service
+```
