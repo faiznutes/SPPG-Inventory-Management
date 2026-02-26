@@ -9,16 +9,36 @@ import { ApiError } from '../../utils/api-error.js'
 
 const DEFAULT_TEMPLATE_NAME = 'Checklist Harian Operasional'
 const DEFAULT_TEMPLATE_ITEMS = [
-  { title: 'Habis tapi isi ulang', description: 'Pastikan stok gas/isi ulang cukup untuk operasional.', sortOrder: 1 },
-  { title: 'Barang habis beli lagi', description: 'Contoh: beras, minyak, sabun cuci. Jika habis perlu beli lagi.', sortOrder: 2 },
-  { title: 'Tidak habis tapi bisa rusak', description: 'Contoh: kompor, kulkas. Isi kondisi dalam % untuk pemantauan.', sortOrder: 3 },
+  { title: 'Barang habis beli lagi', itemType: 'CONSUMABLE' as const },
+  { title: 'Habis tapi isi ulang', itemType: 'GAS' as const },
+  { title: 'Tidak habis tapi bisa rusak', itemType: 'ASSET' as const },
 ]
+const ITEM_TITLE_DELIMITER = '::'
 
-function detectChecklistItemType(title: string) {
+function detectChecklistItemType(title: string): 'ASSET' | 'GAS' | 'CONSUMABLE' {
   const text = title.toLowerCase()
   if (text.includes('asset') || text.includes('alat') || text.includes('kondisi') || text.includes('rusak')) return 'ASSET'
   if (text.includes('gas') || text.includes('isi ulang')) return 'GAS'
   return 'CONSUMABLE'
+}
+
+function encodeChecklistTitle(itemType: 'ASSET' | 'GAS' | 'CONSUMABLE', title: string) {
+  return `${itemType}${ITEM_TITLE_DELIMITER}${title.trim()}`
+}
+
+function decodeChecklistTitle(rawTitle: string): { itemType: 'ASSET' | 'GAS' | 'CONSUMABLE'; title: string } {
+  const [head, ...rest] = rawTitle.split(ITEM_TITLE_DELIMITER)
+  if (rest.length > 0 && ['ASSET', 'GAS', 'CONSUMABLE'].includes(head)) {
+    return {
+      itemType: head as 'ASSET' | 'GAS' | 'CONSUMABLE',
+      title: rest.join(ITEM_TITLE_DELIMITER).trim(),
+    }
+  }
+
+  return {
+    itemType: detectChecklistItemType(rawTitle),
+    title: rawTitle,
+  }
 }
 
 function extractConditionPercent(notes?: string | null) {
@@ -43,9 +63,10 @@ function resultFromCondition(conditionPercent: number) {
   return ChecklistResult.OUT
 }
 
-function needsRunItemUpgrade(runItems: Array<{ title: string }>) {
+function needsRunItemUpgrade(runItems: Array<{ title: string }>, expectedTitles: string[]) {
   const titles = new Set(runItems.map((item) => item.title))
-  return DEFAULT_TEMPLATE_ITEMS.some((item) => !titles.has(item.title))
+  if (runItems.length !== expectedTitles.length) return true
+  return expectedTitles.some((title) => !titles.has(title))
 }
 
 function toDateOnly(date: Date) {
@@ -159,60 +180,50 @@ async function sendTelegramChecklistPdf(input: {
   }
 }
 
-async function ensureDefaultTemplate(userId: string) {
+async function ensureDefaultTemplate(userId: string, tenantCode?: string) {
+  const templateName = tenantCode ? `${DEFAULT_TEMPLATE_NAME} - ${tenantCode}` : DEFAULT_TEMPLATE_NAME
   const existing = await prisma.checklistTemplate.findFirst({
-    where: { name: DEFAULT_TEMPLATE_NAME },
+    where: { name: templateName },
     include: { items: true },
   })
 
-  if (existing) {
-    const existingTitles = new Set(existing.items.map((item) => item.title))
-    const isLegacyTemplate = DEFAULT_TEMPLATE_ITEMS.some((item) => !existingTitles.has(item.title))
-
-    if (!isLegacyTemplate) return existing
-
-    await prisma.$transaction(async (tx) => {
-      await tx.checklistTemplateItem.deleteMany({
-        where: {
-          templateId: existing.id,
-        },
-      })
-
-      await tx.checklistTemplateItem.createMany({
-        data: DEFAULT_TEMPLATE_ITEMS.map((item) => ({
-          templateId: existing.id,
-          title: item.title,
-          description: item.description,
-          sortOrder: item.sortOrder,
-        })),
-      })
-    })
-
-    const refreshed = await prisma.checklistTemplate.findUnique({
-      where: { id: existing.id },
-      include: { items: true },
-    })
-
-    if (refreshed) return refreshed
-    return existing
-  }
+  if (existing) return existing
 
   return prisma.checklistTemplate.create({
     data: {
-      name: DEFAULT_TEMPLATE_NAME,
+      name: templateName,
       schedule: ChecklistSchedule.DAILY,
       createdBy: userId,
-      items: {
-        create: DEFAULT_TEMPLATE_ITEMS,
-      },
     },
     include: { items: true },
   })
 }
 
-export async function getTodayChecklist(userId: string) {
-  const template = await ensureDefaultTemplate(userId)
+export async function getTodayChecklist(userId: string, tenantId?: string) {
+  const tenant = tenantId
+    ? await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { id: true, code: true },
+      })
+    : null
+  const template = await ensureDefaultTemplate(userId, tenant?.code)
   const runDate = toDateOnly(new Date())
+
+  const tenantItems = await prisma.item.findMany({
+    where: {
+      isActive: true,
+    },
+    orderBy: { name: 'asc' },
+    select: {
+      name: true,
+      type: true,
+    },
+  })
+
+  const expectedTitles = (tenantItems.length
+    ? tenantItems.map((item) => encodeChecklistTitle(item.type, item.name))
+    : DEFAULT_TEMPLATE_ITEMS.map((item) => encodeChecklistTitle(item.itemType, item.title))
+  ).sort((a, b) => a.localeCompare(b))
 
   const existingRun = await prisma.checklistRun.findFirst({
     where: {
@@ -235,9 +246,9 @@ export async function getTodayChecklist(userId: string) {
         createdBy: userId,
         status: ChecklistRunStatus.DRAFT,
         items: {
-          create: template.items.map((item) => ({
-            templateItemId: item.id,
-            title: item.title,
+          create: expectedTitles.map((title) => ({
+            templateItemId: null,
+            title,
             result: ChecklistResult.NA,
           })),
         },
@@ -247,7 +258,7 @@ export async function getTodayChecklist(userId: string) {
         template: true,
       },
     })
-  } else if (run.status === ChecklistRunStatus.DRAFT && needsRunItemUpgrade(run.items)) {
+  } else if (run.status === ChecklistRunStatus.DRAFT && needsRunItemUpgrade(run.items, expectedTitles)) {
     run = await prisma.$transaction(async (tx) => {
       await tx.checklistRunItem.deleteMany({
         where: {
@@ -256,10 +267,10 @@ export async function getTodayChecklist(userId: string) {
       })
 
       await tx.checklistRunItem.createMany({
-        data: template.items.map((item) => ({
+        data: expectedTitles.map((title) => ({
           checklistRunId: run!.id,
-          templateItemId: item.id,
-          title: item.title,
+          templateItemId: null,
+          title,
           result: ChecklistResult.NA,
         })),
       })
@@ -282,11 +293,10 @@ export async function getTodayChecklist(userId: string) {
     status: run.status,
     runDate: run.runDate,
     items: run.items
-      .sort((a, b) => a.title.localeCompare(b.title))
+      .sort((a, b) => decodeChecklistTitle(a.title).title.localeCompare(decodeChecklistTitle(b.title).title))
       .map((item) => ({
+        ...decodeChecklistTitle(item.title),
         id: item.id,
-        title: item.title,
-        itemType: detectChecklistItemType(item.title),
         result: item.result,
         notes: item.notes,
         conditionPercent: extractConditionPercent(item.notes),
@@ -320,7 +330,8 @@ export async function submitChecklist(userId: string, input: SubmitChecklistInpu
       const exists = run.items.find((item) => item.id === incoming.id)
       if (!exists) continue
 
-      const itemType = detectChecklistItemType(exists.title)
+      const decoded = decodeChecklistTitle(exists.title)
+      const itemType = decoded.itemType
       const nextCondition = typeof incoming.conditionPercent === 'number'
         ? Math.max(0, Math.min(100, incoming.conditionPercent))
         : undefined
@@ -373,6 +384,14 @@ export async function sendChecklistExportToTelegram(userId: string, tenantId: st
     where: { tenantId },
   })
 
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: {
+      name: true,
+      code: true,
+    },
+  })
+
   if (!settings || !settings.isEnabled || !settings.sendOnChecklistExport || !settings.botToken || !settings.chatId) {
     return {
       code: 'TELEGRAM_EXPORT_SKIPPED',
@@ -392,6 +411,9 @@ export async function sendChecklistExportToTelegram(userId: string, tenantId: st
     : await prisma.checklistRun.findFirst({
         where: {
           runDate: toDateOnly(new Date()),
+          template: {
+            name: tenant?.code ? `${DEFAULT_TEMPLATE_NAME} - ${tenant.code}` : DEFAULT_TEMPLATE_NAME,
+          },
         },
         include: {
           template: true,
@@ -406,18 +428,12 @@ export async function sendChecklistExportToTelegram(userId: string, tenantId: st
     throw new ApiError(404, 'CHECKLIST_RUN_NOT_FOUND', 'Checklist run tidak ditemukan untuk export Telegram.')
   }
 
-  const [user, tenant] = await Promise.all([
+  const [user] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
         name: true,
         username: true,
-      },
-    }),
-    prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: {
-        name: true,
       },
     }),
   ])
@@ -433,11 +449,11 @@ export async function sendChecklistExportToTelegram(userId: string, tenantId: st
       .slice()
       .sort((a, b) => a.title.localeCompare(b.title))
       .map((item) => ({
-        title: item.title,
+        title: decodeChecklistTitle(item.title).title,
         result: item.result,
         notes: item.notes,
         conditionPercent: extractConditionPercent(item.notes),
-        itemType: detectChecklistItemType(item.title),
+        itemType: decodeChecklistTitle(item.title).itemType,
       })),
   })
 

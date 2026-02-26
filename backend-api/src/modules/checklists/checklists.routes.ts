@@ -9,7 +9,7 @@ checklistsRouter.use(requireAuth)
 
 checklistsRouter.get('/today', async (req, res, next) => {
   try {
-    const data = await getTodayChecklist(req.user!.id)
+    const data = await getTodayChecklist(req.user!.id, req.user!.tenantId)
     return res.json(data)
   } catch (error) {
     return next(error)

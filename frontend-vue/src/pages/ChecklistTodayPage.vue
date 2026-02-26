@@ -14,6 +14,7 @@ const runStatus = ref('DRAFT')
 const templateName = ref('Checklist Harian')
 const items = ref([])
 const isLoading = ref(false)
+const activeCategoryFilter = ref('ALL')
 
 const showConfirmModal = ref(false)
 const submitMode = ref('DRAFT')
@@ -25,6 +26,11 @@ const subtitle = computed(() => {
     year: 'numeric',
   })
   return `${templateName.value} - ${date}`
+})
+
+const filteredItems = computed(() => {
+  if (activeCategoryFilter.value === 'ALL') return items.value
+  return items.value.filter((item) => item.itemType === activeCategoryFilter.value)
 })
 
 function resultClass(result) {
@@ -76,7 +82,7 @@ function exportCsv() {
     ['Tanggal Export', today],
     [],
   ]
-  const lines = items.value.map((item) => [
+  const lines = filteredItems.value.map((item) => [
     today,
     templateName.value,
     item.title,
@@ -103,7 +109,7 @@ function exportCsv() {
 }
 
 function openChecklistPrintWindow() {
-  const rowsHtml = items.value
+  const rowsHtml = filteredItems.value
     .map(
       (item) => `
         <tr>
@@ -278,11 +284,28 @@ onMounted(async () => {
     </section>
 
     <section class="space-y-3">
+      <div class="flex flex-wrap gap-2">
+        <button
+          v-for="filter in [
+            { value: 'ALL', label: 'Semua' },
+            { value: 'CONSUMABLE', label: 'Barang habis beli lagi' },
+            { value: 'GAS', label: 'Habis tapi isi ulang' },
+            { value: 'ASSET', label: 'Tidak habis tapi bisa rusak' },
+          ]"
+          :key="filter.value"
+          class="rounded-lg px-3 py-1.5 text-xs font-semibold"
+          :class="activeCategoryFilter === filter.value ? 'bg-blue-50 text-blue-700' : 'border border-slate-200 text-slate-600'"
+          @click="activeCategoryFilter = filter.value"
+        >
+          {{ filter.label }}
+        </button>
+      </div>
+
       <article v-if="isLoading" class="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
         Memuat checklist...
       </article>
 
-      <article v-for="item in items" :key="item.id" class="rounded-xl border border-slate-200 bg-white p-4">
+      <article v-for="item in filteredItems" :key="item.id" class="rounded-xl border border-slate-200 bg-white p-4">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p class="text-base font-bold text-slate-900">{{ item.title }}</p>
