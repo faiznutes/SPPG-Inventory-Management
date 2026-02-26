@@ -3,6 +3,7 @@ import { requireAuth } from '../../middleware/auth.js'
 import { requireRole } from '../../middleware/role.js'
 import {
   addTenantLocationSchema,
+  bulkTenantActionSchema,
   createTenantSchema,
   createTenantUserSchema,
   listTenantsQuerySchema,
@@ -15,6 +16,7 @@ import {
 import {
   addTenantLocation,
   addTenantUser,
+  bulkTenantAction,
   createTenant,
   deleteTenant,
   getTenantTelegramSettings,
@@ -47,6 +49,16 @@ tenantsRouter.patch('/:tenantId/status', async (req, res, next) => {
   try {
     const body = updateTenantStatusSchema.parse(req.body)
     const data = await updateTenantStatus(req.user!.id, req.params.tenantId, body.isActive)
+    return res.json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+tenantsRouter.post('/bulk/action', async (req, res, next) => {
+  try {
+    const body = bulkTenantActionSchema.parse(req.body)
+    const data = await bulkTenantAction(req.user!.id, body.ids, body.action)
     return res.json(data)
   } catch (error) {
     return next(error)

@@ -21,6 +21,11 @@ export const updateTenantStatusSchema = z.object({
   isActive: z.boolean(),
 })
 
+export const bulkTenantActionSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1),
+  action: z.enum(['DEACTIVATE', 'ACTIVATE', 'ARCHIVE', 'RESTORE']),
+})
+
 export const createTenantUserSchema = z.object({
   name: z.string().min(2),
   username: z.string().min(3),

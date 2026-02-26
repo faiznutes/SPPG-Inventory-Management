@@ -28,6 +28,7 @@ Last update: 2026-02-26
 | T-15 | Integrasi Telegram per tenant untuk export checklist (print + kirim PDF) | DONE |
 | T-16 | Stabilisasi API simpan item dan keselarasan akses frontend-backend | DONE |
 | T-17 | Tambah aksi hapus tenant dari panel SUPER_ADMIN | DONE |
+| T-18 | Tenant action split: nonaktif/aktif + arsip/restore + bulk action | DONE |
 
 ## Acceptance Checklist
 - [x] Checklist submit tidak gagal validasi.
@@ -65,6 +66,8 @@ Last update: 2026-02-26
 - [x] Startup backend distabilkan dengan alur migrasi `prisma migrate deploy` tanpa langkah resolve manual yang memicu noise error.
 - [x] Integrasi Telegram per tenant (SUPER_ADMIN setting) + auto kirim PDF saat export checklist.
 - [x] SUPER_ADMIN bisa hapus tenant (soft delete/nonaktif) dari daftar tenant dan detail tenant.
+- [x] Tenant action dipisah jelas: Nonaktifkan/Aktifkan dan Arsip/Restore (hidden default, bisa restore).
+- [x] Bulk action tenant tersedia untuk Nonaktifkan, Aktifkan, Arsipkan, dan Restore.
 
 ## Notes
 - Untuk repo hygiene, file operasional yang tidak perlu di root akan didaftarkan agar bisa dipindah manual ke folder `docs/` oleh owner.

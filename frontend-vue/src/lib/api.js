@@ -223,6 +223,13 @@ export const api = {
       headers: authHeader(accessToken),
     }),
 
+  bulkTenantAction: (accessToken, body) =>
+    request('/tenants/bulk/action', {
+      method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
+
   getTenantDetail: (accessToken, tenantId) =>
     request(`/tenants/${tenantId}`, {
       headers: authHeader(accessToken),

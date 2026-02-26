@@ -11,6 +11,7 @@ const locations = ref([])
 const categories = ref([])
 const tenants = ref([])
 const isLoading = ref(false)
+const selectedTenantIds = ref([])
 
 const activeTab = ref('Pengguna')
 const showArchivedTenants = ref(false)
@@ -231,10 +232,54 @@ async function loadData() {
       isArchived: Boolean(item.archivedAt),
       status: item.archivedAt ? 'Arsip' : item.isActive ? 'Aktif' : 'Nonaktif',
     }))
+    selectedTenantIds.value = selectedTenantIds.value.filter((id) => tenants.value.some((row) => row.id === id))
   } catch (error) {
     notifications.showPopup('Gagal memuat data', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   } finally {
     isLoading.value = false
+  }
+}
+
+function toggleTenantSelection(id) {
+  if (!id) return
+  if (selectedTenantIds.value.includes(id)) {
+    selectedTenantIds.value = selectedTenantIds.value.filter((rowId) => rowId !== id)
+    return
+  }
+  selectedTenantIds.value.push(id)
+}
+
+function clearTenantSelection() {
+  selectedTenantIds.value = []
+}
+
+async function applyBulkTenantAction(action, label) {
+  if (activeTab.value !== 'Tenant') return
+  if (!selectedTenantIds.value.length) {
+    notifications.showPopup('Belum ada pilihan', 'Pilih minimal 1 tenant untuk aksi bulk.', 'error')
+    return
+  }
+
+  const ok = window.confirm(`Terapkan aksi bulk "${label}" untuk ${selectedTenantIds.value.length} tenant?`)
+  if (!ok) return
+
+  try {
+    const result = await api.bulkTenantAction(authStore.accessToken, {
+      ids: selectedTenantIds.value,
+      action,
+    })
+
+    if (result.failedCount > 0) {
+      const firstFailure = result.failures?.[0]?.message || 'Sebagian tenant gagal diproses.'
+      notifications.showPopup('Bulk selesai sebagian', `${result.message} ${firstFailure}`, 'error')
+    } else {
+      notifications.showPopup('Bulk berhasil', result.message, 'success')
+    }
+
+    clearTenantSelection()
+    await loadData()
+  } catch (error) {
+    notifications.showPopup('Bulk tenant gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
 }
 
@@ -672,6 +717,41 @@ onMounted(async () => {
     <PageHeader title="Pengaturan" subtitle="Kelola user, lokasi, kategori, dan konfigurasi dasar">
       <template #actions>
         <button
+          v-if="activeTab === 'Tenant' && selectedTenantIds.length"
+          class="rounded-lg border border-amber-200 px-3 py-2 text-sm font-bold text-amber-700"
+          @click="applyBulkTenantAction('DEACTIVATE', 'Nonaktifkan')"
+        >
+          Bulk Nonaktifkan ({{ selectedTenantIds.length }})
+        </button>
+        <button
+          v-if="activeTab === 'Tenant' && selectedTenantIds.length"
+          class="rounded-lg border border-emerald-200 px-3 py-2 text-sm font-bold text-emerald-700"
+          @click="applyBulkTenantAction('ACTIVATE', 'Aktifkan')"
+        >
+          Bulk Aktifkan
+        </button>
+        <button
+          v-if="activeTab === 'Tenant' && selectedTenantIds.length"
+          class="rounded-lg border border-rose-200 px-3 py-2 text-sm font-bold text-rose-700"
+          @click="applyBulkTenantAction('ARCHIVE', 'Arsipkan')"
+        >
+          Bulk Arsipkan
+        </button>
+        <button
+          v-if="activeTab === 'Tenant' && selectedTenantIds.length"
+          class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700"
+          @click="applyBulkTenantAction('RESTORE', 'Restore')"
+        >
+          Bulk Restore
+        </button>
+        <button
+          v-if="activeTab === 'Tenant' && selectedTenantIds.length"
+          class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
+          @click="clearTenantSelection"
+        >
+          Reset Pilihan
+        </button>
+        <button
           v-if="activeTab === 'Tenant' && canManageUsers"
           class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
           @click="showArchivedTenants = !showArchivedTenants; loadData()"
@@ -745,12 +825,20 @@ onMounted(async () => {
               <p class="text-sm font-bold text-slate-900">{{ row.nama }}</p>
               <p class="text-xs text-slate-500">{{ row.role || row.deskripsi || row.kode }}</p>
             </div>
-            <span
-              class="rounded-full px-2 py-0.5 text-[11px] font-bold"
-              :class="(row.status || 'Aktif') === 'Aktif' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'"
-            >
-              {{ row.status || 'Aktif' }}
-            </span>
+            <div class="flex items-center gap-2">
+              <input
+                v-if="activeTab === 'Tenant'"
+                :checked="selectedTenantIds.includes(row.id)"
+                type="checkbox"
+                @change="toggleTenantSelection(row.id)"
+              />
+              <span
+                class="rounded-full px-2 py-0.5 text-[11px] font-bold"
+                :class="(row.status || 'Aktif') === 'Aktif' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'"
+              >
+                {{ row.status || 'Aktif' }}
+              </span>
+            </div>
           </div>
           <div v-if="activeTab === 'Tenant'" class="mt-2 text-right">
             <div class="inline-flex flex-wrap gap-2">
@@ -796,6 +884,14 @@ onMounted(async () => {
               <td class="px-3 py-3 font-semibold text-slate-900">{{ row.nama }}</td>
               <td class="px-3 py-3 text-slate-700">{{ row.role || row.deskripsi || row.kode }}</td>
               <td class="px-3 py-3">
+                <input
+                  v-if="activeTab === 'Tenant'"
+                  :checked="selectedTenantIds.includes(row.id)"
+                  type="checkbox"
+                  class="mr-2 align-middle"
+                  @click.stop
+                  @change="toggleTenantSelection(row.id)"
+                />
                 <span
                   class="rounded-full px-2.5 py-1 text-xs font-bold"
                   :class="(row.status || 'Aktif') === 'Aktif' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'"

@@ -55,6 +55,8 @@ type ListTenantsQuery = {
   includeArchived?: boolean
 }
 
+type BulkTenantAction = 'DEACTIVATE' | 'ACTIVATE' | 'ARCHIVE' | 'RESTORE'
+
 function withTenantPrefix(tenantCode: string, name: string) {
   return `${tenantCode}::${name}`
 }
@@ -367,6 +369,43 @@ export async function updateTenantStatus(actorUserId: string, tenantId: string, 
   return {
     code: isActive ? 'TENANT_ACTIVATED' : 'TENANT_DEACTIVATED',
     message: isActive ? 'Tenant berhasil diaktifkan.' : 'Tenant berhasil dinonaktifkan.',
+  }
+}
+
+export async function bulkTenantAction(actorUserId: string, ids: string[], action: BulkTenantAction) {
+  const successIds: string[] = []
+  const failures: Array<{ id: string; message: string }> = []
+
+  for (const tenantId of ids) {
+    try {
+      if (action === 'DEACTIVATE') {
+        await updateTenantStatus(actorUserId, tenantId, false)
+      } else if (action === 'ACTIVATE') {
+        await reactivateTenant(actorUserId, tenantId)
+      } else if (action === 'ARCHIVE') {
+        await deleteTenant(actorUserId, tenantId)
+      } else {
+        await restoreTenant(actorUserId, tenantId)
+      }
+
+      successIds.push(tenantId)
+    } catch (error) {
+      failures.push({
+        id: tenantId,
+        message: error instanceof Error ? error.message : 'Terjadi kesalahan.',
+      })
+    }
+  }
+
+  return {
+    code: 'TENANT_BULK_ACTION_COMPLETED',
+    message: `Bulk action selesai. Berhasil: ${successIds.length}, Gagal: ${failures.length}.`,
+    action,
+    total: ids.length,
+    successCount: successIds.length,
+    failedCount: failures.length,
+    successIds,
+    failures,
   }
 }
 
