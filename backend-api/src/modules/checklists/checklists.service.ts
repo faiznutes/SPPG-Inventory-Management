@@ -7,6 +7,11 @@ import { prisma } from '../../lib/prisma.js'
 import { ApiError } from '../../utils/api-error.js'
 
 const DEFAULT_TEMPLATE_NAME = 'Checklist Harian Operasional'
+const DEFAULT_TEMPLATE_ITEMS = [
+  { title: 'Cek Gas', description: 'Pastikan gas cukup untuk operasional', sortOrder: 1 },
+  { title: 'Cek Stok Consumable Utama', description: 'Contoh: beras, minyak, sabun cuci (bisa berkurang)', sortOrder: 2 },
+  { title: 'Kondisi Asset Utama', description: 'Contoh: kompor, kulkas (isi kondisi dalam %)', sortOrder: 3 },
+]
 
 function detectChecklistItemType(title: string) {
   const text = title.toLowerCase()
@@ -50,7 +55,37 @@ async function ensureDefaultTemplate(userId: string) {
     include: { items: true },
   })
 
-  if (existing) return existing
+  if (existing) {
+    const existingTitles = new Set(existing.items.map((item) => item.title))
+    const isLegacyTemplate = DEFAULT_TEMPLATE_ITEMS.some((item) => !existingTitles.has(item.title))
+
+    if (!isLegacyTemplate) return existing
+
+    await prisma.$transaction(async (tx) => {
+      await tx.checklistTemplateItem.deleteMany({
+        where: {
+          templateId: existing.id,
+        },
+      })
+
+      await tx.checklistTemplateItem.createMany({
+        data: DEFAULT_TEMPLATE_ITEMS.map((item) => ({
+          templateId: existing.id,
+          title: item.title,
+          description: item.description,
+          sortOrder: item.sortOrder,
+        })),
+      })
+    })
+
+    const refreshed = await prisma.checklistTemplate.findUnique({
+      where: { id: existing.id },
+      include: { items: true },
+    })
+
+    if (refreshed) return refreshed
+    return existing
+  }
 
   return prisma.checklistTemplate.create({
     data: {
@@ -58,11 +93,7 @@ async function ensureDefaultTemplate(userId: string) {
       schedule: ChecklistSchedule.DAILY,
       createdBy: userId,
       items: {
-        create: [
-          { title: 'Cek Gas', description: 'Pastikan gas cukup untuk operasional', sortOrder: 1 },
-          { title: 'Cek Stok Consumable Utama', description: 'Contoh: beras, minyak, sabun cuci (bisa berkurang)', sortOrder: 2 },
-          { title: 'Kondisi Asset Utama', description: 'Contoh: kompor, kulkas (isi kondisi dalam %)', sortOrder: 3 },
-        ],
+        create: DEFAULT_TEMPLATE_ITEMS,
       },
     },
     include: { items: true },
@@ -152,13 +183,13 @@ export async function submitChecklist(userId: string, input: SubmitChecklistInpu
       const exists = run.items.find((item) => item.id === incoming.id)
       if (!exists) continue
 
-       const itemType = detectChecklistItemType(exists.title)
-       const nextCondition = typeof incoming.conditionPercent === 'number'
-         ? Math.max(0, Math.min(100, incoming.conditionPercent))
-         : undefined
-       const derivedResult = itemType === 'ASSET' && typeof nextCondition === 'number'
-         ? resultFromCondition(nextCondition)
-         : incoming.result
+      const itemType = detectChecklistItemType(exists.title)
+      const nextCondition = typeof incoming.conditionPercent === 'number'
+        ? Math.max(0, Math.min(100, incoming.conditionPercent))
+        : undefined
+      const derivedResult = itemType === 'ASSET' && typeof nextCondition === 'number'
+        ? resultFromCondition(nextCondition)
+        : incoming.result
 
       await tx.checklistRunItem.update({
         where: { id: incoming.id },
