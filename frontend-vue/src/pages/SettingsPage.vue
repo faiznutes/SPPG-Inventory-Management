@@ -106,6 +106,10 @@ function toStatusLabel(value) {
   return value ? 'Aktif' : 'Nonaktif'
 }
 
+function isTenantActive(row) {
+  return row?.isActive === true || row?.status === 'Aktif'
+}
+
 function slugify(value) {
   return String(value || '')
     .toLowerCase()
@@ -203,6 +207,7 @@ async function loadData() {
       id: item.id,
       nama: item.name,
       kode: item.code,
+      isActive: Boolean(item.isActive),
       status: item.isActive ? 'Aktif' : 'Nonaktif',
     }))
   } catch (error) {
@@ -356,6 +361,10 @@ async function saveTenantTelegramSettings() {
 
 async function removeTenant(row) {
   if (!row?.id) return
+  if (!isTenantActive(row)) {
+    notifications.showPopup('Tenant sudah nonaktif', 'Gunakan tombol aktifkan jika ingin digunakan kembali.', 'info')
+    return
+  }
   const ok = window.confirm(`Hapus tenant \"${row.nama}\"? Tenant akan dinonaktifkan dan user tenant tidak bisa akses lagi.`)
   if (!ok) return
 
@@ -372,6 +381,28 @@ async function removeTenant(row) {
     await loadData()
   } catch (error) {
     notifications.showPopup('Gagal hapus tenant', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+  }
+}
+
+async function reactivateTenant(row) {
+  if (!row?.id) return
+  if (isTenantActive(row)) {
+    notifications.showPopup('Tenant sudah aktif', 'Tenant ini sudah aktif dan bisa digunakan.', 'info')
+    return
+  }
+
+  const ok = window.confirm(`Aktifkan kembali tenant \"${row.nama}\"?`)
+  if (!ok) return
+
+  try {
+    await api.reactivateTenant(authStore.accessToken, row.id)
+    notifications.showPopup('Tenant diaktifkan', 'Tenant berhasil diaktifkan kembali.', 'success')
+    await loadData()
+    if (selectedTenant.value?.id === row.id) {
+      await openTenantDetail({ id: row.id })
+    }
+  } catch (error) {
+    notifications.showPopup('Gagal aktifkan tenant', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
 }
 
@@ -611,7 +642,13 @@ onMounted(async () => {
           <div v-if="activeTab === 'Tenant'" class="mt-2 text-right">
             <div class="inline-flex gap-2">
               <button class="text-xs font-bold text-blue-600" @click="openTenantDetail(row)">Buka Detail Tenant</button>
-              <button class="text-xs font-bold text-rose-600" @click="removeTenant(row)">Hapus Tenant</button>
+              <button
+                class="text-xs font-bold"
+                :class="isTenantActive(row) ? 'text-rose-600' : 'text-emerald-700'"
+                @click="isTenantActive(row) ? removeTenant(row) : reactivateTenant(row)"
+              >
+                {{ isTenantActive(row) ? 'Hapus Tenant' : 'Aktifkan Tenant' }}
+              </button>
             </div>
           </div>
         </article>
@@ -646,10 +683,11 @@ onMounted(async () => {
                 </span>
                 <button
                   v-if="activeTab === 'Tenant'"
-                  class="ml-2 rounded border border-rose-200 px-2 py-0.5 text-[11px] font-bold text-rose-700"
-                  @click.stop="removeTenant(row)"
+                  class="ml-2 rounded px-2 py-0.5 text-[11px] font-bold"
+                  :class="isTenantActive(row) ? 'border border-rose-200 text-rose-700' : 'border border-emerald-200 text-emerald-700'"
+                  @click.stop="isTenantActive(row) ? removeTenant(row) : reactivateTenant(row)"
                 >
-                  Hapus
+                  {{ isTenantActive(row) ? 'Hapus' : 'Aktifkan' }}
                 </button>
               </td>
             </tr>
@@ -724,10 +762,11 @@ onMounted(async () => {
         <div class="flex justify-end">
           <button
             v-if="selectedTenant"
-            class="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-700"
-            @click="removeTenant({ id: selectedTenant.id, nama: selectedTenant.name })"
+            class="rounded-lg border px-3 py-1.5 text-xs font-bold"
+            :class="selectedTenant.isActive ? 'border-rose-200 text-rose-700' : 'border-emerald-200 text-emerald-700'"
+            @click="selectedTenant.isActive ? removeTenant({ id: selectedTenant.id, nama: selectedTenant.name, status: 'Aktif', isActive: true }) : reactivateTenant({ id: selectedTenant.id, nama: selectedTenant.name, status: 'Nonaktif', isActive: false })"
           >
-            Hapus Tenant Ini
+            {{ selectedTenant.isActive ? 'Hapus Tenant Ini' : 'Aktifkan Tenant Ini' }}
           </button>
         </div>
 

@@ -132,6 +132,64 @@ export async function deleteTenant(actorUserId: string, tenantId: string) {
   }
 }
 
+export async function reactivateTenant(actorUserId: string, tenantId: string) {
+  const tenant = await getTenantOrThrow(tenantId)
+
+  if (tenant.isActive) {
+    return {
+      code: 'TENANT_ALREADY_ACTIVE',
+      message: 'Tenant sudah aktif.',
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.tenant.update({
+      where: { id: tenantId },
+      data: {
+        isActive: true,
+      },
+    })
+
+    await tx.tenantMembership.updateMany({
+      where: {
+        tenantId,
+      },
+      data: {
+        canView: true,
+      },
+    })
+
+    await tx.tenantMembership.updateMany({
+      where: {
+        tenantId,
+        role: 'ADMIN',
+      },
+      data: {
+        canEdit: true,
+      },
+    })
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId,
+        entityType: 'tenants',
+        entityId: tenantId,
+        action: 'RESTORE',
+        diffJson: {
+          name: tenant.name,
+          code: tenant.code,
+          isActive: true,
+        },
+      },
+    })
+  })
+
+  return {
+    code: 'TENANT_REACTIVATED',
+    message: 'Tenant berhasil diaktifkan kembali.',
+  }
+}
+
 export async function createTenant(actorUserId: string, input: CreateTenantInput) {
   const normalizedCode = toSlug(input.code || input.name)
   if (!normalizedCode) {

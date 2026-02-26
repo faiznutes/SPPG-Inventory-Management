@@ -195,6 +195,12 @@ export const api = {
       headers: authHeader(accessToken),
     }),
 
+  reactivateTenant: (accessToken, tenantId) =>
+    request(`/tenants/${tenantId}/reactivate`, {
+      method: 'POST',
+      headers: authHeader(accessToken),
+    }),
+
   getTenantDetail: (accessToken, tenantId) =>
     request(`/tenants/${tenantId}`, {
       headers: authHeader(accessToken),

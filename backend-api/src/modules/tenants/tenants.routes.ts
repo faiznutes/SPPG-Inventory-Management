@@ -17,6 +17,7 @@ import {
   getTenantTelegramSettings,
   getTenantDetail,
   listTenants,
+  reactivateTenant,
   updateTenantTelegramSettings,
   updateTenantLocation,
   updateTenantUser,
@@ -48,6 +49,15 @@ tenantsRouter.post('/', async (req, res, next) => {
 tenantsRouter.delete('/:tenantId', async (req, res, next) => {
   try {
     const data = await deleteTenant(req.user!.id, req.params.tenantId)
+    return res.json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+tenantsRouter.post('/:tenantId/reactivate', async (req, res, next) => {
+  try {
+    const data = await reactivateTenant(req.user!.id, req.params.tenantId)
     return res.json(data)
   } catch (error) {
     return next(error)
