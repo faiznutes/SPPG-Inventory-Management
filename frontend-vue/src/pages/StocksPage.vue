@@ -18,9 +18,21 @@ const activeType = ref('Semua')
 const search = ref('')
 const showAdjustModal = ref(false)
 const showCreateItemModal = ref(false)
+const showBulkItemModal = ref(false)
 const showCategoryPicker = ref(false)
 const categorySearch = ref('')
 const categoryTypeFilter = ref('ALL')
+const bulkItemSearch = ref('')
+const selectedItemIds = ref([])
+const bulkAction = ref('DEACTIVATE')
+
+const bulkItemForm = reactive({
+  categoryId: '',
+  minStock: '',
+  reorderQty: '',
+  unit: '',
+  type: '',
+})
 
 const canCreateProduct = computed(() => authStore.canEditTenantData && ['SUPER_ADMIN', 'ADMIN'].includes(authStore.user?.role || ''))
 
@@ -37,6 +49,14 @@ const filteredCategories = computed(() => {
     const passType = categoryTypeFilter.value === 'ALL' || row.type === categoryTypeFilter.value
     const passSearch = !q || categoryDisplayName(row.name).toLowerCase().includes(q)
     return passType && passSearch
+  })
+})
+
+const bulkFilteredItems = computed(() => {
+  const q = bulkItemSearch.value.trim().toLowerCase()
+  return items.value.filter((item) => {
+    if (!q) return true
+    return item.name.toLowerCase().includes(q) || String(item.sku || '').toLowerCase().includes(q)
   })
 })
 
@@ -101,6 +121,71 @@ function chooseCategory(category) {
 
 function clearCategory() {
   createItemForm.categoryId = ''
+}
+
+function resetBulkItemForm() {
+  bulkItemForm.categoryId = ''
+  bulkItemForm.minStock = ''
+  bulkItemForm.reorderQty = ''
+  bulkItemForm.unit = ''
+  bulkItemForm.type = ''
+}
+
+function openBulkItemModal() {
+  if (!canCreateProduct.value) {
+    notifications.showPopup('Akses ditolak', 'Role kamu belum memiliki akses aksi bulk produk.', 'error')
+    return
+  }
+
+  selectedItemIds.value = []
+  bulkItemSearch.value = ''
+  bulkAction.value = 'DEACTIVATE'
+  resetBulkItemForm()
+  showBulkItemModal.value = true
+}
+
+function toggleBulkItemSelection(itemId) {
+  if (selectedItemIds.value.includes(itemId)) {
+    selectedItemIds.value = selectedItemIds.value.filter((id) => id !== itemId)
+    return
+  }
+  selectedItemIds.value.push(itemId)
+}
+
+async function submitBulkItemAction() {
+  try {
+    if (!selectedItemIds.value.length) {
+      notifications.showPopup('Belum ada item', 'Pilih minimal satu item untuk aksi bulk.', 'error')
+      return
+    }
+
+    let payload = undefined
+    if (bulkAction.value === 'UPDATE') {
+      payload = {}
+      if (bulkItemForm.categoryId) payload.categoryId = bulkItemForm.categoryId
+      if (bulkItemForm.minStock !== '') payload.minStock = Number(bulkItemForm.minStock)
+      if (bulkItemForm.reorderQty !== '') payload.reorderQty = Number(bulkItemForm.reorderQty)
+      if (bulkItemForm.unit.trim()) payload.unit = bulkItemForm.unit.trim()
+      if (bulkItemForm.type) payload.type = bulkItemForm.type
+
+      if (!Object.keys(payload).length) {
+        notifications.showPopup('Field update kosong', 'Isi minimal satu field untuk bulk update item.', 'error')
+        return
+      }
+    }
+
+    const result = await api.bulkItemAction(authStore.accessToken, {
+      ids: selectedItemIds.value,
+      action: bulkAction.value,
+      payload,
+    })
+
+    showBulkItemModal.value = false
+    notifications.showPopup('Bulk item selesai', result.message || 'Aksi bulk item berhasil diproses.', 'success')
+    await loadData()
+  } catch (error) {
+    notifications.showPopup('Bulk item gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+  }
 }
 
 async function loadData() {
@@ -247,6 +332,13 @@ onMounted(async () => {
   <div class="space-y-5">
     <PageHeader title="Stok Inventaris" subtitle="Pantau stok per lokasi dengan cepat">
       <template #actions>
+        <button
+          v-if="canCreateProduct"
+          class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
+          @click="openBulkItemModal"
+        >
+          Bulk Produk
+        </button>
         <button
           v-if="canCreateProduct"
           class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
@@ -447,6 +539,84 @@ onMounted(async () => {
           </button>
         </div>
       </div>
+    </BaseModal>
+
+    <BaseModal :show="showBulkItemModal" title="Bulk Aksi Produk" max-width-class="max-w-2xl" @close="showBulkItemModal = false">
+      <form class="space-y-3" @submit.prevent="submitBulkItemAction">
+        <p class="text-sm text-slate-600">Pilih item produk lalu terapkan aksi bulk.</p>
+
+        <label class="block">
+          <span class="mb-1 block text-sm font-semibold text-slate-700">Aksi Bulk</span>
+          <select v-model="bulkAction" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+            <option value="DEACTIVATE">Nonaktifkan Item</option>
+            <option value="ACTIVATE">Aktifkan Item</option>
+            <option value="DELETE">Hapus (Soft Delete)</option>
+            <option value="UPDATE">Bulk Edit Field</option>
+          </select>
+        </label>
+
+        <div v-if="bulkAction === 'UPDATE'" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label class="block">
+            <span class="mb-1 block text-sm font-semibold text-slate-700">Kategori (Opsional)</span>
+            <select v-model="bulkItemForm.categoryId" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <option value="">Tidak diubah</option>
+              <option v-for="category in categories" :key="category.id" :value="category.id">
+                {{ categoryDisplayName(category.name) }}
+              </option>
+            </select>
+          </label>
+
+          <label class="block">
+            <span class="mb-1 block text-sm font-semibold text-slate-700">Model Kategori (Opsional)</span>
+            <select v-model="bulkItemForm.type" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <option value="">Tidak diubah</option>
+              <option value="CONSUMABLE">Barang habis beli lagi</option>
+              <option value="GAS">Habis tapi isi ulang</option>
+              <option value="ASSET">Tidak habis tapi bisa rusak</option>
+            </select>
+          </label>
+
+          <label class="block">
+            <span class="mb-1 block text-sm font-semibold text-slate-700">Min Stock (Opsional)</span>
+            <input v-model="bulkItemForm.minStock" type="number" min="0" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Tidak diubah" />
+          </label>
+
+          <label class="block">
+            <span class="mb-1 block text-sm font-semibold text-slate-700">Reorder Qty (Opsional)</span>
+            <input v-model="bulkItemForm.reorderQty" type="number" min="0" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Tidak diubah" />
+          </label>
+
+          <label class="block sm:col-span-2">
+            <span class="mb-1 block text-sm font-semibold text-slate-700">Satuan (Opsional)</span>
+            <input v-model="bulkItemForm.unit" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Tidak diubah" />
+          </label>
+        </div>
+
+        <input v-model="bulkItemSearch" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Cari item untuk dipilih" />
+
+        <div class="max-h-72 overflow-auto rounded-lg border border-slate-200">
+          <label
+            v-for="item in bulkFilteredItems"
+            :key="`bulk-${item.id}`"
+            class="flex items-center justify-between gap-2 border-b border-slate-100 px-3 py-2 text-sm"
+          >
+            <div>
+              <p class="font-semibold text-slate-900">{{ item.name }}</p>
+              <p class="text-xs text-slate-500">{{ item.sku || '-' }} - {{ typeMap[item.type] || item.type }}</p>
+            </div>
+            <input :checked="selectedItemIds.includes(item.id)" type="checkbox" @change="toggleBulkItemSelection(item.id)" />
+          </label>
+        </div>
+
+        <p class="text-xs text-slate-500">Dipilih: {{ selectedItemIds.length }} item</p>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="showBulkItemModal = false">
+            Batal
+          </button>
+          <button type="submit" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white">Terapkan Bulk</button>
+        </div>
+      </form>
     </BaseModal>
   </div>
 </template>

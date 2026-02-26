@@ -12,6 +12,16 @@ type CreateItemInput = {
   reorderQty?: number
 }
 
+type BulkItemAction = 'ACTIVATE' | 'DEACTIVATE' | 'DELETE' | 'UPDATE'
+
+type BulkItemUpdatePayload = {
+  categoryId?: string | null
+  minStock?: number
+  reorderQty?: number | null
+  unit?: string
+  type?: 'CONSUMABLE' | 'ASSET' | 'GAS'
+}
+
 export async function listItems() {
   const items = await prisma.item.findMany({
     include: {
@@ -126,5 +136,84 @@ export async function createItem(input: CreateItemInput, actorUserId: string) {
     }
 
     throw new ApiError(500, 'ITEM_CREATE_FAILED', 'Gagal menyimpan item baru.')
+  }
+}
+
+export async function bulkItemAction(
+  actorUserId: string,
+  ids: string[],
+  action: BulkItemAction,
+  payload?: BulkItemUpdatePayload,
+) {
+  const uniqueIds = [...new Set(ids)]
+  if (!uniqueIds.length) {
+    throw new ApiError(400, 'BULK_ITEMS_EMPTY', 'Pilih minimal satu item untuk aksi bulk.')
+  }
+
+  const items = await prisma.item.findMany({
+    where: { id: { in: uniqueIds } },
+    select: { id: true, name: true, isActive: true },
+  })
+
+  if (!items.length) {
+    throw new ApiError(404, 'ITEMS_NOT_FOUND', 'Item tidak ditemukan untuk aksi bulk.')
+  }
+
+  const foundIds = new Set(items.map((item) => item.id))
+  const missingIds = uniqueIds.filter((id) => !foundIds.has(id))
+
+  await prisma.$transaction(async (tx) => {
+    if (action === 'ACTIVATE') {
+      await tx.item.updateMany({
+        where: { id: { in: uniqueIds } },
+        data: { isActive: true },
+      })
+    } else if (action === 'DEACTIVATE' || action === 'DELETE') {
+      await tx.item.updateMany({
+        where: { id: { in: uniqueIds } },
+        data: { isActive: false },
+      })
+    } else {
+      const data: {
+        categoryId?: string | null
+        minStock?: number
+        reorderQty?: number | null
+        unit?: string
+        type?: 'CONSUMABLE' | 'ASSET' | 'GAS'
+      } = {}
+
+      if (payload?.categoryId !== undefined) data.categoryId = payload.categoryId
+      if (payload?.minStock !== undefined) data.minStock = payload.minStock
+      if (payload?.reorderQty !== undefined) data.reorderQty = payload.reorderQty
+      if (payload?.unit !== undefined) data.unit = payload.unit.trim()
+      if (payload?.type !== undefined) data.type = payload.type
+
+      await tx.item.updateMany({
+        where: { id: { in: uniqueIds } },
+        data,
+      })
+    }
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId,
+        entityType: 'items',
+        entityId: 'bulk',
+        action: `BULK_${action}`,
+        diffJson: {
+          ids: uniqueIds,
+          payload: payload || null,
+          missingIds,
+        },
+      },
+    })
+  })
+
+  return {
+    code: 'ITEM_BULK_ACTION_COMPLETED',
+    message: `Aksi bulk item selesai. Diproses: ${items.length}, tidak ditemukan: ${missingIds.length}.`,
+    action,
+    affectedCount: items.length,
+    missingIds,
   }
 }

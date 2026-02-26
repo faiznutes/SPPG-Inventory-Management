@@ -1,8 +1,8 @@
 import { Router } from 'express'
 import { requireAuth } from '../../middleware/auth.js'
 import { requireRole } from '../../middleware/role.js'
-import { createItemSchema } from './items.schema.js'
-import { createItem, listItems } from './items.service.js'
+import { bulkItemActionSchema, createItemSchema } from './items.schema.js'
+import { bulkItemAction, createItem, listItems } from './items.service.js'
 
 const itemsRouter = Router()
 
@@ -22,6 +22,16 @@ itemsRouter.post('/', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req, res, ne
     const body = createItemSchema.parse(req.body)
     const data = await createItem(body, req.user!.id)
     return res.status(201).json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+itemsRouter.post('/bulk/action', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req, res, next) => {
+  try {
+    const body = bulkItemActionSchema.parse(req.body)
+    const data = await bulkItemAction(req.user!.id, body.ids, body.action, body.payload)
+    return res.json(data)
   } catch (error) {
     return next(error)
   }

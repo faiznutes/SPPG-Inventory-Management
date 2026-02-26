@@ -324,6 +324,13 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  bulkItemAction: (accessToken, body) =>
+    request('/items/bulk/action', {
+      method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
+
   listStocks: (accessToken) =>
     request('/stocks', {
       headers: authHeader(accessToken),
