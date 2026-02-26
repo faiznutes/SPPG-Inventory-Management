@@ -57,13 +57,15 @@ function shouldSkipRefresh(path) {
 }
 
 async function request(path, options = {}) {
+  const mergedHeaders = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
     ...options,
+    headers: mergedHeaders,
   })
 
   const payload = await response.json().catch(() => ({}))
