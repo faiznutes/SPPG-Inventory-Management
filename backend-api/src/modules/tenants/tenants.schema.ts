@@ -1,5 +1,12 @@
 import { z } from 'zod'
 
+export const listTenantsQuerySchema = z.object({
+  includeArchived: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) => value === 'true'),
+})
+
 export const createTenantSchema = z.object({
   name: z.string().min(3),
   code: z.string().min(3),
@@ -8,6 +15,10 @@ export const createTenantSchema = z.object({
 export const updateTenantSchema = z.object({
   name: z.string().min(3),
   code: z.string().min(3),
+})
+
+export const updateTenantStatusSchema = z.object({
+  isActive: z.boolean(),
 })
 
 export const createTenantUserSchema = z.object({

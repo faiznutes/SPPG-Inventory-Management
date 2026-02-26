@@ -13,6 +13,7 @@ const tenants = ref([])
 const isLoading = ref(false)
 
 const activeTab = ref('Pengguna')
+const showArchivedTenants = ref(false)
 const showInputModal = ref(false)
 const showTenantDetailModal = ref(false)
 const notifications = useNotificationsStore()
@@ -115,6 +116,10 @@ function isTenantActive(row) {
   return row?.isActive === true || row?.status === 'Aktif'
 }
 
+function isTenantArchived(row) {
+  return Boolean(row?.isArchived)
+}
+
 function slugify(value) {
   return String(value || '')
     .toLowerCase()
@@ -191,7 +196,12 @@ async function loadData() {
     let usersData = []
     let tenantsData = []
     if (canManageUsers.value) {
-      ;[usersData, tenantsData] = await Promise.all([api.listUsers(authStore.accessToken), api.listTenants(authStore.accessToken)])
+      ;[usersData, tenantsData] = await Promise.all([
+        api.listUsers(authStore.accessToken),
+        api.listTenants(authStore.accessToken, {
+          includeArchived: showArchivedTenants.value ? 'true' : 'false',
+        }),
+      ])
     }
 
     users.value = usersData.map((item) => ({
@@ -218,7 +228,8 @@ async function loadData() {
       nama: item.name,
       kode: item.code,
       isActive: Boolean(item.isActive),
-      status: item.isActive ? 'Aktif' : 'Nonaktif',
+      isArchived: Boolean(item.archivedAt),
+      status: item.archivedAt ? 'Arsip' : item.isActive ? 'Aktif' : 'Nonaktif',
     }))
   } catch (error) {
     notifications.showPopup('Gagal memuat data', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
@@ -403,11 +414,11 @@ async function saveTenantTelegramSettings() {
 
 async function removeTenant(row) {
   if (!row?.id) return
-  if (!isTenantActive(row)) {
-    notifications.showPopup('Tenant sudah nonaktif', 'Gunakan tombol aktifkan jika ingin digunakan kembali.', 'info')
+  if (isTenantArchived(row)) {
+    notifications.showPopup('Tenant sudah diarsipkan', 'Gunakan restore untuk memulihkan tenant.', 'info')
     return
   }
-  const ok = window.confirm(`Hapus tenant \"${row.nama}\"? Tenant akan dinonaktifkan dan user tenant tidak bisa akses lagi.`)
+  const ok = window.confirm(`Arsipkan tenant \"${row.nama}\"? Tenant akan disembunyikan dari daftar utama, namun masih bisa dipulihkan.`)
   if (!ok) return
 
   try {
@@ -419,15 +430,19 @@ async function removeTenant(row) {
       tenantLocations.value = []
       resetTenantTelegramForm()
     }
-    notifications.showPopup('Tenant dihapus', 'Tenant berhasil dinonaktifkan.', 'success')
+    notifications.showPopup('Tenant diarsipkan', 'Tenant berhasil dipindahkan ke arsip.', 'success')
     await loadData()
   } catch (error) {
-    notifications.showPopup('Gagal hapus tenant', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+    notifications.showPopup('Gagal arsipkan tenant', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
 }
 
 async function reactivateTenant(row) {
   if (!row?.id) return
+  if (isTenantArchived(row)) {
+    notifications.showPopup('Tenant diarsipkan', 'Restore tenant dulu dari arsip.', 'info')
+    return
+  }
   if (isTenantActive(row)) {
     notifications.showPopup('Tenant sudah aktif', 'Tenant ini sudah aktif dan bisa digunakan.', 'info')
     return
@@ -445,6 +460,47 @@ async function reactivateTenant(row) {
     }
   } catch (error) {
     notifications.showPopup('Gagal aktifkan tenant', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+  }
+}
+
+async function deactivateTenant(row) {
+  if (!row?.id) return
+  if (isTenantArchived(row)) {
+    notifications.showPopup('Tenant diarsipkan', 'Tenant arsip tidak bisa diubah status aktifnya.', 'info')
+    return
+  }
+  if (!isTenantActive(row)) {
+    notifications.showPopup('Tenant sudah nonaktif', 'Tenant ini sudah nonaktif.', 'info')
+    return
+  }
+  const ok = window.confirm(`Nonaktifkan tenant \"${row.nama}\"?`)
+  if (!ok) return
+
+  try {
+    await api.updateTenantStatus(authStore.accessToken, row.id, { isActive: false })
+    notifications.showPopup('Tenant dinonaktifkan', 'Tenant berhasil dinonaktifkan.', 'success')
+    await loadData()
+  } catch (error) {
+    notifications.showPopup('Gagal nonaktifkan tenant', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+  }
+}
+
+async function restoreArchivedTenant(row) {
+  if (!row?.id) return
+  if (!isTenantArchived(row)) {
+    notifications.showPopup('Tenant bukan arsip', 'Tenant ini tidak berada di arsip.', 'info')
+    return
+  }
+
+  const ok = window.confirm(`Pulihkan tenant \"${row.nama}\" dari arsip?`)
+  if (!ok) return
+
+  try {
+    await api.restoreTenant(authStore.accessToken, row.id)
+    notifications.showPopup('Tenant dipulihkan', 'Tenant berhasil dipulihkan dari arsip.', 'success')
+    await loadData()
+  } catch (error) {
+    notifications.showPopup('Gagal restore tenant', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
 }
 
@@ -616,6 +672,13 @@ onMounted(async () => {
     <PageHeader title="Pengaturan" subtitle="Kelola user, lokasi, kategori, dan konfigurasi dasar">
       <template #actions>
         <button
+          v-if="activeTab === 'Tenant' && canManageUsers"
+          class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
+          @click="showArchivedTenants = !showArchivedTenants; loadData()"
+        >
+          {{ showArchivedTenants ? 'Sembunyikan Arsip' : 'Lihat Arsip' }}
+        </button>
+        <button
           v-if="canAddInTab"
           class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
           @click="showInputModal = true"
@@ -690,14 +753,22 @@ onMounted(async () => {
             </span>
           </div>
           <div v-if="activeTab === 'Tenant'" class="mt-2 text-right">
-            <div class="inline-flex gap-2">
+            <div class="inline-flex flex-wrap gap-2">
               <button class="text-xs font-bold text-blue-600" @click="openTenantDetail(row)">Buka Detail Tenant</button>
               <button
                 class="text-xs font-bold"
-                :class="isTenantActive(row) ? 'text-rose-600' : 'text-emerald-700'"
-                @click="isTenantActive(row) ? removeTenant(row) : reactivateTenant(row)"
+                :class="isTenantArchived(row) ? 'text-emerald-700' : 'text-amber-700'"
+                @click="isTenantArchived(row) ? restoreArchivedTenant(row) : deactivateTenant(row)"
               >
-                {{ isTenantActive(row) ? 'Hapus Tenant' : 'Aktifkan Tenant' }}
+                {{ isTenantArchived(row) ? 'Restore Arsip' : 'Nonaktifkan' }}
+              </button>
+              <button class="text-xs font-bold text-rose-700" @click="removeTenant(row)">Arsipkan</button>
+              <button
+                v-if="!isTenantArchived(row) && !isTenantActive(row)"
+                class="text-xs font-bold text-emerald-700"
+                @click="reactivateTenant(row)"
+              >
+                Aktifkan
               </button>
             </div>
           </div>
@@ -733,11 +804,24 @@ onMounted(async () => {
                 </span>
                 <button
                   v-if="activeTab === 'Tenant'"
-                  class="ml-2 rounded px-2 py-0.5 text-[11px] font-bold"
-                  :class="isTenantActive(row) ? 'border border-rose-200 text-rose-700' : 'border border-emerald-200 text-emerald-700'"
-                  @click.stop="isTenantActive(row) ? removeTenant(row) : reactivateTenant(row)"
+                  class="ml-2 rounded border border-amber-200 px-2 py-0.5 text-[11px] font-bold text-amber-700"
+                  @click.stop="isTenantArchived(row) ? restoreArchivedTenant(row) : deactivateTenant(row)"
                 >
-                  {{ isTenantActive(row) ? 'Hapus' : 'Aktifkan' }}
+                  {{ isTenantArchived(row) ? 'Restore' : 'Nonaktifkan' }}
+                </button>
+                <button
+                  v-if="activeTab === 'Tenant'"
+                  class="ml-2 rounded border border-rose-200 px-2 py-0.5 text-[11px] font-bold text-rose-700"
+                  @click.stop="removeTenant(row)"
+                >
+                  Arsip
+                </button>
+                <button
+                  v-if="activeTab === 'Tenant' && !isTenantArchived(row) && !isTenantActive(row)"
+                  class="ml-2 rounded border border-emerald-200 px-2 py-0.5 text-[11px] font-bold text-emerald-700"
+                  @click.stop="reactivateTenant(row)"
+                >
+                  Aktifkan
                 </button>
               </td>
             </tr>
@@ -812,11 +896,24 @@ onMounted(async () => {
         <div class="flex justify-end">
           <button
             v-if="selectedTenant"
-            class="rounded-lg border px-3 py-1.5 text-xs font-bold"
-            :class="selectedTenant.isActive ? 'border-rose-200 text-rose-700' : 'border-emerald-200 text-emerald-700'"
-            @click="selectedTenant.isActive ? removeTenant({ id: selectedTenant.id, nama: selectedTenant.name, status: 'Aktif', isActive: true }) : reactivateTenant({ id: selectedTenant.id, nama: selectedTenant.name, status: 'Nonaktif', isActive: false })"
+            class="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-bold text-amber-700"
+            @click="selectedTenant.archivedAt ? restoreArchivedTenant({ id: selectedTenant.id, nama: selectedTenant.name, isArchived: true }) : deactivateTenant({ id: selectedTenant.id, nama: selectedTenant.name, status: selectedTenant.isActive ? 'Aktif' : 'Nonaktif', isActive: selectedTenant.isActive })"
           >
-            {{ selectedTenant.isActive ? 'Hapus Tenant Ini' : 'Aktifkan Tenant Ini' }}
+            {{ selectedTenant.archivedAt ? 'Restore Tenant Dari Arsip' : 'Nonaktifkan Tenant Ini' }}
+          </button>
+          <button
+            v-if="selectedTenant"
+            class="ml-2 rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-700"
+            @click="removeTenant({ id: selectedTenant.id, nama: selectedTenant.name, status: selectedTenant.isActive ? 'Aktif' : 'Nonaktif', isActive: selectedTenant.isActive, isArchived: Boolean(selectedTenant.archivedAt) })"
+          >
+            Arsipkan Tenant Ini
+          </button>
+          <button
+            v-if="selectedTenant && !selectedTenant.archivedAt && !selectedTenant.isActive"
+            class="ml-2 rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-bold text-emerald-700"
+            @click="reactivateTenant({ id: selectedTenant.id, nama: selectedTenant.name, status: 'Nonaktif', isActive: false })"
+          >
+            Aktifkan Tenant Ini
           </button>
         </div>
 

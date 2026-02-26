@@ -51,6 +51,10 @@ type UpdateTenantTelegramSettingsInput = {
   sendOnChecklistExport: boolean
 }
 
+type ListTenantsQuery = {
+  includeArchived?: boolean
+}
+
 function withTenantPrefix(tenantCode: string, name: string) {
   return `${tenantCode}::${name}`
 }
@@ -75,6 +79,23 @@ function maskToken(token?: string | null) {
   return `${token.slice(0, 6)}********${token.slice(-4)}`
 }
 
+const ARCHIVE_CODE_PREFIX = 'archv-'
+
+function isArchivedCode(code: string) {
+  return code.startsWith(ARCHIVE_CODE_PREFIX)
+}
+
+function toArchiveCode(code: string) {
+  return `${ARCHIVE_CODE_PREFIX}${Date.now()}-${code}`
+}
+
+function fromArchiveCode(code: string) {
+  if (!isArchivedCode(code)) return code
+  const parts = code.split('-')
+  if (parts.length < 3) return code.replace(ARCHIVE_CODE_PREFIX, '')
+  return parts.slice(2).join('-')
+}
+
 async function getTenantOrThrow(tenantId: string) {
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } })
   if (!tenant) throw new ApiError(404, 'TENANT_NOT_FOUND', 'Tenant tidak ditemukan.')
@@ -87,19 +108,35 @@ function ensureTenantActive(tenant: { isActive: boolean }) {
   }
 }
 
-export async function listTenants() {
-  return prisma.tenant.findMany({
+export async function listTenants(query: ListTenantsQuery = {}) {
+  const rows = await prisma.tenant.findMany({
+    where: {
+      ...(query.includeArchived
+        ? {}
+        : {
+            code: {
+              not: {
+                startsWith: ARCHIVE_CODE_PREFIX,
+              },
+            },
+          }),
+    },
     orderBy: { createdAt: 'desc' },
   })
+
+  return rows.map((tenant) => ({
+    ...tenant,
+    archivedAt: isArchivedCode(tenant.code) ? tenant.updatedAt : null,
+  }))
 }
 
 export async function deleteTenant(actorUserId: string, tenantId: string) {
   const tenant = await getTenantOrThrow(tenantId)
 
-  if (!tenant.isActive) {
+  if (isArchivedCode(tenant.code)) {
     return {
-      code: 'TENANT_ALREADY_INACTIVE',
-      message: 'Tenant sudah nonaktif.',
+      code: 'TENANT_ALREADY_ARCHIVED',
+      message: 'Tenant sudah diarsipkan.',
     }
   }
 
@@ -108,6 +145,7 @@ export async function deleteTenant(actorUserId: string, tenantId: string) {
       where: { id: tenantId },
       data: {
         isActive: false,
+        code: toArchiveCode(tenant.code),
       },
     })
 
@@ -127,24 +165,29 @@ export async function deleteTenant(actorUserId: string, tenantId: string) {
         actorUserId,
         entityType: 'tenants',
         entityId: tenantId,
-        action: 'DELETE',
+        action: 'ARCHIVE',
         diffJson: {
           name: tenant.name,
           code: tenant.code,
           isActive: false,
+          archived: true,
         },
       },
     })
   })
 
   return {
-    code: 'TENANT_DELETED',
-    message: 'Tenant berhasil dihapus (dinonaktifkan).',
+    code: 'TENANT_ARCHIVED',
+    message: 'Tenant berhasil diarsipkan.',
   }
 }
 
 export async function reactivateTenant(actorUserId: string, tenantId: string) {
   const tenant = await getTenantOrThrow(tenantId)
+
+  if (isArchivedCode(tenant.code)) {
+    throw new ApiError(400, 'TENANT_ARCHIVED', 'Tenant diarsipkan. Gunakan aksi restore untuk mengaktifkan kembali.')
+  }
 
   if (tenant.isActive) {
     return {
@@ -201,6 +244,132 @@ export async function reactivateTenant(actorUserId: string, tenantId: string) {
   }
 }
 
+export async function restoreTenant(actorUserId: string, tenantId: string) {
+  const tenant = await getTenantOrThrow(tenantId)
+
+  if (!isArchivedCode(tenant.code)) {
+    return {
+      code: 'TENANT_NOT_ARCHIVED',
+      message: 'Tenant tidak dalam status arsip.',
+    }
+  }
+
+  const restoredBaseCode = fromArchiveCode(tenant.code)
+  let candidateCode = restoredBaseCode
+
+  for (let idx = 1; idx <= 99; idx += 1) {
+    const conflict = await prisma.tenant.findFirst({
+      where: {
+        id: { not: tenantId },
+        code: candidateCode,
+      },
+      select: { id: true },
+    })
+    if (!conflict) break
+    candidateCode = `${restoredBaseCode}-${idx}`
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.tenant.update({
+      where: { id: tenantId },
+      data: {
+        isActive: true,
+        code: candidateCode,
+      },
+    })
+
+    await tx.tenantMembership.updateMany({
+      where: { tenantId },
+      data: {
+        canView: true,
+      },
+    })
+
+    await tx.tenantMembership.updateMany({
+      where: {
+        tenantId,
+        role: 'ADMIN',
+      },
+      data: {
+        canEdit: true,
+      },
+    })
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId,
+        entityType: 'tenants',
+        entityId: tenantId,
+        action: 'RESTORE_ARCHIVE',
+        diffJson: {
+          name: tenant.name,
+          code: tenant.code,
+          isActive: true,
+          archived: false,
+        },
+      },
+    })
+  })
+
+  return {
+    code: 'TENANT_RESTORED',
+    message: 'Tenant berhasil dipulihkan dari arsip.',
+  }
+}
+
+export async function updateTenantStatus(actorUserId: string, tenantId: string, isActive: boolean) {
+  const tenant = await getTenantOrThrow(tenantId)
+
+  if (isArchivedCode(tenant.code)) {
+    throw new ApiError(400, 'TENANT_ARCHIVED', 'Tenant diarsipkan. Restore tenant dulu sebelum mengubah status aktif.')
+  }
+
+  if (tenant.isActive === isActive) {
+    return {
+      code: isActive ? 'TENANT_ALREADY_ACTIVE' : 'TENANT_ALREADY_INACTIVE',
+      message: isActive ? 'Tenant sudah aktif.' : 'Tenant sudah nonaktif.',
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.tenant.update({
+      where: { id: tenantId },
+      data: {
+        isActive,
+      },
+    })
+
+    if (!isActive) {
+      await tx.tenantMembership.updateMany({
+        where: { tenantId },
+        data: {
+          canView: false,
+          canEdit: false,
+          isDefault: false,
+        },
+      })
+    }
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId,
+        entityType: 'tenants',
+        entityId: tenantId,
+        action: isActive ? 'ACTIVATE' : 'DEACTIVATE',
+        diffJson: {
+          isActive,
+          archived: false,
+        },
+      },
+    })
+  })
+
+  return {
+    code: isActive ? 'TENANT_ACTIVATED' : 'TENANT_DEACTIVATED',
+    message: isActive ? 'Tenant berhasil diaktifkan.' : 'Tenant berhasil dinonaktifkan.',
+  }
+}
+
 export async function createTenant(actorUserId: string, input: CreateTenantInput) {
   const normalizedCode = toSlug(input.code || input.name)
   if (!normalizedCode) {
@@ -237,6 +406,9 @@ export async function createTenant(actorUserId: string, input: CreateTenantInput
 
 export async function updateTenant(actorUserId: string, tenantId: string, input: UpdateTenantInput) {
   const tenant = await getTenantOrThrow(tenantId)
+  if (isArchivedCode(tenant.code)) {
+    throw new ApiError(400, 'TENANT_ARCHIVED', 'Tenant diarsipkan. Restore tenant dulu sebelum mengubah detail.')
+  }
   const nextName = input.name.trim()
   const nextCode = toSlug(input.code || input.name)
 
@@ -346,7 +518,10 @@ export async function getTenantDetail(tenantId: string) {
   ])
 
   return {
-    tenant,
+    tenant: {
+      ...tenant,
+      archivedAt: isArchivedCode(tenant.code) ? tenant.updatedAt : null,
+    },
     users: memberships.map((m) => ({
       id: m.user.id,
       name: m.user.name,

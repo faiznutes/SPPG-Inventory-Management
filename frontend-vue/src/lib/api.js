@@ -179,8 +179,8 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  listTenants: (accessToken) =>
-    request('/tenants', {
+  listTenants: (accessToken, query = {}) =>
+    request(withQuery('/tenants', query), {
       headers: authHeader(accessToken),
     }),
 
@@ -204,8 +204,21 @@ export const api = {
       headers: authHeader(accessToken),
     }),
 
+  updateTenantStatus: (accessToken, tenantId, body) =>
+    request(`/tenants/${tenantId}/status`, {
+      method: 'PATCH',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
+
   reactivateTenant: (accessToken, tenantId) =>
     request(`/tenants/${tenantId}/reactivate`, {
+      method: 'POST',
+      headers: authHeader(accessToken),
+    }),
+
+  restoreTenant: (accessToken, tenantId) =>
+    request(`/tenants/${tenantId}/restore`, {
       method: 'POST',
       headers: authHeader(accessToken),
     }),

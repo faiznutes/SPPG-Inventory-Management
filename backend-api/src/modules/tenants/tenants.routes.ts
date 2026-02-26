@@ -5,7 +5,9 @@ import {
   addTenantLocationSchema,
   createTenantSchema,
   createTenantUserSchema,
+  listTenantsQuerySchema,
   updateTenantSchema,
+  updateTenantStatusSchema,
   updateTenantTelegramSettingsSchema,
   updateTenantLocationSchema,
   updateTenantUserSchema,
@@ -19,7 +21,9 @@ import {
   getTenantDetail,
   listTenants,
   reactivateTenant,
+  restoreTenant,
   updateTenant,
+  updateTenantStatus,
   updateTenantTelegramSettings,
   updateTenantLocation,
   updateTenantUser,
@@ -29,9 +33,20 @@ const tenantsRouter = Router()
 
 tenantsRouter.use(requireAuth, requireRole(['SUPER_ADMIN']))
 
-tenantsRouter.get('/', async (_req, res, next) => {
+tenantsRouter.get('/', async (req, res, next) => {
   try {
-    const data = await listTenants()
+    const query = listTenantsQuerySchema.parse(req.query)
+    const data = await listTenants(query)
+    return res.json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+tenantsRouter.patch('/:tenantId/status', async (req, res, next) => {
+  try {
+    const body = updateTenantStatusSchema.parse(req.body)
+    const data = await updateTenantStatus(req.user!.id, req.params.tenantId, body.isActive)
     return res.json(data)
   } catch (error) {
     return next(error)
@@ -70,6 +85,15 @@ tenantsRouter.delete('/:tenantId', async (req, res, next) => {
 tenantsRouter.post('/:tenantId/reactivate', async (req, res, next) => {
   try {
     const data = await reactivateTenant(req.user!.id, req.params.tenantId)
+    return res.json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+tenantsRouter.post('/:tenantId/restore', async (req, res, next) => {
+  try {
+    const data = await restoreTenant(req.user!.id, req.params.tenantId)
     return res.json(data)
   } catch (error) {
     return next(error)
