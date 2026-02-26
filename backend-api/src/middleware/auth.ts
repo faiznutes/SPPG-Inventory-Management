@@ -17,6 +17,7 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
       role: payload.role,
       username: payload.username,
       tenantId: payload.tenantId,
+      isSuperAdmin: payload.isSuperAdmin || payload.role === 'SUPER_ADMIN',
     }
     return next()
   } catch {

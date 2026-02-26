@@ -15,6 +15,9 @@ type LoginInput = {
   password: string
 }
 
+const SUPER_ADMIN_USERNAME = 'superadmin'
+const SUPER_ADMIN_DEFAULT_PASSWORD = 'superadmin12345'
+
 const DEFAULT_TENANT = {
   id: 'tenant-default',
   name: 'SPPG Tambak Wedi',
@@ -25,6 +28,15 @@ type TenantContext = {
   id: string
   name: string
   code: string
+}
+
+function resolveSessionRole(user: { role: string; username: string }) {
+  if (user.username === SUPER_ADMIN_USERNAME) return 'SUPER_ADMIN'
+  return user.role
+}
+
+function isSessionSuperAdmin(user: { role: string; username: string }) {
+  return resolveSessionRole(user) === 'SUPER_ADMIN'
 }
 
 function isMissingTenantMembershipTable(error: unknown) {
@@ -107,143 +119,46 @@ function getRefreshExpiryDate() {
 
 export async function ensureAdminSeed() {
   try {
-    const superAdmin = await prisma.user.findFirst({ where: { role: UserRole.SUPER_ADMIN } })
-    if (superAdmin) return
+    const defaultAdmin = await prisma.user.findUnique({
+      where: { username: 'admin' },
+    })
 
-    const legacyAdmin = await prisma.user.findFirst({ where: { role: UserRole.ADMIN } })
-    if (legacyAdmin) {
-      await prisma.$transaction(async (tx) => {
-        await tx.user.update({
-          where: { id: legacyAdmin.id },
-          data: { role: UserRole.SUPER_ADMIN },
-        })
-
-        const tenantByNewCode = await tx.tenant.findUnique({
-          where: { code: 'sppg-tambak-wedi' },
-        })
-
-        let defaultTenant
-        if (tenantByNewCode) {
-          defaultTenant = await tx.tenant.update({
-            where: { id: tenantByNewCode.id },
-            data: {
-              name: 'SPPG Tambak Wedi',
-              isActive: true,
-            },
-          })
-        } else {
-          const tenantByLegacyCode = await tx.tenant.findUnique({
-            where: { code: 'sppg-pusat' },
-          })
-
-          if (tenantByLegacyCode) {
-            defaultTenant = await tx.tenant.update({
-              where: { id: tenantByLegacyCode.id },
-              data: {
-                name: 'SPPG Tambak Wedi',
-                code: 'sppg-tambak-wedi',
-                isActive: true,
-              },
-            })
-          } else {
-            defaultTenant = await tx.tenant.create({
-              data: {
-                name: 'SPPG Tambak Wedi',
-                code: 'sppg-tambak-wedi',
-                isActive: true,
-              },
-            })
-          }
-        }
-
-        await tx.tenantMembership.upsert({
-          where: {
-            userId_tenantId: {
-              userId: legacyAdmin.id,
-              tenantId: defaultTenant.id,
-            },
-          },
-          create: {
-            userId: legacyAdmin.id,
-            tenantId: defaultTenant.id,
-            role: UserRole.SUPER_ADMIN,
-            isDefault: true,
-          },
-          update: {
-            role: UserRole.SUPER_ADMIN,
-            isDefault: true,
-          },
-        })
-      })
-      return
-    }
-
-    const passwordHash = await bcrypt.hash('admin12345', 10)
-    await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
+    if (!defaultAdmin) {
+      const passwordHash = await bcrypt.hash('admin12345', 10)
+      await prisma.user.create({
         data: {
           name: 'Admin SPPG',
           username: 'admin',
           email: 'admin@sppg.local',
           passwordHash,
-          role: UserRole.SUPER_ADMIN,
+          role: UserRole.ADMIN,
         },
       })
+    }
 
-      const tenantByNewCode = await tx.tenant.findUnique({
-        where: { code: 'sppg-tambak-wedi' },
-      })
-
-      let defaultTenant
-      if (tenantByNewCode) {
-        defaultTenant = await tx.tenant.update({
-          where: { id: tenantByNewCode.id },
-          data: {
-            name: 'SPPG Tambak Wedi',
-            isActive: true,
-          },
-        })
-      } else {
-        const tenantByLegacyCode = await tx.tenant.findUnique({
-          where: { code: 'sppg-pusat' },
-        })
-
-        if (tenantByLegacyCode) {
-          defaultTenant = await tx.tenant.update({
-            where: { id: tenantByLegacyCode.id },
-            data: {
-              name: 'SPPG Tambak Wedi',
-              code: 'sppg-tambak-wedi',
-              isActive: true,
-            },
-          })
-        } else {
-          defaultTenant = await tx.tenant.create({
-            data: {
-              name: 'SPPG Tambak Wedi',
-              code: 'sppg-tambak-wedi',
-              isActive: true,
-            },
-          })
-        }
-      }
-
-      await tx.tenantMembership.create({
-        data: {
-          userId: user.id,
-          tenantId: defaultTenant.id,
-          role: UserRole.SUPER_ADMIN,
-          isDefault: true,
-        },
-      })
+    const superAdminUser = await prisma.user.findUnique({
+      where: { username: SUPER_ADMIN_USERNAME },
     })
+
+    if (!superAdminUser) {
+      const superAdminHash = await bcrypt.hash(SUPER_ADMIN_DEFAULT_PASSWORD, 10)
+      await prisma.user.create({
+        data: {
+          name: 'Super Admin SPPG',
+          username: SUPER_ADMIN_USERNAME,
+          email: 'superadmin@sppg.local',
+          passwordHash: superAdminHash,
+          role: UserRole.ADMIN,
+        },
+      })
+    }
   } catch {
     return
   }
 }
 
 export async function login(input: LoginInput) {
-  let user = await prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { username: input.username },
   })
 
@@ -257,31 +172,19 @@ export async function login(input: LoginInput) {
   }
 
   const tenant = await getDefaultTenantContext(user.id)
+  const sessionRole = resolveSessionRole({ role: user.role, username: user.username })
+  const sessionIsSuperAdmin = isSessionSuperAdmin({ role: user.role, username: user.username })
 
-  if (user.role === UserRole.ADMIN) {
-    try {
-      const hasSuperAdmin = await prisma.user.findFirst({
-        where: { role: UserRole.SUPER_ADMIN },
-        select: { id: true },
-      })
-
-      if (!hasSuperAdmin) {
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: { role: UserRole.SUPER_ADMIN },
-        })
-        await ensureTenantMembership(user.id, tenant, UserRole.SUPER_ADMIN)
-      }
-    } catch {
-      // keep login flow working even if enum migration is still pending
-    }
+  if (sessionIsSuperAdmin) {
+    await ensureTenantMembership(user.id, tenant, UserRole.ADMIN)
   }
 
   const payload = {
     sub: user.id,
-    role: user.role,
+    role: sessionRole,
     username: user.username,
     tenantId: tenant.id,
+    isSuperAdmin: sessionIsSuperAdmin,
   }
 
   const accessToken = generateAccessToken(payload)
@@ -304,9 +207,10 @@ export async function login(input: LoginInput) {
       id: user.id,
       name: user.name,
       username: user.username,
-      role: user.role,
+      role: sessionRole,
       tenant,
-      availableTenants: memberships.length ? memberships : [{ ...DEFAULT_TENANT, role: user.role, isDefault: true }],
+      isSuperAdmin: sessionIsSuperAdmin,
+      availableTenants: memberships.length ? memberships : [{ ...DEFAULT_TENANT, role: sessionRole, isDefault: true }],
     },
   }
 }
@@ -344,12 +248,15 @@ export async function refresh(rawRefreshToken: string) {
   })
 
   const tenant = await getDefaultTenantContext(tokenRecord.user.id)
+  const sessionRole = resolveSessionRole({ role: tokenRecord.user.role, username: tokenRecord.user.username })
+  const sessionIsSuperAdmin = isSessionSuperAdmin({ role: tokenRecord.user.role, username: tokenRecord.user.username })
 
   const newPayload = {
     sub: tokenRecord.user.id,
-    role: tokenRecord.user.role,
+    role: sessionRole,
     username: tokenRecord.user.username,
     tenantId: tenant.id,
+    isSuperAdmin: sessionIsSuperAdmin,
   }
 
   const accessToken = generateAccessToken(newPayload)
@@ -404,12 +311,16 @@ export async function me(userId: string) {
   }
 
   const tenant = await getDefaultTenantContext(user.id)
+  const sessionRole = resolveSessionRole({ role: user.role, username: user.username })
+  const sessionIsSuperAdmin = isSessionSuperAdmin({ role: user.role, username: user.username })
   const memberships = await listTenantMemberships(user.id)
-  const availableTenants = memberships.length ? memberships : [{ ...DEFAULT_TENANT, role: user.role, isDefault: true }]
+  const availableTenants = memberships.length ? memberships : [{ ...DEFAULT_TENANT, role: sessionRole, isDefault: true }]
 
   return {
     ...user,
+    role: sessionRole,
     tenant,
+    isSuperAdmin: sessionIsSuperAdmin,
     availableTenants,
   }
 }
@@ -417,7 +328,15 @@ export async function me(userId: string) {
 export async function myTenants(userId: string) {
   const tenants = await listTenantMemberships(userId)
   if (tenants.length) return tenants
-  return [{ ...DEFAULT_TENANT, role: 'ADMIN', isDefault: true }]
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      role: true,
+      username: true,
+    },
+  })
+  const sessionRole = user ? resolveSessionRole({ role: user.role, username: user.username }) : 'ADMIN'
+  return [{ ...DEFAULT_TENANT, role: sessionRole, isDefault: true }]
 }
 
 export async function selectTenant(userId: string, tenantId: string) {
@@ -464,9 +383,10 @@ export async function selectTenant(userId: string, tenantId: string) {
 
       const payload = {
         sub: user.id,
-        role: user.role,
+        role: resolveSessionRole({ role: user.role, username: user.username }),
         username: user.username,
         tenantId: DEFAULT_TENANT.id,
+        isSuperAdmin: isSessionSuperAdmin({ role: user.role, username: user.username }),
       }
 
       const accessToken = generateAccessToken(payload)
@@ -487,9 +407,10 @@ export async function selectTenant(userId: string, tenantId: string) {
           id: user.id,
           name: user.name,
           username: user.username,
-          role: user.role,
+          role: resolveSessionRole({ role: user.role, username: user.username }),
           tenant: DEFAULT_TENANT,
-          availableTenants: [{ ...DEFAULT_TENANT, role: user.role, isDefault: true }],
+          isSuperAdmin: isSessionSuperAdmin({ role: user.role, username: user.username }),
+          availableTenants: [{ ...DEFAULT_TENANT, role: resolveSessionRole({ role: user.role, username: user.username }), isDefault: true }],
         },
       }
     }
@@ -541,9 +462,10 @@ export async function selectTenant(userId: string, tenantId: string) {
 
   const payload = {
     sub: user.id,
-    role: user.role,
+    role: resolveSessionRole({ role: user.role, username: user.username }),
     username: user.username,
     tenantId: membership.tenant.id,
+    isSuperAdmin: isSessionSuperAdmin({ role: user.role, username: user.username }),
   }
 
   const accessToken = generateAccessToken(payload)
@@ -564,8 +486,9 @@ export async function selectTenant(userId: string, tenantId: string) {
       id: user.id,
       name: user.name,
       username: user.username,
-      role: user.role,
+      role: resolveSessionRole({ role: user.role, username: user.username }),
       tenant: membership.tenant,
+      isSuperAdmin: isSessionSuperAdmin({ role: user.role, username: user.username }),
       availableTenants: await listTenantMemberships(user.id),
     },
   }

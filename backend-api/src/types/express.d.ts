@@ -6,6 +6,7 @@ declare global {
         role: string
         username: string
         tenantId?: string
+        isSuperAdmin?: boolean
       }
     }
   }
