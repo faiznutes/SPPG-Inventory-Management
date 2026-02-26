@@ -1,6 +1,6 @@
 # TASKS CONTROL - AUDIT, TENANT, RESPONSIVE
 
-Last update: 2026-02-26
+Last update: 2026-02-27
 
 ## Objective
 - Menstabilkan seluruh auth/API/route/link agar tidak ada error saat klik/tambah/edit.
@@ -34,6 +34,8 @@ Last update: 2026-02-26
 | T-21 | Bulk penyesuaian stok multi item/lokasi dengan alasan wajib | DONE |
 | T-22 | Bulk user tenant: aktif/nonaktif + mode akses none/view/edit | DONE |
 | T-23 | Bulk lokasi tenant: aktif/nonaktif + guard lokasi nonaktif di transaksi | DONE |
+| T-24 | Monitoring checklist A/M/H/B (periode + filter kategori + export matrix) | DONE |
+| T-25 | Auto-send Telegram untuk export monitoring checklist | DONE |
 
 ## Acceptance Checklist
 - [x] Checklist submit tidak gagal validasi.
@@ -79,6 +81,9 @@ Last update: 2026-02-26
 - [x] Bulk user tenant tersedia di detail tenant untuk aktivasi akun dan mode akses massal.
 - [x] Bulk lokasi tenant tersedia di detail tenant untuk aktif/nonaktif massal.
 - [x] Lokasi nonaktif tidak muncul di list lokasi/stok aktif dan ditolak saat dipakai transaksi.
+- [x] Monitoring checklist tersedia via endpoint + halaman matrix A/M/H/B dengan filter periode (harian/mingguan/bulanan).
+- [x] Monitoring checklist mendukung filter kategori item (ALL/CONSUMABLE/GAS/ASSET) dan export CSV/PDF A4.
+- [x] Export monitoring checklist (CSV/PDF) otomatis trigger kirim PDF ke Telegram tenant bila integrasi aktif.
 
 ## Notes
 - Untuk repo hygiene, file operasional yang tidak perlu di root akan didaftarkan agar bisa dipindah manual ke folder `docs/` oleh owner.

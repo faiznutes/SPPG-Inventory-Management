@@ -25,6 +25,7 @@ const menus = [
   { name: 'Stok', path: '/inventory/stocks', icon: 'inventory_2' },
   { name: 'Transaksi', path: '/inventory/transactions', icon: 'swap_horiz' },
   { name: 'Checklist', path: '/checklists/today', icon: 'checklist' },
+  { name: 'Monitoring Checklist', path: '/checklists/monitoring', icon: 'monitoring' },
   { name: 'Permintaan Pembelian', path: '/purchase-requests', icon: 'description' },
   {
     name: 'Kategori',

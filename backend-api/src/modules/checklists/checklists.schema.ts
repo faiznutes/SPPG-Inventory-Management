@@ -1,6 +1,8 @@
 import { ChecklistResult, ChecklistRunStatus } from '../../lib/prisma-client.js'
 import { z } from 'zod'
 
+const periodEnum = z.enum(['DAILY', 'WEEKLY', 'MONTHLY'])
+
 export const submitChecklistSchema = z.object({
   runId: z.string().uuid(),
   status: z.nativeEnum(ChecklistRunStatus),
@@ -16,4 +18,14 @@ export const submitChecklistSchema = z.object({
 
 export const sendChecklistExportTelegramSchema = z.object({
   runId: z.string().uuid().optional(),
+})
+
+export const sendChecklistMonitoringExportTelegramSchema = z.object({
+  period: periodEnum.optional(),
+  itemType: z.enum(['ALL', 'CONSUMABLE', 'GAS', 'ASSET']).optional(),
+})
+
+export const checklistMonitoringQuerySchema = z.object({
+  period: periodEnum.optional(),
+  itemType: z.enum(['ALL', 'CONSUMABLE', 'GAS', 'ASSET']).optional(),
 })

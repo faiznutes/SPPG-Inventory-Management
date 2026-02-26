@@ -15,22 +15,73 @@ const DEFAULT_TEMPLATE_ITEMS = [
 ]
 const ITEM_TITLE_DELIMITER = '::'
 
-function detectChecklistItemType(title: string): 'ASSET' | 'GAS' | 'CONSUMABLE' {
+type ChecklistItemType = 'ASSET' | 'GAS' | 'CONSUMABLE'
+type ChecklistMonitoringPeriod = 'DAILY' | 'WEEKLY' | 'MONTHLY'
+type ChecklistMonitoringItemType = 'ALL' | ChecklistItemType
+type ChecklistMonitoringCode = 'A' | 'M' | 'H' | 'B'
+
+type ChecklistMonitoringQuery = {
+  period?: ChecklistMonitoringPeriod
+  itemType?: ChecklistMonitoringItemType
+}
+
+type ChecklistMonitoringCell = {
+  date: string
+  code: ChecklistMonitoringCode
+  label: string
+  result: ChecklistResultType | 'NA'
+  notes: string | null
+  conditionPercent: number | null
+  runId: string | null
+  runStatus: ChecklistRunStatusType | null
+}
+
+type ChecklistMonitoringRow = {
+  title: string
+  itemType: ChecklistItemType
+  categoryLabel: string
+  cells: ChecklistMonitoringCell[]
+  totals: Record<ChecklistMonitoringCode, number>
+}
+
+type ChecklistMonitoringData = {
+  templateName: string
+  tenantName: string
+  period: ChecklistMonitoringPeriod
+  itemType: ChecklistMonitoringItemType
+  range: {
+    from: Date
+    to: Date
+    fromLabel: string
+    toLabel: string
+  }
+  legend: {
+    A: string
+    M: string
+    H: string
+    B: string
+  }
+  dates: Array<{ key: string; label: string; dayName: string; isSunday: boolean }>
+  rows: ChecklistMonitoringRow[]
+  totals: Record<ChecklistMonitoringCode, number>
+}
+
+function detectChecklistItemType(title: string): ChecklistItemType {
   const text = title.toLowerCase()
   if (text.includes('asset') || text.includes('alat') || text.includes('kondisi') || text.includes('rusak')) return 'ASSET'
   if (text.includes('gas') || text.includes('isi ulang')) return 'GAS'
   return 'CONSUMABLE'
 }
 
-function encodeChecklistTitle(itemType: 'ASSET' | 'GAS' | 'CONSUMABLE', title: string) {
+function encodeChecklistTitle(itemType: ChecklistItemType, title: string) {
   return `${itemType}${ITEM_TITLE_DELIMITER}${title.trim()}`
 }
 
-function decodeChecklistTitle(rawTitle: string): { itemType: 'ASSET' | 'GAS' | 'CONSUMABLE'; title: string } {
+function decodeChecklistTitle(rawTitle: string): { itemType: ChecklistItemType; title: string } {
   const [head, ...rest] = rawTitle.split(ITEM_TITLE_DELIMITER)
   if (rest.length > 0 && ['ASSET', 'GAS', 'CONSUMABLE'].includes(head)) {
     return {
-      itemType: head as 'ASSET' | 'GAS' | 'CONSUMABLE',
+      itemType: head as ChecklistItemType,
       title: rest.join(ITEM_TITLE_DELIMITER).trim(),
     }
   }
@@ -92,7 +143,7 @@ function checklistResultLabel(result: ChecklistResultType) {
   return 'Belum Dicek'
 }
 
-function checklistItemTypeLabel(itemType: 'ASSET' | 'GAS' | 'CONSUMABLE') {
+function checklistItemTypeLabel(itemType: ChecklistItemType) {
   if (itemType === 'ASSET') return 'Tidak habis tapi bisa rusak'
   if (itemType === 'GAS') return 'Habis tapi isi ulang'
   return 'Barang habis beli lagi'
@@ -115,7 +166,7 @@ async function renderChecklistPdfBuffer(input: {
     result: ChecklistResultType
     notes: string | null
     conditionPercent: number | null
-    itemType: 'ASSET' | 'GAS' | 'CONSUMABLE'
+    itemType: ChecklistItemType
   }>
 }) {
   return new Promise<Buffer>((resolve, reject) => {
@@ -150,6 +201,61 @@ async function renderChecklistPdfBuffer(input: {
       doc.text(`Catatan: ${(item.notes || '-').replaceAll('\n', ' ')}`)
       doc.moveDown(0.5)
     })
+
+    doc.end()
+  })
+}
+
+async function renderChecklistMonitoringPdfBuffer(input: {
+  tenantName: string
+  responsibleLine: string
+  monitoring: ChecklistMonitoringData
+}) {
+  return new Promise<Buffer>((resolve, reject) => {
+    const doc = new PDFDocument({
+      size: 'A4',
+      layout: 'landscape',
+      margin: 30,
+    })
+
+    const chunks: Buffer[] = []
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk))
+    doc.on('end', () => resolve(Buffer.concat(chunks)))
+    doc.on('error', reject)
+
+    doc.fontSize(14).text(input.tenantName)
+    doc.moveDown(0.2)
+    doc.fontSize(10).text(input.responsibleLine)
+    doc.text(input.monitoring.templateName)
+    doc.text(`Periode: ${input.monitoring.range.fromLabel} s/d ${input.monitoring.range.toLabel}`)
+    doc.text(`Filter: ${monitoringPeriodLabel(input.monitoring.period)} - ${monitoringItemTypeLabel(input.monitoring.itemType)}`)
+    doc.text('Legenda: A=Aman, M=Menipis, H=Habis/Rusak, B=Belum dicek')
+    doc.moveDown(0.6)
+
+    const dateHeader = input.monitoring.dates.map((date) => date.dayName).join(' ')
+    doc.fontSize(8).font('Helvetica-Bold').text(`Hari: ${dateHeader}`)
+    doc.font('Helvetica').text(`Tanggal: ${input.monitoring.dates.map((date) => date.label).join(' | ')}`)
+    doc.moveDown(0.4)
+
+    doc.font('Helvetica-Bold').text('Item'.padEnd(46) + 'Kode Harian'.padEnd(32) + 'A  M  H  B')
+    doc.moveDown(0.2)
+    doc.font('Helvetica')
+
+    for (const row of input.monitoring.rows) {
+      if (doc.y > 540) {
+        doc.addPage()
+      }
+
+      const title = row.title.length > 42 ? `${row.title.slice(0, 39)}...` : row.title
+      const codes = row.cells.map((cell) => cell.code).join(' ')
+      const line = `${title.padEnd(46)}${codes.padEnd(32)}${String(row.totals.A).padStart(2)} ${String(row.totals.M).padStart(2)} ${String(row.totals.H).padStart(2)} ${String(row.totals.B).padStart(2)}`
+      doc.fontSize(8).text(line)
+    }
+
+    doc.moveDown(0.6)
+    doc.font('Helvetica-Bold').text(
+      `TOTAL${' '.repeat(73)}${String(input.monitoring.totals.A).padStart(2)} ${String(input.monitoring.totals.M).padStart(2)} ${String(input.monitoring.totals.H).padStart(2)} ${String(input.monitoring.totals.B).padStart(2)}`,
+    )
 
     doc.end()
   })
@@ -197,6 +303,260 @@ async function ensureDefaultTemplate(userId: string, tenantCode?: string) {
     },
     include: { items: true },
   })
+}
+
+function startOfDay(date: Date) {
+  const next = new Date(date)
+  next.setHours(0, 0, 0, 0)
+  return next
+}
+
+function endOfDay(date: Date) {
+  const next = new Date(date)
+  next.setHours(23, 59, 59, 999)
+  return next
+}
+
+function resolveMonitoringRange(period: ChecklistMonitoringPeriod) {
+  const now = new Date()
+  if (period === 'DAILY') {
+    const today = startOfDay(now)
+    return { from: today, to: endOfDay(today) }
+  }
+
+  if (period === 'WEEKLY') {
+    const mondayOffset = (now.getDay() + 6) % 7
+    const monday = new Date(now)
+    monday.setDate(now.getDate() - mondayOffset)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    return { from: startOfDay(monday), to: endOfDay(sunday) }
+  }
+
+  const startMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  return { from: startOfDay(startMonth), to: endOfDay(endMonth) }
+}
+
+function formatDateKey(date: Date) {
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function getDateKeysInRange(from: Date, to: Date) {
+  const keys: string[] = []
+  const cursor = startOfDay(from)
+  const end = startOfDay(to)
+
+  while (cursor <= end) {
+    keys.push(formatDateKey(cursor))
+    cursor.setDate(cursor.getDate() + 1)
+  }
+
+  return keys
+}
+
+function monitoringCodeFromResult(result: ChecklistResultType): ChecklistMonitoringCode {
+  if (result === 'OK') return 'A'
+  if (result === 'LOW') return 'M'
+  if (result === 'OUT' || result === 'DAMAGED') return 'H'
+  return 'B'
+}
+
+function monitoringLabelFromCode(code: ChecklistMonitoringCode) {
+  if (code === 'A') return 'Aman'
+  if (code === 'M') return 'Menipis'
+  if (code === 'H') return 'Habis / Rusak'
+  return 'Belum dicek'
+}
+
+function monitoringPeriodLabel(period: ChecklistMonitoringPeriod) {
+  if (period === 'DAILY') return 'Harian'
+  if (period === 'WEEKLY') return 'Mingguan'
+  return 'Bulanan'
+}
+
+function monitoringItemTypeLabel(itemType: ChecklistMonitoringItemType) {
+  if (itemType === 'CONSUMABLE') return 'Barang habis beli lagi'
+  if (itemType === 'GAS') return 'Habis tapi isi ulang'
+  if (itemType === 'ASSET') return 'Tidak habis tapi bisa rusak'
+  return 'Semua kategori'
+}
+
+async function buildChecklistMonitoringData(tenantId: string | undefined, query: ChecklistMonitoringQuery = {}): Promise<ChecklistMonitoringData> {
+  const period = query.period || 'WEEKLY'
+  const itemType = query.itemType || 'ALL'
+  const range = resolveMonitoringRange(period)
+  const from = toDateOnly(range.from)
+  const to = toDateOnly(range.to)
+
+  const tenant = tenantId
+    ? await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { id: true, code: true, name: true },
+      })
+    : null
+
+  const templateName = tenant?.code ? `${DEFAULT_TEMPLATE_NAME} - ${tenant.code}` : DEFAULT_TEMPLATE_NAME
+
+  const [runs, activeItems] = await Promise.all([
+    prisma.checklistRun.findMany({
+      where: {
+        template: {
+          name: templateName,
+        },
+        runDate: {
+          gte: from,
+          lte: to,
+        },
+      },
+      include: {
+        items: true,
+      },
+      orderBy: {
+        runDate: 'asc',
+      },
+    }),
+    prisma.item.findMany({
+      where: {
+        isActive: true,
+      },
+      select: {
+        name: true,
+        type: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    }),
+  ])
+
+  const expectedTitles = (activeItems.length
+    ? activeItems.map((item) => encodeChecklistTitle(item.type, item.name))
+    : DEFAULT_TEMPLATE_ITEMS.map((item) => encodeChecklistTitle(item.itemType, item.title))
+  ).sort((a, b) => a.localeCompare(b))
+
+  const knownTitles = new Set(expectedTitles)
+  for (const run of runs) {
+    for (const item of run.items) {
+      knownTitles.add(item.title)
+    }
+  }
+
+  const dateKeys = getDateKeysInRange(from, to)
+  const runByDate = new Map(
+    runs.map((run) => {
+      const rowMap = new Map(run.items.map((item) => [item.title, item]))
+      return [formatDateKey(run.runDate), { run, rowMap }] as const
+    }),
+  )
+
+  const totals: Record<ChecklistMonitoringCode, number> = {
+    A: 0,
+    M: 0,
+    H: 0,
+    B: 0,
+  }
+
+  const rows: ChecklistMonitoringRow[] = [...knownTitles]
+    .map((encodedTitle) => {
+      const decoded = decodeChecklistTitle(encodedTitle)
+      return {
+        title: decoded.title,
+        itemType: decoded.itemType,
+        encodedTitle,
+      }
+    })
+    .filter((row) => (itemType === 'ALL' ? true : row.itemType === itemType))
+    .sort((a, b) => a.title.localeCompare(b.title))
+    .map((row) => {
+      const cells: ChecklistMonitoringCell[] = dateKeys.map((dateKey) => {
+        const dayRun = runByDate.get(dateKey)
+        const runItem = dayRun?.rowMap.get(row.encodedTitle)
+        const code = runItem ? monitoringCodeFromResult(runItem.result) : 'B'
+        totals[code] += 1
+
+        return {
+          date: dateKey,
+          code,
+          label: monitoringLabelFromCode(code),
+          result: runItem?.result || 'NA',
+          notes: runItem?.notes || null,
+          conditionPercent: extractConditionPercent(runItem?.notes),
+          runId: dayRun?.run.id || null,
+          runStatus: dayRun?.run.status || null,
+        }
+      })
+
+      const rowTotals = cells.reduce(
+        (acc, cell) => {
+          acc[cell.code] += 1
+          return acc
+        },
+        { A: 0, M: 0, H: 0, B: 0 } as Record<ChecklistMonitoringCode, number>,
+      )
+
+      return {
+        title: row.title,
+        itemType: row.itemType,
+        categoryLabel: checklistItemTypeLabel(row.itemType),
+        cells,
+        totals: rowTotals,
+      }
+    })
+
+  return {
+    templateName,
+    tenantName: tenant?.name || 'INVENTORY SPPG MBG',
+    period,
+    itemType,
+    range: {
+      from,
+      to,
+      fromLabel: formatDateId(from),
+      toLabel: formatDateId(to),
+    },
+    legend: {
+      A: 'Aman',
+      M: 'Menipis',
+      H: 'Habis / Rusak',
+      B: 'Belum dicek',
+    },
+    dates: dateKeys.map((dateKey) => {
+      const date = new Date(`${dateKey}T00:00:00.000Z`)
+      return {
+        key: dateKey,
+        label: formatDateId(date),
+        dayName: date.toLocaleDateString('id-ID', { weekday: 'short' }),
+        isSunday: date.getDay() === 0,
+      }
+    }),
+    rows,
+    totals,
+  }
+}
+
+export async function getChecklistMonitoring(userId: string, tenantId: string | undefined, query: ChecklistMonitoringQuery = {}) {
+  const data = await buildChecklistMonitoringData(tenantId, query)
+
+  await prisma.auditLog.create({
+    data: {
+      actorUserId: userId,
+      entityType: 'checklist_monitoring',
+      entityId: tenantId || 'global',
+      action: 'VIEW',
+      diffJson: {
+        period: data.period,
+        itemType: data.itemType,
+        from: data.range.from,
+        to: data.range.to,
+      },
+    },
+  })
+
+  return data
 }
 
 export async function getTodayChecklist(userId: string, tenantId?: string) {
@@ -482,6 +842,80 @@ export async function sendChecklistExportToTelegram(userId: string, tenantId: st
   return {
     code: 'TELEGRAM_EXPORT_SENT',
     message: 'Laporan checklist berhasil dikirim ke Telegram.',
+    sent: true,
+  }
+}
+
+export async function sendChecklistMonitoringExportToTelegram(
+  userId: string,
+  tenantId: string | undefined,
+  query: ChecklistMonitoringQuery = {},
+) {
+  if (!tenantId) {
+    throw new ApiError(400, 'TENANT_CONTEXT_REQUIRED', 'Tenant aktif tidak ditemukan pada sesi pengguna.')
+  }
+
+  const settings = await prisma.tenantTelegramSetting.findUnique({
+    where: { tenantId },
+  })
+
+  if (!settings || !settings.isEnabled || !settings.sendOnChecklistExport || !settings.botToken || !settings.chatId) {
+    return {
+      code: 'TELEGRAM_EXPORT_SKIPPED',
+      message: 'Integrasi Telegram tenant tidak aktif.',
+      sent: false,
+    }
+  }
+
+  const [monitoring, user] = await Promise.all([
+    buildChecklistMonitoringData(tenantId, query),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        name: true,
+        username: true,
+      },
+    }),
+  ])
+
+  const responsibleLine = `${user?.name || user?.username || 'Pengguna'} - ${user?.username || '-'}`
+
+  const pdfBuffer = await renderChecklistMonitoringPdfBuffer({
+    tenantName: monitoring.tenantName,
+    responsibleLine,
+    monitoring,
+  })
+
+  const now = new Date()
+  const fileName = `checklist-monitoring-${monitoring.period.toLowerCase()}-${now.toISOString().slice(0, 10)}.pdf`
+  await sendTelegramChecklistPdf({
+    botToken: settings.botToken,
+    chatId: settings.chatId,
+    caption: `Monitoring checklist ${monitoringPeriodLabel(monitoring.period)} (${monitoring.range.fromLabel} - ${monitoring.range.toLabel}) - ${monitoring.tenantName}`,
+    fileName,
+    pdfBuffer,
+  })
+
+  await prisma.auditLog.create({
+    data: {
+      actorUserId: userId,
+      entityType: 'checklist_monitoring_exports',
+      entityId: tenantId,
+      action: 'SEND_TELEGRAM',
+      diffJson: {
+        tenantId,
+        period: monitoring.period,
+        itemType: monitoring.itemType,
+        from: monitoring.range.from,
+        to: monitoring.range.to,
+        chatId: settings.chatId,
+      },
+    },
+  })
+
+  return {
+    code: 'TELEGRAM_MONITORING_EXPORT_SENT',
+    message: 'Monitoring checklist berhasil dikirim ke Telegram.',
     sent: true,
   }
 }

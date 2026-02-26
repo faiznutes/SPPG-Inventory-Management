@@ -388,6 +388,11 @@ export const api = {
       headers: authHeader(accessToken),
     }),
 
+  getChecklistMonitoring: (accessToken, query = {}) =>
+    request(withQuery('/checklists/monitoring', query), {
+      headers: authHeader(accessToken),
+    }),
+
   submitTodayChecklist: (accessToken, body) =>
     request('/checklists/today/submit', {
       method: 'POST',
@@ -397,6 +402,13 @@ export const api = {
 
   sendChecklistExportTelegram: (accessToken, body) =>
     request('/checklists/today/export/send-telegram', {
+      method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
+
+  sendChecklistMonitoringExportTelegram: (accessToken, body) =>
+    request('/checklists/monitoring/export/send-telegram', {
       method: 'POST',
       headers: authHeader(accessToken),
       body: JSON.stringify(body),

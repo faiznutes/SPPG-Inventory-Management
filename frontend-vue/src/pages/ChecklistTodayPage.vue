@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import PageHeader from '../components/common/PageHeader.vue'
 import BaseModal from '../components/common/BaseModal.vue'
 import { useNotificationsStore } from '../stores/notifications'
@@ -278,6 +279,7 @@ onMounted(async () => {
     <PageHeader title="Checklist Hari Ini" :subtitle="subtitle" />
     <section class="rounded-xl border border-slate-200 bg-white p-3">
       <div class="flex flex-wrap justify-end gap-2">
+        <RouterLink to="/checklists/monitoring" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700">Monitoring</RouterLink>
         <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="exportCsv">Export CSV</button>
         <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="exportPdfA4">Export PDF A4</button>
       </div>

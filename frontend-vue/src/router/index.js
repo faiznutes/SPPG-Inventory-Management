@@ -7,6 +7,7 @@ import DashboardPage from '../pages/DashboardPage.vue'
 import StocksPage from '../pages/StocksPage.vue'
 import TransactionsPage from '../pages/TransactionsPage.vue'
 import ChecklistTodayPage from '../pages/ChecklistTodayPage.vue'
+import ChecklistMonitoringPage from '../pages/ChecklistMonitoringPage.vue'
 import PurchaseRequestListPage from '../pages/PurchaseRequestListPage.vue'
 import PurchaseRequestDetailPage from '../pages/PurchaseRequestDetailPage.vue'
 import SettingsPage from '../pages/SettingsPage.vue'
@@ -51,6 +52,12 @@ const routes = [
         name: 'checklist-today',
         component: ChecklistTodayPage,
         meta: { title: 'Checklist Hari Ini' },
+      },
+      {
+        path: 'checklists/monitoring',
+        name: 'checklist-monitoring',
+        component: ChecklistMonitoringPage,
+        meta: { title: 'Monitoring Checklist' },
       },
       {
         path: 'purchase-requests',
