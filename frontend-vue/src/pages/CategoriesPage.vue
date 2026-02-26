@@ -43,8 +43,19 @@ async function submitCategory() {
   }
 
   try {
+    const normalized = form.name.trim().toLowerCase()
+    if (!normalized) {
+      notifications.showPopup('Nama kategori wajib', 'Isi nama kategori terlebih dahulu.', 'error')
+      return
+    }
+
+    if (rows.value.some((row) => row.name.trim().toLowerCase() === normalized)) {
+      notifications.showPopup('Kategori duplikat', 'Nama kategori sudah ada, gunakan nama lain.', 'error')
+      return
+    }
+
     await api.createCategory(authStore.accessToken, {
-      name: form.name,
+      name: form.name.trim(),
     })
 
     showCreateModal.value = false

@@ -2,6 +2,20 @@
 
 Terakhir diperbarui: 2026-02-26 (malam)
 
+## Plan 7 Phase (Eksekusi Lanjutan)
+
+| Phase | Fokus | Status |
+|---|---|---|
+| 1 | Stabilkan super-admin bootstrap + promote fallback | DONE |
+| 2 | Rapikan role matrix API (users/items/categories) | DONE |
+| 3 | Tenant context end-to-end (auth payload + header branding) | DONE |
+| 4 | Fondasi tenant-aware scope (tenant session + switch tenant) | DONE |
+| 5 | UI selector tenant untuk super admin | DONE |
+| 6 | UX create kategori/produk + validasi duplikat | DONE |
+| 7 | QA build + smoke API + deploy verifikasi | IN_PROGRESS |
+
+Catatan phase 7: verifikasi final dilakukan setelah deploy ke Coolify selesai.
+
 ## Urutan Eksekusi Disarankan
 
 1. **Stabilitas sesi auth dulu**

@@ -6,6 +6,7 @@ type JwtPayload = {
   sub: string
   role: string
   username: string
+  tenantId?: string
 }
 
 function signToken(payload: JwtPayload, secret: Secret, expiresIn: SignOptions['expiresIn']) {

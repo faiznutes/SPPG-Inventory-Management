@@ -1,6 +1,6 @@
 import { Router } from 'express'
-import { loginSchema, refreshSchema } from './auth.schema.js'
-import { ensureAdminSeed, login, logout, me, refresh } from './auth.service.js'
+import { loginSchema, refreshSchema, selectTenantSchema } from './auth.schema.js'
+import { ensureAdminSeed, login, logout, me, myTenants, refresh, selectTenant } from './auth.service.js'
 import { requireAuth } from '../../middleware/auth.js'
 import { env } from '../../config/env.js'
 
@@ -61,6 +61,28 @@ authRouter.post('/logout', async (req, res, next) => {
 authRouter.get('/me', requireAuth, async (req, res, next) => {
   try {
     const data = await me(req.user!.id)
+    return res.json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+authRouter.get('/tenants', requireAuth, async (req, res, next) => {
+  try {
+    const data = await myTenants(req.user!.id)
+    return res.json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+authRouter.post('/tenant/select', requireAuth, async (req, res, next) => {
+  try {
+    const body = selectTenantSchema.parse(req.body)
+    const data = await selectTenant(req.user!.id, body.tenantId)
+
+    res.cookie('refreshToken', data.refreshToken, getRefreshCookieOptions())
+
     return res.json(data)
   } catch (error) {
     return next(error)

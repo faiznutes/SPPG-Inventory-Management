@@ -17,7 +17,7 @@ Terakhir diperbarui: 2026-02-26 (malam)
 | 9 | Hardening baseline production (cors/cookie/proxy) | 0.5 hari | DONE |
 | 10 | Session resilience (auto recover 401) | 0.5 hari | TODO |
 | 11 | API dashboard + notifikasi tanpa hardcode | 0.5 hari | TODO |
-| 12 | Multi-tenant schema (`tenant_id`) + role governance | 2 hari | TODO |
+| 12 | Multi-tenant schema (`tenant_id`) + role governance | 2 hari | DONE |
 | 13 | Migrasi data tenant default + verifikasi akses | 1 hari | TODO |
 
 ## Checklist Implementasi
@@ -93,13 +93,13 @@ Terakhir diperbarui: 2026-02-26 (malam)
 - [x] Tambah endpoint `GET /api/v1/notifications`
 - [x] Pastikan semua endpoint di atas tidak pakai data hardcode
 
-### Phase 12 (TODO)
+### Phase 12 (DONE)
 - [x] Tambah model `Tenant` dan `TenantMembership` di schema
-- [ ] Tambah role baru: `SUPER_ADMIN`, `TENANT_ADMIN`, `KOORD_DAPUR`, `KOORD_KEBERSIHAN`, `KOORD_LAPANGAN`, `STAFF`
-- [ ] Middleware akses tenant-aware (`tenant_id` scope)
+- [x] Tambah role baru: `SUPER_ADMIN`, `TENANT_ADMIN`, `KOORD_DAPUR`, `KOORD_KEBERSIHAN`, `KOORD_LAPANGAN`, `STAFF`
+- [x] Middleware akses tenant-aware (`tenant_id` scope) dasar via session tenant + switch tenant endpoint
 - [x] Atur rule: hanya `SUPER_ADMIN` bisa create user/staff/admin
 - [x] Endpoint create item/category menerima role tenant governance (`SUPER_ADMIN`, `TENANT_ADMIN`, `ADMIN`)
-- [ ] Finalisasi seed akun `SUPER_ADMIN` default untuk checklist role governance
+- [x] Finalisasi seed akun `SUPER_ADMIN` default untuk checklist role governance (bootstrap fallback + promote saat login)
 
 ### Phase 13 (TODO)
 - [ ] Migrasi data existing ke tenant default (`SPPG Tambak Wedi`)
@@ -114,3 +114,4 @@ Terakhir diperbarui: 2026-02-26 (malam)
 - `2026-02-25 - Phase 7 DONE - API items/stocks/transactions aktif dengan validasi stok dan lulus smoke test`
 - `2026-02-26 - Phase 8 DONE - API checklist dan purchase request aktif dengan detail item + history status`
 - `2026-02-26 - Phase 9 DONE - baseline hardening CORS/cookie/proxy via environment selesai`
+- `2026-02-26 - Phase 12 DONE - endpoint auth /tenants dan /tenant/select aktif untuk session tenant-aware + switch tenant super admin`

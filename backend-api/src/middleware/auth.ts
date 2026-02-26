@@ -16,6 +16,7 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
       id: payload.sub,
       role: payload.role,
       username: payload.username,
+      tenantId: payload.tenantId,
     }
     return next()
   } catch {

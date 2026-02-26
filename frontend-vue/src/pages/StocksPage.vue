@@ -105,9 +105,28 @@ async function submitCreateProduct() {
   }
 
   try {
+    const productName = createItemForm.name.trim()
+    const normalizedName = productName.toLowerCase()
+    const sku = createItemForm.sku.trim()
+
+    if (!productName) {
+      notifications.showPopup('Nama produk wajib', 'Isi nama produk terlebih dahulu.', 'error')
+      return
+    }
+
+    if (items.value.some((item) => item.name.trim().toLowerCase() === normalizedName)) {
+      notifications.showPopup('Produk duplikat', 'Nama produk sudah ada, gunakan nama lain.', 'error')
+      return
+    }
+
+    if (sku && items.value.some((item) => (item.sku || '').trim().toLowerCase() === sku.toLowerCase())) {
+      notifications.showPopup('SKU duplikat', 'SKU sudah dipakai produk lain.', 'error')
+      return
+    }
+
     await api.createItem(authStore.accessToken, {
-      name: createItemForm.name,
-      sku: createItemForm.sku || undefined,
+      name: productName,
+      sku: sku || undefined,
       categoryId: createItemForm.categoryId || undefined,
       type: createItemForm.type,
       unit: createItemForm.unit,

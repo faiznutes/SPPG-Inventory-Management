@@ -8,3 +8,7 @@ export const loginSchema = z.object({
 export const refreshSchema = z.object({
   refreshToken: z.string().optional(),
 })
+
+export const selectTenantSchema = z.object({
+  tenantId: z.string().min(1),
+})

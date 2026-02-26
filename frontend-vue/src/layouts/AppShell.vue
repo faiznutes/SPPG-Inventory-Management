@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { RouterLink, RouterView } from 'vue-router'
 import { useUiStore } from '../stores/ui'
@@ -15,6 +15,8 @@ const router = useRouter()
 
 const pageTitle = computed(() => route.meta.title || authStore.tenantName)
 const currentRole = computed(() => authStore.user?.role || '')
+const selectedTenantId = ref('')
+const canSwitchTenant = computed(() => authStore.isSuperAdmin && authStore.availableTenants.length > 1)
 
 const menus = [
   { name: 'Dashboard', path: '/dashboard', icon: 'dashboard' },
@@ -46,10 +48,33 @@ async function handleLogout() {
   router.push('/login')
 }
 
+async function handleTenantSwitch() {
+  if (!selectedTenantId.value || selectedTenantId.value === authStore.user?.tenant?.id) return
+
+  const ok = await authStore.switchTenant(selectedTenantId.value)
+  if (!ok) {
+    notifications.showPopup('Gagal ganti tenant', authStore.errorMessage || 'Tenant tidak bisa diganti.', 'error')
+    selectedTenantId.value = authStore.user?.tenant?.id || ''
+    return
+  }
+
+  notifications.showPopup('Tenant aktif diperbarui', `Sekarang aktif di ${authStore.tenantName}.`, 'success')
+  router.replace({ path: route.fullPath })
+}
+
+watch(
+  () => authStore.user?.tenant?.id,
+  (tenantId) => {
+    selectedTenantId.value = tenantId || ''
+  },
+  { immediate: true },
+)
+
 onMounted(async () => {
   if (!authStore.accessToken) return
 
   try {
+    await authStore.fetchTenants()
     await notifications.loadFromApi(authStore.accessToken)
   } catch {
     // keep UI responsive even when notifications endpoint fails
@@ -107,6 +132,16 @@ onMounted(async () => {
             </div>
           </div>
           <div class="flex items-center gap-2">
+            <select
+              v-if="canSwitchTenant"
+              v-model="selectedTenantId"
+              class="hidden rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-700 sm:block"
+              @change="handleTenantSwitch"
+            >
+              <option v-for="tenant in authStore.availableTenants" :key="tenant.id" :value="tenant.id">
+                {{ tenant.name }}
+              </option>
+            </select>
             <div class="hidden rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 sm:block">
               {{ authStore.user?.name || authStore.user?.username || 'Pengguna' }}
             </div>

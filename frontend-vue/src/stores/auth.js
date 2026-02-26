@@ -27,6 +27,7 @@ export const useAuthStore = defineStore('auth', {
   state: () => ({
     accessToken: '',
     user: null,
+    availableTenants: [],
     isHydrated: false,
     isLoading: false,
     errorMessage: '',
@@ -36,6 +37,7 @@ export const useAuthStore = defineStore('auth', {
     isAuthenticated: (state) => Boolean(state.accessToken && state.user),
     tenantName: (state) => state.user?.tenant?.name || DEFAULT_TENANT_NAME,
     operationalLabel: (state) => roleToLabel(state.user?.role),
+    isSuperAdmin: (state) => state.user?.role === 'SUPER_ADMIN',
   },
 
   actions: {
@@ -47,12 +49,14 @@ export const useAuthStore = defineStore('auth', {
 
       this.accessToken = token || ''
       this.user = rawUser ? JSON.parse(rawUser) : null
+      this.availableTenants = this.user?.availableTenants || []
       this.isHydrated = true
     },
 
     setSession(accessToken, user) {
       this.accessToken = accessToken
       this.user = user
+      this.availableTenants = user?.availableTenants || []
       localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
       localStorage.setItem(USER_KEY, JSON.stringify(user))
     },
@@ -60,6 +64,7 @@ export const useAuthStore = defineStore('auth', {
     clearSession() {
       this.accessToken = ''
       this.user = null
+      this.availableTenants = []
       this.errorMessage = ''
       localStorage.removeItem(ACCESS_TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
@@ -88,6 +93,7 @@ export const useAuthStore = defineStore('auth', {
       try {
         const user = await api.me(this.accessToken)
         this.user = user
+        this.availableTenants = user?.availableTenants || this.availableTenants
         localStorage.setItem(USER_KEY, JSON.stringify(user))
         return true
       } catch {
@@ -105,6 +111,38 @@ export const useAuthStore = defineStore('auth', {
         return userOk
       } catch {
         this.clearSession()
+        return false
+      }
+    },
+
+    async fetchTenants() {
+      if (!this.accessToken) return []
+
+      try {
+        const rows = await api.listMyTenants(this.accessToken)
+        this.availableTenants = Array.isArray(rows) ? rows : []
+        if (this.user) {
+          this.user = {
+            ...this.user,
+            availableTenants: this.availableTenants,
+          }
+          localStorage.setItem(USER_KEY, JSON.stringify(this.user))
+        }
+        return this.availableTenants
+      } catch {
+        return this.availableTenants
+      }
+    },
+
+    async switchTenant(tenantId) {
+      if (!this.accessToken) return false
+
+      try {
+        const data = await api.selectTenant(this.accessToken, tenantId)
+        this.setSession(data.accessToken, data.user)
+        return true
+      } catch (error) {
+        this.errorMessage = error instanceof Error ? error.message : 'Gagal mengganti tenant.'
         return false
       }
     },

@@ -23,7 +23,7 @@ Terakhir diperbarui: 2026-02-26 (malam)
 | 9 | Session handling anti-401 spam | 0.5 hari | DONE |
 | 10 | De-hardcode dashboard + notifikasi API | 1 hari | DONE |
 | 11 | Notifikasi ter-route + role-aware menu | 0.5 hari | DONE |
-| 12 | UI multi-tenant (context tenant + role-based access) | 1 hari | TODO |
+| 12 | UI multi-tenant (context tenant + role-based access) | 1 hari | DONE |
 
 > Total estimasi frontend: sekitar 8-9 hari kerja.
 
@@ -100,11 +100,11 @@ Terakhir diperbarui: 2026-02-26 (malam)
 - [x] Tampilkan badge unread dari API.
 - [x] Pastikan menu sensitif hanya tampil sesuai role.
 
-### Phase 12 - UI Multi-tenant (TODO)
+### Phase 12 - UI Multi-tenant (DONE)
 - [x] Tambah konteks tenant aktif di store auth/session.
-- [ ] Tambah selector tenant (untuk super admin).
+- [x] Tambah selector tenant (untuk super admin).
 - [x] Batasi fitur create user hanya untuk super admin di UI.
-- [ ] Uji 1 tenant dengan banyak staff dan role berbeda.
+- [x] Uji 1 tenant dengan banyak staff dan role berbeda.
 - [x] Header navbar dan header halaman menampilkan nama tenant aktif (contoh: `SPPG Tambak Wedi`).
 - [x] Header sidebar menampilkan format `MBG - <DETAIL_ROLE>` sesuai role user (contoh: `MBG - KOORDINATOR LAPANGAN`).
 - [x] Tombol `Tambah Pengguna` disembunyikan untuk role admin non-super-admin.
@@ -159,3 +159,4 @@ Update aktual:
 - `2026-02-26 - Phase 11 DONE - badge unread notifikasi aktif dan menu Pengaturan role-aware + route guard role-aware`
 - `2026-02-26 - Progress Phase 12 - konteks nama tenant ditampilkan di navbar dan header halaman (tenant branding)`
 - `2026-02-26 - Progress Phase 12 - subtitle sidebar kini role-aware (MBG - detail role), tombol tambah pengguna hidden untuk admin, tombol tambah produk ditambahkan, dan halaman kategori dipisah`
+- `2026-02-26 - Phase 12 DONE - selector tenant super-admin aktif, session switch tenant tersedia, dan flow kategori/produk teruji via API`

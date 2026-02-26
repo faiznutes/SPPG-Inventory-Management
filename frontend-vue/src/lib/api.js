@@ -116,6 +116,16 @@ export const api = {
         Authorization: `Bearer ${accessToken}`,
       },
     }),
+  listMyTenants: (accessToken) =>
+    request('/auth/tenants', {
+      headers: authHeader(accessToken),
+    }),
+  selectTenant: (accessToken, tenantId) =>
+    request('/auth/tenant/select', {
+      method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify({ tenantId }),
+    }),
   logout: () =>
     request('/auth/logout', {
       method: 'POST',

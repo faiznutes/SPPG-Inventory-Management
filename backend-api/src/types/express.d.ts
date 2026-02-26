@@ -5,6 +5,7 @@ declare global {
         id: string
         role: string
         username: string
+        tenantId?: string
       }
     }
   }
