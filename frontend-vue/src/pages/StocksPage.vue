@@ -64,6 +64,10 @@ function statusClass(status) {
   return 'bg-emerald-100 text-emerald-700'
 }
 
+function categoryDisplayName(name) {
+  return String(name || '').replace(/^(CONSUMABLE|GAS|ASSET)\s-\s/i, '')
+}
+
 async function loadData() {
   if (!authStore.accessToken) return
 
@@ -299,7 +303,7 @@ onMounted(async () => {
           <span class="mb-1 block text-sm font-semibold text-slate-700">Kategori</span>
           <select v-model="createItemForm.categoryId" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
             <option value="">Tanpa kategori</option>
-            <option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option>
+            <option v-for="category in categories" :key="category.id" :value="category.id">{{ categoryDisplayName(category.name) }}</option>
           </select>
         </label>
 

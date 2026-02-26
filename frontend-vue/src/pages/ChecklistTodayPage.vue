@@ -34,6 +34,18 @@ function resultClass(result) {
   return 'bg-slate-100 text-slate-700'
 }
 
+function itemTypeBadgeClass(itemType) {
+  if (itemType === 'ASSET') return 'bg-sky-100 text-sky-700'
+  if (itemType === 'GAS') return 'bg-amber-100 text-amber-700'
+  return 'bg-emerald-100 text-emerald-700'
+}
+
+function itemTypeLabel(itemType) {
+  if (itemType === 'ASSET') return 'Asset'
+  if (itemType === 'GAS') return 'Gas'
+  return 'Consumable'
+}
+
 function resultLabel(result) {
   if (result === 'LOW') return 'Menipis'
   if (result === 'OUT') return 'Habis'
@@ -59,6 +71,8 @@ async function loadChecklist() {
     templateName.value = data.templateName
     items.value = data.items.map((item) => ({
       ...item,
+      itemType: item.itemType || 'CONSUMABLE',
+      conditionPercent: typeof item.conditionPercent === 'number' ? item.conditionPercent : 100,
       label: resultLabel(item.result),
       notes: item.notes || '',
     }))
@@ -83,6 +97,7 @@ async function processChecklist() {
         id: item.id,
         result: toApiResult(item.label),
         notes: item.notes,
+        conditionPercent: item.itemType === 'ASSET' ? Number(item.conditionPercent) : undefined,
       })),
     })
 
@@ -113,7 +128,12 @@ onMounted(async () => {
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p class="text-base font-bold text-slate-900">{{ item.title }}</p>
-            <p class="text-sm text-slate-500">Status saat ini: {{ item.label }}</p>
+            <div class="mt-1 flex items-center gap-2">
+              <span class="rounded-full px-2 py-0.5 text-[11px] font-bold" :class="itemTypeBadgeClass(item.itemType)">
+                {{ itemTypeLabel(item.itemType) }}
+              </span>
+              <p class="text-sm text-slate-500">Status saat ini: {{ item.label }}</p>
+            </div>
           </div>
           <div class="flex items-center gap-2">
             <select
@@ -129,11 +149,27 @@ onMounted(async () => {
           </div>
         </div>
 
-        <textarea
-          v-model="item.notes"
-          class="mt-2 min-h-16 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-          placeholder="Tambahkan catatan bila perlu"
-        />
+        <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <label v-if="item.itemType === 'ASSET'" class="sm:col-span-1">
+            <span class="mb-1 block text-xs font-semibold text-slate-600">Kondisi Asset (%)</span>
+            <input
+              v-model.number="item.conditionPercent"
+              type="number"
+              min="0"
+              max="100"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            />
+          </label>
+
+          <label :class="item.itemType === 'ASSET' ? 'sm:col-span-2' : 'sm:col-span-3'">
+            <span class="mb-1 block text-xs font-semibold text-slate-600">Catatan</span>
+            <textarea
+              v-model="item.notes"
+              class="min-h-16 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              :placeholder="item.itemType === 'ASSET' ? 'Contoh: fan kompor perlu dibersihkan' : 'Tambahkan catatan bila perlu'"
+            />
+          </label>
+        </div>
       </article>
     </section>
 

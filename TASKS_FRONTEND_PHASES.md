@@ -160,3 +160,4 @@ Update aktual:
 - `2026-02-26 - Progress Phase 12 - konteks nama tenant ditampilkan di navbar dan header halaman (tenant branding)`
 - `2026-02-26 - Progress Phase 12 - subtitle sidebar kini role-aware (MBG - detail role), tombol tambah pengguna hidden untuk admin, tombol tambah produk ditambahkan, dan halaman kategori dipisah`
 - `2026-02-26 - Phase 12 DONE - selector tenant super-admin aktif, session switch tenant tersedia, dan flow kategori/produk teruji via API`
+- `2026-02-26 - Penyesuaian UX - kategori kini jelas per jenis (Consumable/Gas/Asset), dukung edit/hapus kategori, dan checklist asset menampilkan input kondisi (%)`

@@ -20,6 +20,7 @@ const form = reactive({
   username: '',
   email: '',
   role: 'STAFF',
+  categoryType: 'CONSUMABLE',
   password: '',
   description: '',
 })
@@ -50,6 +51,7 @@ function resetForm() {
   form.username = ''
   form.email = ''
   form.role = 'STAFF'
+  form.categoryType = 'CONSUMABLE'
   form.password = ''
   form.description = ''
 }
@@ -92,8 +94,8 @@ async function loadData() {
     }))
 
     categories.value = categoriesData.map((item) => ({
-      nama: item.name,
-      kode: item.name.toUpperCase().replaceAll(' ', '_'),
+      nama: item.name?.replace(/^(CONSUMABLE|GAS|ASSET)\s-\s/i, ''),
+      kode: item.type || 'CONSUMABLE',
       status: 'Aktif',
     }))
   } catch (error) {
@@ -126,6 +128,7 @@ async function saveData() {
     } else {
       await api.createCategory(authStore.accessToken, {
         name: form.name,
+        type: form.categoryType,
       })
     }
 
@@ -274,6 +277,15 @@ onMounted(async () => {
         <label v-if="activeTab === 'Pengguna'" class="block">
           <span class="mb-1 block text-sm font-semibold text-slate-700">Username</span>
           <input v-model="form.username" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Username login" />
+        </label>
+
+        <label v-if="activeTab === 'Kategori'" class="block">
+          <span class="mb-1 block text-sm font-semibold text-slate-700">Jenis</span>
+          <select v-model="form.categoryType" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+            <option value="CONSUMABLE">Consumable</option>
+            <option value="GAS">Gas</option>
+            <option value="ASSET">Asset</option>
+          </select>
         </label>
 
         <label v-if="activeTab === 'Pengguna'" class="block">

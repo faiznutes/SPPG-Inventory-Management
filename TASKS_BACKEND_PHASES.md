@@ -115,3 +115,4 @@ Terakhir diperbarui: 2026-02-26 (malam)
 - `2026-02-26 - Phase 8 DONE - API checklist dan purchase request aktif dengan detail item + history status`
 - `2026-02-26 - Phase 9 DONE - baseline hardening CORS/cookie/proxy via environment selesai`
 - `2026-02-26 - Phase 12 DONE - endpoint auth /tenants dan /tenant/select aktif untuk session tenant-aware + switch tenant super admin`
+- `2026-02-26 - Penyesuaian master/checklist - kategori mendukung create/update/delete dengan audit log, serta checklist asset mendukung kondisi persen (0-100)`

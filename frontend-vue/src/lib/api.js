@@ -174,6 +174,19 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  updateCategory: (accessToken, id, body) =>
+    request(`/categories/${id}`, {
+      method: 'PATCH',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
+
+  deleteCategory: (accessToken, id) =>
+    request(`/categories/${id}`, {
+      method: 'DELETE',
+      headers: authHeader(accessToken),
+    }),
+
   listItems: (accessToken) =>
     request('/items', {
       headers: authHeader(accessToken),

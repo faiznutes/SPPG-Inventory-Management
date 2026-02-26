@@ -16,6 +16,8 @@ Terakhir diperbarui: 2026-02-26 (malam)
 
 Catatan phase 7: verifikasi final sudah dijalankan setelah deploy Coolify selesai.
 
+Tambahan audit penyesuaian: master kategori diperjelas per jenis item (Consumable/Gas/Asset), CRUD kategori ditambah, dan checklist asset ditingkatkan dengan indikator kondisi persen.
+
 ## Urutan Eksekusi Disarankan
 
 1. **Stabilitas sesi auth dulu**

@@ -8,6 +8,35 @@ import { ApiError } from '../../utils/api-error.js'
 
 const DEFAULT_TEMPLATE_NAME = 'Checklist Harian Operasional'
 
+function detectChecklistItemType(title: string) {
+  const text = title.toLowerCase()
+  if (text.includes('asset') || text.includes('alat') || text.includes('kondisi')) return 'ASSET'
+  if (text.includes('gas')) return 'GAS'
+  return 'CONSUMABLE'
+}
+
+function extractConditionPercent(notes?: string | null) {
+  if (!notes) return null
+  const match = notes.match(/kondisi\s*[:=]\s*(\d{1,3})/i)
+  if (!match) return null
+  const value = Number(match[1])
+  if (!Number.isFinite(value)) return null
+  return Math.max(0, Math.min(100, value))
+}
+
+function attachConditionNote(notes: string | undefined, conditionPercent?: number) {
+  const cleanNotes = (notes || '').trim().replace(/\s*\|?\s*Kondisi\s*[:=]\s*\d{1,3}%?/gi, '').trim()
+  if (typeof conditionPercent !== 'number') return cleanNotes
+  const conditionText = `Kondisi: ${Math.round(conditionPercent)}%`
+  return cleanNotes ? `${cleanNotes} | ${conditionText}` : conditionText
+}
+
+function resultFromCondition(conditionPercent: number) {
+  if (conditionPercent >= 80) return ChecklistResult.OK
+  if (conditionPercent >= 50) return ChecklistResult.LOW
+  return ChecklistResult.OUT
+}
+
 function toDateOnly(date: Date) {
   const yyyy = date.getFullYear()
   const mm = String(date.getMonth() + 1).padStart(2, '0')
@@ -31,8 +60,8 @@ async function ensureDefaultTemplate(userId: string) {
       items: {
         create: [
           { title: 'Cek Gas', description: 'Pastikan gas cukup untuk operasional', sortOrder: 1 },
-          { title: 'Cek Sabun Cuci', description: 'Pastikan stok sabun cuci aman', sortOrder: 2 },
-          { title: 'Cek Tissue', description: 'Pastikan stok tissue tersedia', sortOrder: 3 },
+          { title: 'Cek Stok Consumable Utama', description: 'Contoh: beras, minyak, sabun cuci (bisa berkurang)', sortOrder: 2 },
+          { title: 'Kondisi Asset Utama', description: 'Contoh: kompor, kulkas (isi kondisi dalam %)', sortOrder: 3 },
         ],
       },
     },
@@ -89,8 +118,10 @@ export async function getTodayChecklist(userId: string) {
       .map((item) => ({
         id: item.id,
         title: item.title,
+        itemType: detectChecklistItemType(item.title),
         result: item.result,
         notes: item.notes,
+        conditionPercent: extractConditionPercent(item.notes),
       })),
   }
 }
@@ -102,6 +133,7 @@ type SubmitChecklistInput = {
     id: string
     result: ChecklistResultType
     notes?: string
+    conditionPercent?: number
   }>
 }
 
@@ -120,11 +152,19 @@ export async function submitChecklist(userId: string, input: SubmitChecklistInpu
       const exists = run.items.find((item) => item.id === incoming.id)
       if (!exists) continue
 
+       const itemType = detectChecklistItemType(exists.title)
+       const nextCondition = typeof incoming.conditionPercent === 'number'
+         ? Math.max(0, Math.min(100, incoming.conditionPercent))
+         : undefined
+       const derivedResult = itemType === 'ASSET' && typeof nextCondition === 'number'
+         ? resultFromCondition(nextCondition)
+         : incoming.result
+
       await tx.checklistRunItem.update({
         where: { id: incoming.id },
         data: {
-          result: incoming.result,
-          notes: incoming.notes,
+          result: derivedResult,
+          notes: attachConditionNote(incoming.notes, nextCondition),
         },
       })
     }
