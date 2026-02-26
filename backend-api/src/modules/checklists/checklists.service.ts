@@ -5,6 +5,7 @@ import type {
 } from '@prisma/client'
 import PDFDocument from 'pdfkit'
 import { prisma } from '../../lib/prisma.js'
+import { env } from '../../config/env.js'
 import { ApiError } from '../../utils/api-error.js'
 
 const DEFAULT_TEMPLATE_NAME = 'Checklist Harian Operasional'
@@ -509,7 +510,7 @@ async function buildChecklistMonitoringData(tenantId: string | undefined, query:
 
   return {
     templateName,
-    tenantName: tenant?.name || 'INVENTORY SPPG MBG',
+    tenantName: tenant?.name || env.APP_NAME,
     period,
     itemType,
     range: {
@@ -801,7 +802,7 @@ export async function sendChecklistExportToTelegram(userId: string, tenantId: st
   const responsibleLine = `${user?.name || user?.username || 'Pengguna'} - ${user?.username || '-'}`
 
   const pdfBuffer = await renderChecklistPdfBuffer({
-    tenantName: tenant?.name || 'INVENTORY SPPG MBG',
+    tenantName: tenant?.name || env.APP_NAME,
     responsibleLine,
     templateName: run.template.name,
     runDate: run.runDate,

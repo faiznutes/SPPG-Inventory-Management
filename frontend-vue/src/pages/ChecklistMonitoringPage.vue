@@ -4,6 +4,7 @@ import PageHeader from '../components/common/PageHeader.vue'
 import { useNotificationsStore } from '../stores/notifications'
 import { useAuthStore } from '../stores/auth'
 import { api } from '../lib/api'
+import { APP_NAME, DEFAULT_TEMPLATE_NAME } from '../config/app'
 
 const notifications = useNotificationsStore()
 const authStore = useAuthStore()
@@ -12,14 +13,14 @@ const isLoading = ref(false)
 const period = ref('WEEKLY')
 const itemType = ref('ALL')
 
-const templateName = ref('Checklist Harian')
+const templateName = ref(DEFAULT_TEMPLATE_NAME)
 const rangeLabel = ref('-')
 const dates = ref([])
 const rows = ref([])
 const totals = ref({ A: 0, M: 0, H: 0, B: 0 })
 
 const subtitle = computed(() => `${templateName.value} - ${rangeLabel.value}`)
-const tenantName = computed(() => authStore.user?.tenant?.name || authStore.tenantName || 'INVENTORY SPPG MBG')
+const tenantName = computed(() => authStore.user?.tenant?.name || authStore.tenantName || APP_NAME)
 const responsibleLine = computed(() => {
   const name = authStore.user?.name || authStore.user?.username || '-'
   const jabatan = authStore.user?.jabatan || authStore.operationalLabel || 'Staff'
@@ -71,7 +72,7 @@ async function loadMonitoring() {
       itemType: itemType.value,
     })
 
-    templateName.value = data.templateName || 'Checklist Harian'
+    templateName.value = data.templateName || DEFAULT_TEMPLATE_NAME
     rangeLabel.value = `${data.range?.fromLabel || '-'} s/d ${data.range?.toLabel || '-'}`
     dates.value = data.dates || []
     rows.value = data.rows || []

@@ -2,6 +2,7 @@
 import { reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { APP_NAME } from '../config/app'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -25,7 +26,7 @@ async function submitLogin() {
   <div class="flex min-h-screen items-center justify-center p-4">
     <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
       <div class="mb-6 text-center">
-        <p class="text-sm font-semibold text-blue-600">INVENTORY SPPG MBG</p>
+        <p class="text-sm font-semibold text-blue-600">{{ APP_NAME }}</p>
         <h1 class="mt-1 text-2xl font-extrabold text-slate-900">Masuk Sistem</h1>
         <p class="mt-1 text-sm text-slate-500">Gunakan akun petugas untuk melanjutkan</p>
       </div>
@@ -64,9 +65,6 @@ async function submitLogin() {
           {{ authStore.isLoading ? 'Memproses...' : 'Masuk' }}
         </button>
 
-        <p class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
-          Akun dev default: <span class="font-semibold text-slate-700">admin / admin12345</span>
-        </p>
       </form>
     </div>
   </div>

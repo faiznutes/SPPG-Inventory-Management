@@ -6,6 +6,7 @@ import { useUiStore } from '../stores/ui'
 import { useNotificationsStore } from '../stores/notifications'
 import { useAuthStore } from '../stores/auth'
 import PopupToast from '../components/common/PopupToast.vue'
+import { APP_NAME } from '../config/app'
 
 const ui = useUiStore()
 const notifications = useNotificationsStore()
@@ -107,7 +108,7 @@ onMounted(async () => {
       <div class="mb-5 flex items-center justify-between">
         <div>
           <p class="text-lg font-extrabold text-slate-900">{{ authStore.tenantName }}</p>
-          <p class="text-xs text-slate-500">MBG - {{ authStore.operationalLabel }}</p>
+          <p class="text-xs text-slate-500">{{ APP_NAME }} - {{ authStore.operationalLabel }}</p>
         </div>
         <button class="lg:hidden" @click="ui.closeSidebar">
           <span class="material-symbols-outlined text-slate-500">close</span>
@@ -138,7 +139,7 @@ onMounted(async () => {
             </button>
             <div>
               <p class="text-base font-bold text-slate-900 sm:text-lg">{{ pageTitle }}</p>
-              <p class="text-xs text-slate-500">Sistem inventory & checklist {{ authStore.tenantName }}</p>
+              <p class="text-xs text-slate-500">Sistem {{ APP_NAME }} - {{ authStore.tenantName }}</p>
             </div>
           </div>
           <div class="flex items-center gap-2">

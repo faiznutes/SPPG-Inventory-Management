@@ -6,13 +6,14 @@ import BaseModal from '../components/common/BaseModal.vue'
 import { useNotificationsStore } from '../stores/notifications'
 import { useAuthStore } from '../stores/auth'
 import { api } from '../lib/api'
+import { APP_NAME, DEFAULT_TEMPLATE_NAME } from '../config/app'
 
 const notifications = useNotificationsStore()
 const authStore = useAuthStore()
 
 const runId = ref('')
 const runStatus = ref('DRAFT')
-const templateName = ref('Checklist Harian')
+const templateName = ref(DEFAULT_TEMPLATE_NAME)
 const items = ref([])
 const isLoading = ref(false)
 const activeCategoryFilter = ref('ALL')
@@ -53,7 +54,7 @@ function itemTypeLabel(itemType) {
   return 'Barang habis beli lagi'
 }
 
-const tenantName = computed(() => authStore.user?.tenant?.name || authStore.tenantName || 'INVENTORY SPPG MBG')
+const tenantName = computed(() => authStore.user?.tenant?.name || authStore.tenantName || APP_NAME)
 const responsibleLine = computed(() => {
   const name = authStore.user?.name || authStore.user?.username || '-'
   const jabatan = authStore.user?.jabatan || authStore.operationalLabel || 'Staff'
@@ -126,7 +127,7 @@ function openChecklistPrintWindow() {
   const html = `
     <html>
       <head>
-        <title>Checklist Harian</title>
+        <title>${DEFAULT_TEMPLATE_NAME}</title>
         <style>
           @page { size: A4; margin: 14mm; }
           body { font-family: Arial, sans-serif; font-size: 12px; color: #0f172a; }

@@ -5,6 +5,7 @@ import BaseModal from '../components/common/BaseModal.vue'
 import { useNotificationsStore } from '../stores/notifications'
 import { useAuthStore } from '../stores/auth'
 import { api } from '../lib/api'
+import { APP_NAME } from '../config/app'
 
 const notifications = useNotificationsStore()
 const authStore = useAuthStore()
@@ -62,7 +63,7 @@ const dayNameMap = {
   6: 'Sabtu',
 }
 
-const tenantName = computed(() => authStore.user?.tenant?.name || authStore.tenantName || 'INVENTORY SPPG MBG')
+const tenantName = computed(() => authStore.user?.tenant?.name || authStore.tenantName || APP_NAME)
 const responsibleLine = computed(() => {
   const name = authStore.user?.name || authStore.user?.username || '-'
   const jabatan = authStore.user?.jabatan || authStore.operationalLabel || 'Staff'

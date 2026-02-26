@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
 import { api } from '../lib/api'
+import { APP_NAME } from '../config/app'
 
 const ACCESS_TOKEN_KEY = 'sppg_access_token'
 const USER_KEY = 'sppg_user'
-const DEFAULT_TENANT_NAME = 'INVENTORY SPPG MBG'
+const DEFAULT_TENANT_NAME = APP_NAME
 
 const roleLabelMap = {
   SUPER_ADMIN: 'SUPER ADMIN',

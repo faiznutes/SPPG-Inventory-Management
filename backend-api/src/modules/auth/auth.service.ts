@@ -15,13 +15,13 @@ type LoginInput = {
   password: string
 }
 
-const SUPER_ADMIN_USERNAME = 'superadmin'
-const SUPER_ADMIN_DEFAULT_PASSWORD = 'superadmin12345'
+const SUPER_ADMIN_USERNAME = env.SUPER_ADMIN_USERNAME
+const SUPER_ADMIN_DEFAULT_PASSWORD = env.SUPER_ADMIN_PASSWORD
 
 const DEFAULT_TENANT = {
   id: 'tenant-default',
-  name: 'SPPG Tambak Wedi',
-  code: 'sppg-tambak-wedi',
+  name: env.APP_NAME,
+  code: env.DEFAULT_TENANT_CODE,
 }
 
 function resolveSessionRole(user: { role: string; username: string }) {
@@ -91,23 +91,6 @@ function getRefreshExpiryDate() {
 
 export async function ensureAdminSeed() {
   try {
-    const defaultAdmin = await prisma.user.findUnique({
-      where: { username: 'admin' },
-    })
-
-    if (!defaultAdmin) {
-      const passwordHash = await bcrypt.hash('admin12345', 10)
-      await prisma.user.create({
-        data: {
-          name: 'Admin SPPG',
-          username: 'admin',
-          email: 'admin@sppg.local',
-          passwordHash,
-          role: UserRole.ADMIN,
-        },
-      })
-    }
-
     const superAdminUser = await prisma.user.findUnique({
       where: { username: SUPER_ADMIN_USERNAME },
     })
@@ -116,9 +99,9 @@ export async function ensureAdminSeed() {
       const superAdminHash = await bcrypt.hash(SUPER_ADMIN_DEFAULT_PASSWORD, 10)
       await prisma.user.create({
         data: {
-          name: 'Super Admin SPPG',
+          name: env.SUPER_ADMIN_NAME,
           username: SUPER_ADMIN_USERNAME,
-          email: 'superadmin@sppg.local',
+          email: env.SUPER_ADMIN_EMAIL,
           passwordHash: superAdminHash,
           role: UserRole.ADMIN,
         },
