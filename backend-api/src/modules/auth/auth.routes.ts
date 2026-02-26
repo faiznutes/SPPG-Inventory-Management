@@ -1,6 +1,6 @@
 import { Router } from 'express'
-import { loginSchema, refreshSchema, selectTenantSchema } from './auth.schema.js'
-import { ensureAdminSeed, login, logout, me, myTenants, refresh, selectTenant } from './auth.service.js'
+import { changePasswordSchema, loginSchema, refreshSchema, selectTenantSchema } from './auth.schema.js'
+import { changePassword, ensureAdminSeed, login, logout, me, myTenants, refresh, selectTenant } from './auth.service.js'
 import { requireAuth } from '../../middleware/auth.js'
 import { env } from '../../config/env.js'
 
@@ -83,6 +83,16 @@ authRouter.post('/tenant/select', requireAuth, async (req, res, next) => {
 
     res.cookie('refreshToken', data.refreshToken, getRefreshCookieOptions())
 
+    return res.json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+authRouter.post('/change-password', requireAuth, async (req, res, next) => {
+  try {
+    const body = changePasswordSchema.parse(req.body)
+    const data = await changePassword(req.user!.id, body.currentPassword, body.newPassword)
     return res.json(data)
   } catch (error) {
     return next(error)

@@ -24,6 +24,12 @@ const form = reactive({
   description: '',
 })
 
+const passwordForm = reactive({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+})
+
 const canManageUsers = computed(() => authStore.user?.role === 'SUPER_ADMIN')
 const canAddInTab = computed(() => activeTab.value !== 'Pengguna' || canManageUsers.value)
 
@@ -50,6 +56,12 @@ function resetForm() {
 
 function toStatusLabel(value) {
   return value ? 'Aktif' : 'Nonaktif'
+}
+
+function resetPasswordForm() {
+  passwordForm.currentPassword = ''
+  passwordForm.newPassword = ''
+  passwordForm.confirmPassword = ''
 }
 
 async function loadData() {
@@ -127,6 +139,34 @@ async function saveData() {
   }
 }
 
+async function changeMyPassword() {
+  if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+    notifications.showPopup('Form belum lengkap', 'Isi password lama, password baru, dan konfirmasi.', 'error')
+    return
+  }
+
+  if (passwordForm.newPassword.length < 8) {
+    notifications.showPopup('Password terlalu pendek', 'Password baru minimal 8 karakter.', 'error')
+    return
+  }
+
+  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+    notifications.showPopup('Konfirmasi tidak cocok', 'Ulangi konfirmasi password baru.', 'error')
+    return
+  }
+
+  try {
+    await api.changePassword(authStore.accessToken, {
+      currentPassword: passwordForm.currentPassword,
+      newPassword: passwordForm.newPassword,
+    })
+    notifications.showPopup('Password diperbarui', 'Password akun berhasil diganti.', 'success')
+    resetPasswordForm()
+  } catch (error) {
+    notifications.showPopup('Gagal ubah password', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+  }
+}
+
 onMounted(async () => {
   await loadData()
 })
@@ -149,6 +189,35 @@ onMounted(async () => {
     <div v-if="activeTab === 'Pengguna' && !canManageUsers" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
       Hanya Super Admin yang dapat menambah atau mengelola pengguna.
     </div>
+
+    <section class="rounded-xl border border-slate-200 bg-white p-4">
+      <p class="text-sm font-bold text-slate-900">Keamanan Akun</p>
+      <p class="mt-1 text-xs text-slate-500">Ganti password login akun kamu secara berkala untuk keamanan.</p>
+
+      <form class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3" @submit.prevent="changeMyPassword">
+        <input
+          v-model="passwordForm.currentPassword"
+          type="password"
+          class="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          placeholder="Password saat ini"
+        />
+        <input
+          v-model="passwordForm.newPassword"
+          type="password"
+          class="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          placeholder="Password baru (min. 8)"
+        />
+        <input
+          v-model="passwordForm.confirmPassword"
+          type="password"
+          class="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          placeholder="Konfirmasi password baru"
+        />
+        <div class="sm:col-span-3 flex justify-end">
+          <button type="submit" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white">Simpan Password</button>
+        </div>
+      </form>
+    </section>
 
     <section class="rounded-xl border border-slate-200 bg-white p-4">
       <div class="mb-4 flex flex-wrap gap-2 border-b border-slate-200 pb-3">

@@ -126,6 +126,12 @@ export const api = {
       headers: authHeader(accessToken),
       body: JSON.stringify({ tenantId }),
     }),
+  changePassword: (accessToken, body) =>
+    request('/auth/change-password', {
+      method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
   logout: () =>
     request('/auth/logout', {
       method: 'POST',

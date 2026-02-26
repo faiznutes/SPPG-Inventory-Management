@@ -493,3 +493,42 @@ export async function selectTenant(userId: string, tenantId: string) {
     },
   }
 }
+
+export async function changePassword(userId: string, currentPassword: string, newPassword: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      passwordHash: true,
+      isActive: true,
+    },
+  })
+
+  if (!user || !user.isActive) {
+    throw new ApiError(401, 'AUTH_INVALID', 'User tidak valid.')
+  }
+
+  const isCurrentValid = await bcrypt.compare(currentPassword, user.passwordHash)
+  if (!isCurrentValid) {
+    throw new ApiError(400, 'PASSWORD_INVALID', 'Password saat ini tidak sesuai.')
+  }
+
+  const isSameAsCurrent = await bcrypt.compare(newPassword, user.passwordHash)
+  if (isSameAsCurrent) {
+    throw new ApiError(400, 'PASSWORD_SAME', 'Password baru harus berbeda dari password lama.')
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10)
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      passwordHash,
+    },
+  })
+
+  return {
+    code: 'PASSWORD_CHANGED',
+    message: 'Password berhasil diperbarui.',
+  }
+}
