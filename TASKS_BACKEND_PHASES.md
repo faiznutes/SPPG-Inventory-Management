@@ -88,10 +88,10 @@ Terakhir diperbarui: 2026-02-26 (malam)
 - [ ] Verifikasi alur: token expired -> refresh -> retry request -> sukses
 
 ### Phase 11 (TODO)
-- [ ] Tambah endpoint `GET /api/v1/dashboard/summary`
-- [ ] Tambah endpoint `GET /api/v1/dashboard/low-stock`
+- [x] Tambah endpoint `GET /api/v1/dashboard/summary`
+- [x] Tambah endpoint `GET /api/v1/dashboard/low-stock`
 - [x] Tambah endpoint `GET /api/v1/notifications`
-- [ ] Pastikan semua endpoint di atas tidak pakai data hardcode
+- [x] Pastikan semua endpoint di atas tidak pakai data hardcode
 
 ### Phase 12 (TODO)
 - [ ] Tambah model `Tenant` dan `TenantMembership` di schema

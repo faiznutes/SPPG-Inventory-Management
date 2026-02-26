@@ -227,4 +227,14 @@ export const api = {
     request('/notifications', {
       headers: authHeader(accessToken),
     }),
+
+  getDashboardSummary: (accessToken) =>
+    request('/dashboard/summary', {
+      headers: authHeader(accessToken),
+    }),
+
+  getDashboardLowStock: (accessToken) =>
+    request('/dashboard/low-stock', {
+      headers: authHeader(accessToken),
+    }),
 }

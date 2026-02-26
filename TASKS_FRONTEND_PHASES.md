@@ -148,3 +148,4 @@ Update aktual:
 - `2026-02-26 - Integrasi Checklist/PR FE-BE DONE - Checklist Hari Ini dan PR List/Detail terhubung ke API backend`
 - `2026-02-26 - Phase lanjutan 9-12 ditambahkan untuk anti-401, de-hardcode, notifikasi route, dan multi-tenant UI`
 - `2026-02-26 - Progress Phase 10/11 - dashboard & notifikasi tidak hardcode, route /notifications aktif, data notifikasi sudah dari API`
+- `2026-02-26 - Dashboard kini pakai endpoint /dashboard/summary dan /dashboard/low-stock (tanpa kalkulasi hardcode di frontend)`

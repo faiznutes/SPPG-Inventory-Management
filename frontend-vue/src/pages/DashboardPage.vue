@@ -25,27 +25,19 @@ async function loadDashboard() {
 
   isLoading.value = true
   try {
-    const [itemsData, stocksData, checklistData, purchaseRequestsData] = await Promise.all([
-      api.listItems(authStore.accessToken),
-      api.listStocks(authStore.accessToken),
-      api.getTodayChecklist(authStore.accessToken),
-      api.listPurchaseRequests(authStore.accessToken),
+    const [summaryData, lowStockData] = await Promise.all([
+      api.getDashboardSummary(authStore.accessToken),
+      api.getDashboardLowStock(authStore.accessToken),
     ])
 
-    const lowStockRows = stocksData
-      .filter((row) => row.status === 'Menipis' || row.status === 'Habis')
-      .sort((a, b) => toNumber(a.qty) - toNumber(b.qty))
-
+    const lowStockRows = (lowStockData || []).sort((a, b) => toNumber(a.qty) - toNumber(b.qty))
     lowStocks.value = lowStockRows.slice(0, 5)
 
-    const activePr = purchaseRequestsData.filter((row) => !['REJECTED', 'CLOSED'].includes(row.status))
-    const checklistPending = checklistData.status === 'SUBMITTED' || checklistData.status === 'VERIFIED' ? 0 : 1
-
     stats.value = [
-      { label: 'Item Terdaftar', value: String(itemsData.length), info: 'Aktif di seluruh lokasi' },
-      { label: 'Stok Menipis', value: String(lowStockRows.length), info: 'Perlu diprioritaskan' },
-      { label: 'Checklist Belum Submit', value: String(checklistPending), info: 'Checklist hari ini' },
-      { label: 'PR Aktif', value: String(activePr.length), info: 'Menunggu proses' },
+      { label: 'Item Terdaftar', value: String(summaryData.itemCount || 0), info: 'Aktif di seluruh lokasi' },
+      { label: 'Stok Menipis', value: String(summaryData.lowStockCount || 0), info: 'Perlu diprioritaskan' },
+      { label: 'Checklist Belum Submit', value: String(summaryData.checklistPendingCount || 0), info: 'Checklist hari ini' },
+      { label: 'PR Aktif', value: String(summaryData.activePrCount || 0), info: 'Menunggu proses' },
     ]
   } catch (error) {
     notifications.showPopup('Gagal memuat dashboard', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
