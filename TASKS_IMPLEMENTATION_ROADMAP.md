@@ -12,9 +12,9 @@ Terakhir diperbarui: 2026-02-26 (malam)
 | 4 | Fondasi tenant-aware scope (tenant session + switch tenant) | DONE |
 | 5 | UI selector tenant untuk super admin | DONE |
 | 6 | UX create kategori/produk + validasi duplikat | DONE |
-| 7 | QA build + smoke API + deploy verifikasi | IN_PROGRESS |
+| 7 | QA build + smoke API + deploy verifikasi | DONE |
 
-Catatan phase 7: verifikasi final dilakukan setelah deploy ke Coolify selesai.
+Catatan phase 7: verifikasi final sudah dijalankan setelah deploy Coolify selesai.
 
 ## Urutan Eksekusi Disarankan
 
