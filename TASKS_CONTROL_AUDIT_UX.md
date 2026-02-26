@@ -30,6 +30,7 @@ Last update: 2026-02-26
 | T-17 | Tambah aksi hapus tenant dari panel SUPER_ADMIN | DONE |
 | T-18 | Tenant action split: nonaktif/aktif + arsip/restore + bulk action | DONE |
 | T-19 | Bulk produk/items: activate/deactivate/delete/update field | DONE |
+| T-20 | Bulk kategori: activate/deactivate/delete/update tipe | DONE |
 
 ## Acceptance Checklist
 - [x] Checklist submit tidak gagal validasi.
@@ -70,6 +71,7 @@ Last update: 2026-02-26
 - [x] Tenant action dipisah jelas: Nonaktifkan/Aktifkan dan Arsip/Restore (hidden default, bisa restore).
 - [x] Bulk action tenant tersedia untuk Nonaktifkan, Aktifkan, Arsipkan, dan Restore.
 - [x] Bulk action produk/items tersedia (Aktifkan, Nonaktifkan, Soft Delete, Bulk Edit field utama).
+- [x] Bulk action kategori tersedia (Aktifkan, Nonaktifkan, Hapus, Bulk Ubah tipe).
 
 ## Notes
 - Untuk repo hygiene, file operasional yang tidak perlu di root akan didaftarkan agar bisa dipindah manual ke folder `docs/` oleh owner.

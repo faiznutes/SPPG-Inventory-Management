@@ -287,8 +287,8 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  listCategories: (accessToken) =>
-    request('/categories', {
+  listCategories: (accessToken, query = {}) =>
+    request(withQuery('/categories', query), {
       headers: authHeader(accessToken),
     }),
 
@@ -310,6 +310,20 @@ export const api = {
     request(`/categories/${id}`, {
       method: 'DELETE',
       headers: authHeader(accessToken),
+    }),
+
+  updateCategoryStatus: (accessToken, id, body) =>
+    request(`/categories/${id}/status`, {
+      method: 'PATCH',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
+
+  bulkCategoryAction: (accessToken, body) =>
+    request('/categories/bulk/action', {
+      method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
     }),
 
   listItems: (accessToken) =>

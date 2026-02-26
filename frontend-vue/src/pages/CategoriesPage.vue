@@ -15,6 +15,8 @@ const showCreateModal = ref(false)
 const showDeleteModal = ref(false)
 const editId = ref('')
 const deleteTarget = ref(null)
+const selectedIds = ref([])
+const bulkAction = ref('DEACTIVATE')
 const form = reactive({
   name: '',
   type: 'CONSUMABLE',
@@ -27,17 +29,73 @@ async function loadCategories() {
 
   isLoading.value = true
   try {
-    const data = await api.listCategories(authStore.accessToken)
+    const data = await api.listCategories(authStore.accessToken, { includeInactive: 'true' })
     rows.value = data.map((item) => ({
       id: item.id,
       name: item.name?.replace(/^(CONSUMABLE|GAS|ASSET)\s-\s/i, ''),
       type: item.type || 'CONSUMABLE',
+      isActive: item.isActive !== false,
       code: `${item.type || 'CONSUMABLE'}_${item.name?.replace(/^(CONSUMABLE|GAS|ASSET)\s-\s/i, '').toUpperCase().replaceAll(' ', '_')}`,
     }))
+    selectedIds.value = selectedIds.value.filter((id) => rows.value.some((row) => row.id === id))
   } catch (error) {
     notifications.showPopup('Gagal memuat kategori', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   } finally {
     isLoading.value = false
+  }
+}
+
+function toggleSelection(id) {
+  if (selectedIds.value.includes(id)) {
+    selectedIds.value = selectedIds.value.filter((rowId) => rowId !== id)
+    return
+  }
+  selectedIds.value.push(id)
+}
+
+function clearSelection() {
+  selectedIds.value = []
+}
+
+async function toggleCategoryStatus(row) {
+  if (!canManageCategories.value) return
+  try {
+    await api.updateCategoryStatus(authStore.accessToken, row.id, {
+      isActive: !row.isActive,
+    })
+    notifications.showPopup('Status kategori diperbarui', 'Status kategori berhasil diperbarui.', 'success')
+    await loadCategories()
+  } catch (error) {
+    notifications.showPopup('Gagal ubah status', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+  }
+}
+
+async function applyBulkAction() {
+  if (!selectedIds.value.length) {
+    notifications.showPopup('Belum ada pilihan', 'Pilih minimal 1 kategori untuk aksi bulk.', 'error')
+    return
+  }
+
+  const ok = window.confirm(`Terapkan aksi bulk ${bulkAction.value} untuk ${selectedIds.value.length} kategori?`)
+  if (!ok) return
+
+  try {
+    const result = await api.bulkCategoryAction(authStore.accessToken, {
+      ids: selectedIds.value,
+      action: bulkAction.value,
+      payload: bulkAction.value === 'UPDATE' ? { type: form.type } : undefined,
+    })
+
+    if (result.failedCount > 0) {
+      const firstFailure = result.failures?.[0]?.message || 'Sebagian kategori gagal diproses.'
+      notifications.showPopup('Bulk selesai sebagian', `${result.message} ${firstFailure}`, 'error')
+    } else {
+      notifications.showPopup('Bulk berhasil', result.message, 'success')
+    }
+    clearSelection()
+    await loadCategories()
+  } catch (error) {
+    notifications.showPopup('Bulk kategori gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
 }
 
@@ -145,6 +203,30 @@ onMounted(async () => {
   <div class="space-y-5">
     <PageHeader title="Kategori" subtitle="Kelola kategori produk agar input item lebih cepat">
       <template #actions>
+        <select
+          v-if="canManageCategories && selectedIds.length"
+          v-model="bulkAction"
+          class="rounded-lg border border-slate-200 px-2 py-2 text-sm font-semibold text-slate-700"
+        >
+          <option value="DEACTIVATE">Bulk Nonaktifkan</option>
+          <option value="ACTIVATE">Bulk Aktifkan</option>
+          <option value="DELETE">Bulk Hapus</option>
+          <option value="UPDATE">Bulk Ubah Tipe</option>
+        </select>
+        <button
+          v-if="canManageCategories && selectedIds.length"
+          class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
+          @click="applyBulkAction"
+        >
+          Terapkan Bulk ({{ selectedIds.length }})
+        </button>
+        <button
+          v-if="canManageCategories && selectedIds.length"
+          class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
+          @click="clearSelection"
+        >
+          Reset Pilihan
+        </button>
         <button
           v-if="canManageCategories"
           class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white"
@@ -176,12 +258,23 @@ onMounted(async () => {
       <template v-else>
         <div class="space-y-2 sm:hidden">
         <article v-for="row in rows" :key="`m-${row.id}`" class="rounded-lg border border-slate-200 p-3">
-          <p class="text-sm font-bold text-slate-900">{{ row.name }}</p>
+          <div class="flex items-start justify-between gap-2">
+            <p class="text-sm font-bold text-slate-900">{{ row.name }}</p>
+            <input v-if="canManageCategories" :checked="selectedIds.includes(row.id)" type="checkbox" @change="toggleSelection(row.id)" />
+          </div>
           <p class="mt-1 text-xs text-slate-500">{{ typeLabel(row.type) }}</p>
           <p class="mt-1 text-xs text-slate-500">{{ typeHint(row.type) }}</p>
           <div class="mt-2 flex items-center justify-between">
-            <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-700">Aktif</span>
+            <span
+              class="rounded-full px-2.5 py-1 text-[11px] font-bold"
+              :class="row.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'"
+            >
+              {{ row.isActive ? 'Aktif' : 'Nonaktif' }}
+            </span>
             <div v-if="canManageCategories" class="inline-flex gap-2">
+              <button class="rounded-lg border border-amber-200 px-2 py-1 text-xs font-bold text-amber-700" @click="toggleCategoryStatus(row)">
+                {{ row.isActive ? 'Nonaktifkan' : 'Aktifkan' }}
+              </button>
               <button class="rounded-lg border border-slate-200 px-2 py-1 text-xs font-bold text-slate-700" @click="openEdit(row)">Edit</button>
               <button class="rounded-lg border border-rose-200 px-2 py-1 text-xs font-bold text-rose-700" @click="removeCategory(row)">Hapus</button>
             </div>
@@ -208,10 +301,25 @@ onMounted(async () => {
               <td class="px-3 py-3 text-slate-700">{{ row.code }}</td>
               <td class="px-3 py-3 text-xs text-slate-500">{{ typeHint(row.type) }}</td>
               <td class="px-3 py-3">
-                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700">Aktif</span>
+                <input
+                  v-if="canManageCategories"
+                  :checked="selectedIds.includes(row.id)"
+                  type="checkbox"
+                  class="mr-2 align-middle"
+                  @change="toggleSelection(row.id)"
+                />
+                <span
+                  class="rounded-full px-2.5 py-1 text-xs font-bold"
+                  :class="row.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'"
+                >
+                  {{ row.isActive ? 'Aktif' : 'Nonaktif' }}
+                </span>
               </td>
               <td v-if="canManageCategories" class="px-3 py-3 text-right">
                 <div class="inline-flex gap-2">
+                  <button class="rounded-lg border border-amber-200 px-2 py-1 text-xs font-bold text-amber-700" @click="toggleCategoryStatus(row)">
+                    {{ row.isActive ? 'Nonaktifkan' : 'Aktifkan' }}
+                  </button>
                   <button class="rounded-lg border border-slate-200 px-2 py-1 text-xs font-bold text-slate-700" @click="openEdit(row)">Edit</button>
                   <button class="rounded-lg border border-rose-200 px-2 py-1 text-xs font-bold text-rose-700" @click="removeCategory(row)">Hapus</button>
                 </div>

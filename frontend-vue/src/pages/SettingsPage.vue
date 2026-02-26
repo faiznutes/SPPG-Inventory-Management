@@ -191,7 +191,7 @@ async function loadData() {
   try {
     const [locationsData, categoriesData] = await Promise.all([
       api.listLocations(authStore.accessToken),
-      api.listCategories(authStore.accessToken),
+      api.listCategories(authStore.accessToken, { includeInactive: 'true' }),
     ])
 
     let usersData = []
