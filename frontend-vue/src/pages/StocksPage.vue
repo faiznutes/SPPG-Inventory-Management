@@ -190,6 +190,11 @@ async function submitCreateProduct() {
 
 async function submitAdjustStock() {
   try {
+    if (!locations.value.length) {
+      notifications.showPopup('Lokasi belum tersedia', 'Tambahkan lokasi dulu sebelum penyesuaian stok.', 'error')
+      return
+    }
+
     await api.createTransaction(authStore.accessToken, {
       trxType: 'ADJUST',
       itemId: adjustForm.itemId,

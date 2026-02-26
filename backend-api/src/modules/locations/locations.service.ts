@@ -7,9 +7,18 @@ type CreateLocationInput = {
 }
 
 export async function listLocations() {
-  return prisma.location.findMany({
+  const rows = await prisma.location.findMany({
     orderBy: { name: 'asc' },
   })
+
+  if (rows.length) return rows
+
+  const fallback = await createLocation({
+    name: 'Gudang Utama',
+    description: 'Lokasi default operasional SPPG',
+  })
+
+  return [fallback]
 }
 
 export async function createLocation(input: CreateLocationInput) {

@@ -87,6 +87,16 @@ async function loadData() {
 
 async function submitTransaction() {
   try {
+    if (!locations.value.length) {
+      notifications.showPopup('Lokasi belum tersedia', 'Tambahkan lokasi terlebih dahulu dari menu Pengaturan.', 'error')
+      return
+    }
+
+    if (action.value === 'Transfer' && locations.value.length < 2) {
+      notifications.showPopup('Lokasi belum cukup', 'Transfer butuh minimal 2 lokasi aktif.', 'error')
+      return
+    }
+
     await api.createTransaction(authStore.accessToken, {
       trxType: trxTypeMap[action.value],
       itemId: form.itemId,
