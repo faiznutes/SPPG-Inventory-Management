@@ -5,6 +5,11 @@ export const createTenantSchema = z.object({
   code: z.string().min(3),
 })
 
+export const updateTenantSchema = z.object({
+  name: z.string().min(3),
+  code: z.string().min(3),
+})
+
 export const createTenantUserSchema = z.object({
   name: z.string().min(2),
   username: z.string().min(3),

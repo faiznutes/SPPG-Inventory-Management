@@ -49,6 +49,11 @@ const tenantLocationForm = reactive({
   description: '',
 })
 
+const tenantIdentityForm = reactive({
+  name: '',
+  code: '',
+})
+
 const tenantTelegramForm = reactive({
   botToken: '',
   chatId: '',
@@ -151,6 +156,11 @@ function resetTenantLocationForm() {
   tenantLocationForm.id = ''
   tenantLocationForm.name = ''
   tenantLocationForm.description = ''
+}
+
+function resetTenantIdentityForm() {
+  tenantIdentityForm.name = ''
+  tenantIdentityForm.code = ''
 }
 
 function resetTenantTelegramForm() {
@@ -309,6 +319,8 @@ async function openTenantDetail(row) {
     selectedTenant.value = detail.tenant
     tenantUsers.value = detail.users || []
     tenantLocations.value = detail.locations || []
+    tenantIdentityForm.name = detail.tenant?.name || ''
+    tenantIdentityForm.code = detail.tenant?.code || ''
     tenantTelegramForm.botToken = ''
     tenantTelegramForm.chatId = telegramSettings.chatId || ''
     tenantTelegramForm.isEnabled = Boolean(telegramSettings.isEnabled)
@@ -320,6 +332,32 @@ async function openTenantDetail(row) {
     showTenantDetailModal.value = true
   } catch (error) {
     notifications.showPopup('Gagal memuat tenant', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+  }
+}
+
+async function saveTenantIdentity() {
+  if (!selectedTenant.value) return
+  const name = tenantIdentityForm.name.trim()
+  const code = slugify(tenantIdentityForm.code || tenantIdentityForm.name)
+
+  if (name.length < 3 || code.length < 3) {
+    notifications.showPopup('Detail tenant belum valid', 'Nama dan kode tenant minimal 3 karakter.', 'error')
+    return
+  }
+
+  try {
+    const response = await api.updateTenant(authStore.accessToken, selectedTenant.value.id, {
+      name,
+      code,
+    })
+
+    selectedTenant.value = response.tenant
+    tenantIdentityForm.name = response.tenant?.name || name
+    tenantIdentityForm.code = response.tenant?.code || code
+    notifications.showPopup('Tenant diperbarui', 'Nama dan kode tenant berhasil disimpan.', 'success')
+    await loadData()
+  } catch (error) {
+    notifications.showPopup('Gagal update tenant', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
 }
 
@@ -769,6 +807,29 @@ onMounted(async () => {
             {{ selectedTenant.isActive ? 'Hapus Tenant Ini' : 'Aktifkan Tenant Ini' }}
           </button>
         </div>
+
+        <section class="rounded-lg border border-slate-200 p-3">
+          <p class="text-sm font-bold text-slate-900">Detail Tenant</p>
+          <p class="mt-1 text-xs text-slate-500">Ubah nama tenant dan kode tenant untuk identitas sistem.</p>
+
+          <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <input
+              v-model="tenantIdentityForm.name"
+              class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
+              placeholder="Nama tenant"
+            />
+            <input
+              v-model="tenantIdentityForm.code"
+              class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
+              placeholder="kode-tenant"
+            />
+            <div class="flex justify-end">
+              <button class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white" @click="saveTenantIdentity">
+                Simpan Detail Tenant
+              </button>
+            </div>
+          </div>
+        </section>
 
         <section class="rounded-lg border border-slate-200 p-3">
           <p class="text-sm font-bold text-slate-900">User Tenant</p>

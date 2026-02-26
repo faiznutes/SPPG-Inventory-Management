@@ -189,6 +189,13 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  updateTenant: (accessToken, tenantId, body) =>
+    request(`/tenants/${tenantId}`, {
+      method: 'PATCH',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
+
   deleteTenant: (accessToken, tenantId) =>
     request(`/tenants/${tenantId}`, {
       method: 'DELETE',

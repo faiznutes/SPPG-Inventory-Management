@@ -5,6 +5,7 @@ import {
   addTenantLocationSchema,
   createTenantSchema,
   createTenantUserSchema,
+  updateTenantSchema,
   updateTenantTelegramSettingsSchema,
   updateTenantLocationSchema,
   updateTenantUserSchema,
@@ -18,6 +19,7 @@ import {
   getTenantDetail,
   listTenants,
   reactivateTenant,
+  updateTenant,
   updateTenantTelegramSettings,
   updateTenantLocation,
   updateTenantUser,
@@ -41,6 +43,16 @@ tenantsRouter.post('/', async (req, res, next) => {
     const body = createTenantSchema.parse(req.body)
     const data = await createTenant(req.user!.id, body)
     return res.status(201).json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+tenantsRouter.patch('/:tenantId', async (req, res, next) => {
+  try {
+    const body = updateTenantSchema.parse(req.body)
+    const data = await updateTenant(req.user!.id, req.params.tenantId, body)
+    return res.json(data)
   } catch (error) {
     return next(error)
   }

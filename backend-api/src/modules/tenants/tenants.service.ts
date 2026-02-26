@@ -7,6 +7,11 @@ type CreateTenantInput = {
   code: string
 }
 
+type UpdateTenantInput = {
+  name: string
+  code: string
+}
+
 type CreateTenantUserInput = {
   name: string
   username: string
@@ -219,6 +224,79 @@ export async function createTenant(actorUserId: string, input: CreateTenantInput
     })
 
     return tenant
+  } catch {
+    throw new ApiError(409, 'TENANT_EXISTS', 'Nama atau kode tenant sudah digunakan.')
+  }
+}
+
+export async function updateTenant(actorUserId: string, tenantId: string, input: UpdateTenantInput) {
+  const tenant = await getTenantOrThrow(tenantId)
+  const nextName = input.name.trim()
+  const nextCode = toSlug(input.code || input.name)
+
+  if (nextName.length < 3 || !nextCode || nextCode.length < 3) {
+    throw new ApiError(400, 'TENANT_INVALID', 'Nama dan kode tenant minimal 3 karakter.')
+  }
+
+  const oldCode = tenant.code
+
+  try {
+    const updatedTenant = await prisma.$transaction(async (tx) => {
+      if (oldCode !== nextCode) {
+        const prefixedLocations = await tx.location.findMany({
+          where: {
+            name: {
+              startsWith: `${oldCode}::`,
+            },
+          },
+          select: {
+            id: true,
+            name: true,
+          },
+        })
+
+        for (const location of prefixedLocations) {
+          const suffixName = stripTenantPrefix(oldCode, location.name)
+          await tx.location.update({
+            where: { id: location.id },
+            data: {
+              name: withTenantPrefix(nextCode, suffixName),
+            },
+          })
+        }
+      }
+
+      const saved = await tx.tenant.update({
+        where: { id: tenantId },
+        data: {
+          name: nextName,
+          code: nextCode,
+        },
+      })
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId,
+          entityType: 'tenants',
+          entityId: tenantId,
+          action: 'UPDATE',
+          diffJson: {
+            oldName: tenant.name,
+            oldCode,
+            newName: saved.name,
+            newCode: saved.code,
+          },
+        },
+      })
+
+      return saved
+    })
+
+    return {
+      code: 'TENANT_UPDATED',
+      message: 'Detail tenant berhasil diperbarui.',
+      tenant: updatedTenant,
+    }
   } catch {
     throw new ApiError(409, 'TENANT_EXISTS', 'Nama atau kode tenant sudah digunakan.')
   }
