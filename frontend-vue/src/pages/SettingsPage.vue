@@ -35,6 +35,8 @@ const tenantUsers = ref([])
 const tenantLocations = ref([])
 const selectedTenantUserIds = ref([])
 const tenantUserBulkAction = ref('ACCESS_VIEW')
+const selectedTenantLocationIds = ref([])
+const tenantLocationBulkAction = ref('DEACTIVATE')
 
 const tenantUserForm = reactive({
   id: '',
@@ -378,6 +380,7 @@ async function openTenantDetail(row) {
     tenantUsers.value = detail.users || []
     tenantLocations.value = detail.locations || []
     selectedTenantUserIds.value = []
+    selectedTenantLocationIds.value = []
     tenantIdentityForm.name = detail.tenant?.name || ''
     tenantIdentityForm.code = detail.tenant?.code || ''
     tenantTelegramForm.botToken = ''
@@ -636,6 +639,18 @@ function clearTenantUserSelection() {
   selectedTenantUserIds.value = []
 }
 
+function toggleTenantLocationSelection(locationId) {
+  if (selectedTenantLocationIds.value.includes(locationId)) {
+    selectedTenantLocationIds.value = selectedTenantLocationIds.value.filter((id) => id !== locationId)
+    return
+  }
+  selectedTenantLocationIds.value.push(locationId)
+}
+
+function clearTenantLocationSelection() {
+  selectedTenantLocationIds.value = []
+}
+
 async function applyBulkTenantUserAction() {
   if (!selectedTenant.value) return
   if (!selectedTenantUserIds.value.length) {
@@ -656,6 +671,29 @@ async function applyBulkTenantUserAction() {
     await openTenantDetail({ id: selectedTenant.value.id })
   } catch (error) {
     notifications.showPopup('Bulk user tenant gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+  }
+}
+
+async function applyBulkTenantLocationAction() {
+  if (!selectedTenant.value) return
+  if (!selectedTenantLocationIds.value.length) {
+    notifications.showPopup('Belum ada lokasi dipilih', 'Pilih minimal 1 lokasi tenant untuk aksi bulk.', 'error')
+    return
+  }
+
+  const ok = window.confirm(`Terapkan aksi ${tenantLocationBulkAction.value} ke ${selectedTenantLocationIds.value.length} lokasi tenant?`)
+  if (!ok) return
+
+  try {
+    const result = await api.bulkTenantLocationAction(authStore.accessToken, selectedTenant.value.id, {
+      locationIds: selectedTenantLocationIds.value,
+      action: tenantLocationBulkAction.value,
+    })
+    notifications.showPopup('Bulk lokasi tenant selesai', result.message || 'Aksi bulk lokasi tenant berhasil diproses.', 'success')
+    clearTenantLocationSelection()
+    await openTenantDetail({ id: selectedTenant.value.id })
+  } catch (error) {
+    notifications.showPopup('Bulk lokasi tenant gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
 }
 
@@ -1186,9 +1224,37 @@ onMounted(async () => {
               <button class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white" @click="addLocationToTenant">{{ tenantLocationForm.id ? 'Update Lokasi Tenant' : 'Tambah Lokasi Tenant' }}</button>
             </div>
           </div>
+          <div class="mt-2 flex flex-wrap items-center justify-end gap-2">
+            <select v-model="tenantLocationBulkAction" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-semibold text-slate-700">
+              <option value="DEACTIVATE">Bulk Nonaktifkan Lokasi</option>
+              <option value="ACTIVATE">Bulk Aktifkan Lokasi</option>
+            </select>
+            <button
+              class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700"
+              :disabled="!selectedTenantLocationIds.length"
+              @click="applyBulkTenantLocationAction"
+            >
+              Terapkan Bulk ({{ selectedTenantLocationIds.length }})
+            </button>
+            <button
+              v-if="selectedTenantLocationIds.length"
+              class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700"
+              @click="clearTenantLocationSelection"
+            >
+              Reset Pilihan
+            </button>
+          </div>
           <div class="mt-3 space-y-2 sm:hidden">
             <article v-for="loc in tenantLocations" :key="`ml-${loc.id}`" class="rounded-lg border border-slate-200 p-2 text-xs">
-              <p class="font-bold text-slate-900">{{ loc.name }}</p>
+              <div class="flex items-start justify-between gap-2">
+                <p class="font-bold text-slate-900">{{ loc.name }}</p>
+                <div class="flex items-center gap-2">
+                  <input :checked="selectedTenantLocationIds.includes(loc.id)" type="checkbox" @change="toggleTenantLocationSelection(loc.id)" />
+                  <span class="rounded-full px-2 py-0.5 font-bold" :class="loc.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'">
+                    {{ loc.isActive ? 'Aktif' : 'Nonaktif' }}
+                  </span>
+                </div>
+              </div>
               <p class="mt-1 text-slate-600">{{ loc.description || '-' }}</p>
               <div class="mt-2 text-right">
                 <button class="rounded border border-slate-200 px-2 py-1 font-semibold text-slate-700" @click="editTenantLocation(loc)">Edit</button>
@@ -1209,6 +1275,10 @@ onMounted(async () => {
                   <td class="px-2 py-2">{{ loc.name }}</td>
                   <td class="px-2 py-2">{{ loc.description || '-' }}</td>
                   <td class="px-2 py-2 text-right">
+                    <input class="mr-2 align-middle" :checked="selectedTenantLocationIds.includes(loc.id)" type="checkbox" @change="toggleTenantLocationSelection(loc.id)" />
+                    <span class="mr-2 rounded-full px-2 py-0.5 text-[11px] font-bold" :class="loc.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'">
+                      {{ loc.isActive ? 'Aktif' : 'Nonaktif' }}
+                    </span>
                     <button class="rounded border border-slate-200 px-2 py-1 font-semibold text-slate-700" @click="editTenantLocation(loc)">Edit</button>
                   </td>
                 </tr>

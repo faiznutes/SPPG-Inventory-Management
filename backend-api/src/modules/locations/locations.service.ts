@@ -6,12 +6,22 @@ type CreateLocationInput = {
   description?: string
 }
 
+const INACTIVE_LOCATION_PREFIX = 'INACTIVE - '
+
+function isInactiveLocationName(name: string) {
+  return name.startsWith(INACTIVE_LOCATION_PREFIX) || name.includes(`::${INACTIVE_LOCATION_PREFIX}`)
+}
+
 export async function listLocations() {
   const rows = await prisma.location.findMany({
     orderBy: { name: 'asc' },
   })
 
-  if (rows.length) return rows
+  const activeRows = rows.filter((row) => !isInactiveLocationName(row.name))
+
+  if (activeRows.length) return activeRows
+
+  if (rows.length) return []
 
   const fallback = await createLocation({
     name: 'Gudang Utama',

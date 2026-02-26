@@ -30,6 +30,25 @@ type ListTransactionsQuery = {
   to?: string
 }
 
+function isInactiveLocationName(name: string) {
+  return name.startsWith('INACTIVE - ') || name.includes('::INACTIVE - ')
+}
+
+async function ensureLocationActive(locationId: string) {
+  const location = await prisma.location.findUnique({
+    where: { id: locationId },
+    select: { id: true, name: true },
+  })
+
+  if (!location) {
+    throw new ApiError(404, 'LOCATION_NOT_FOUND', 'Lokasi tidak ditemukan.')
+  }
+
+  if (isInactiveLocationName(location.name)) {
+    throw new ApiError(400, 'LOCATION_INACTIVE', 'Lokasi nonaktif tidak bisa dipakai transaksi.')
+  }
+}
+
 async function getOrCreateStock(tx: PrismaNamespace.TransactionClient, itemId: string, locationId: string) {
   const existing = await tx.stock.findUnique({
     where: {
@@ -192,6 +211,9 @@ export async function createTransaction(input: CreateTransactionInput, actorUser
     throw new ApiError(404, 'ITEM_NOT_FOUND', 'Item tidak ditemukan.')
   }
 
+  if (input.fromLocationId) await ensureLocationActive(input.fromLocationId)
+  if (input.toLocationId) await ensureLocationActive(input.toLocationId)
+
   const created = await prisma.$transaction(async (tx) => {
     if (input.trxType === TransactionType.IN) {
       const stock = await getOrCreateStock(tx, input.itemId, input.toLocationId!)
@@ -306,6 +328,7 @@ export async function createBulkAdjustTransactions(input: BulkAdjustInput, actor
   }
 
   const itemIds = [...new Set(uniqueAdjustments.map((row) => row.itemId))]
+  const locationIds = [...new Set(uniqueAdjustments.map((row) => row.locationId))]
   const items = await prisma.item.findMany({
     where: {
       id: { in: itemIds },
@@ -317,6 +340,10 @@ export async function createBulkAdjustTransactions(input: BulkAdjustInput, actor
   const missingItem = uniqueAdjustments.find((row) => !itemSet.has(row.itemId))
   if (missingItem) {
     throw new ApiError(404, 'ITEM_NOT_FOUND', 'Ada item bulk penyesuaian yang tidak ditemukan.')
+  }
+
+  for (const locationId of locationIds) {
+    await ensureLocationActive(locationId)
   }
 
   const created = await prisma.$transaction(async (tx) => {

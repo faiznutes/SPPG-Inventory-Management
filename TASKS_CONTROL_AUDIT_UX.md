@@ -33,6 +33,7 @@ Last update: 2026-02-26
 | T-20 | Bulk kategori: activate/deactivate/delete/update tipe | DONE |
 | T-21 | Bulk penyesuaian stok multi item/lokasi dengan alasan wajib | DONE |
 | T-22 | Bulk user tenant: aktif/nonaktif + mode akses none/view/edit | DONE |
+| T-23 | Bulk lokasi tenant: aktif/nonaktif + guard lokasi nonaktif di transaksi | DONE |
 
 ## Acceptance Checklist
 - [x] Checklist submit tidak gagal validasi.
@@ -76,6 +77,8 @@ Last update: 2026-02-26
 - [x] Bulk action kategori tersedia (Aktifkan, Nonaktifkan, Hapus, Bulk Ubah tipe).
 - [x] Bulk penyesuaian stok tersedia dari halaman stok dengan alasan wajib dan multi-baris.
 - [x] Bulk user tenant tersedia di detail tenant untuk aktivasi akun dan mode akses massal.
+- [x] Bulk lokasi tenant tersedia di detail tenant untuk aktif/nonaktif massal.
+- [x] Lokasi nonaktif tidak muncul di list lokasi/stok aktif dan ditolak saat dipakai transaksi.
 
 ## Notes
 - Untuk repo hygiene, file operasional yang tidak perlu di root akan didaftarkan agar bisa dipindah manual ke folder `docs/` oleh owner.

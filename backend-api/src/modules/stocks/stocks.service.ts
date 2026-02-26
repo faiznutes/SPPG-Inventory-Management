@@ -6,6 +6,10 @@ function stockStatus(qty: number, minStock: number) {
   return 'Aman'
 }
 
+function isInactiveLocationName(name: string) {
+  return name.startsWith('INACTIVE - ') || name.includes('::INACTIVE - ')
+}
+
 export async function listStocks() {
   const rows = await prisma.stock.findMany({
     include: {
@@ -15,7 +19,9 @@ export async function listStocks() {
     orderBy: [{ location: { name: 'asc' } }, { item: { name: 'asc' } }],
   })
 
-  return rows.map((row) => {
+  return rows
+    .filter((row) => !isInactiveLocationName(row.location.name))
+    .map((row) => {
     const qty = Number(row.qty)
     const minStock = Number(row.item.minStock)
 
@@ -32,5 +38,5 @@ export async function listStocks() {
       status: stockStatus(qty, minStock),
       updatedAt: row.updatedAt,
     }
-  })
+    })
 }

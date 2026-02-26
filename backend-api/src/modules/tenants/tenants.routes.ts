@@ -3,6 +3,7 @@ import { requireAuth } from '../../middleware/auth.js'
 import { requireRole } from '../../middleware/role.js'
 import {
   addTenantLocationSchema,
+  bulkTenantLocationActionSchema,
   bulkTenantUserActionSchema,
   bulkTenantActionSchema,
   createTenantSchema,
@@ -17,6 +18,7 @@ import {
 import {
   addTenantLocation,
   addTenantUser,
+  bulkTenantLocationAction,
   bulkTenantUserAction,
   bulkTenantAction,
   createTenant,
@@ -148,6 +150,16 @@ tenantsRouter.post('/:tenantId/locations', async (req, res, next) => {
     const body = addTenantLocationSchema.parse(req.body)
     const data = await addTenantLocation(req.user!.id, req.params.tenantId, body)
     return res.status(201).json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+tenantsRouter.post('/:tenantId/locations/bulk/action', async (req, res, next) => {
+  try {
+    const body = bulkTenantLocationActionSchema.parse(req.body)
+    const data = await bulkTenantLocationAction(req.user!.id, req.params.tenantId, body.locationIds, body.action)
+    return res.json(data)
   } catch (error) {
     return next(error)
   }

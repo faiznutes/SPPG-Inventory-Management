@@ -46,6 +46,8 @@ type UpdateTenantLocationInput = {
   description?: string
 }
 
+type BulkTenantLocationAction = 'ACTIVATE' | 'DEACTIVATE'
+
 type UpdateTenantTelegramSettingsInput = {
   botToken?: string
   chatId?: string
@@ -75,6 +77,20 @@ function toSlug(value: string) {
 function stripTenantPrefix(tenantCode: string, value: string) {
   const prefix = `${tenantCode}::`
   return value.startsWith(prefix) ? value.slice(prefix.length) : value
+}
+
+const INACTIVE_LOCATION_PREFIX = 'INACTIVE - '
+
+function isInactiveTenantLocationName(name: string) {
+  return name.startsWith(INACTIVE_LOCATION_PREFIX)
+}
+
+function toInactiveTenantLocationName(name: string) {
+  return isInactiveTenantLocationName(name) ? name : `${INACTIVE_LOCATION_PREFIX}${name}`
+}
+
+function toActiveTenantLocationName(name: string) {
+  return name.replace(new RegExp(`^${INACTIVE_LOCATION_PREFIX}`, 'i'), '')
 }
 
 function maskToken(token?: string | null) {
@@ -577,8 +593,9 @@ export async function getTenantDetail(tenantId: string) {
     })),
     locations: locations.map((location) => ({
       id: location.id,
-      name: stripTenantPrefix(tenant.code, location.name),
+      name: toActiveTenantLocationName(stripTenantPrefix(tenant.code, location.name)),
       description: location.description,
+      isActive: !isInactiveTenantLocationName(stripTenantPrefix(tenant.code, location.name)),
       isPrefixed: true,
     })),
   }
@@ -851,8 +868,9 @@ export async function addTenantLocation(actorUserId: string, tenantId: string, i
 
     return {
       id: location.id,
-      name: stripTenantPrefix(tenant.code, location.name),
+      name: toActiveTenantLocationName(stripTenantPrefix(tenant.code, location.name)),
       description: location.description,
+      isActive: !isInactiveTenantLocationName(stripTenantPrefix(tenant.code, location.name)),
     }
   } catch {
     throw new ApiError(409, 'LOCATION_EXISTS', 'Nama lokasi tenant sudah ada.')
@@ -867,7 +885,6 @@ export async function updateTenantLocation(
 ) {
   const tenant = await getTenantOrThrow(tenantId)
   ensureTenantActive(tenant)
-  const prefixedName = withTenantPrefix(tenant.code, input.name)
 
   const existing = await prisma.location.findUnique({ where: { id: locationId } })
   if (!existing || !existing.name.startsWith(`${tenant.code}::`)) {
@@ -875,10 +892,15 @@ export async function updateTenantLocation(
   }
 
   try {
+    const existingSuffix = stripTenantPrefix(tenant.code, existing.name)
+    const keepInactive = isInactiveTenantLocationName(existingSuffix)
+    const nextSuffix = keepInactive ? toInactiveTenantLocationName(input.name) : input.name
+    const nextPrefixedName = withTenantPrefix(tenant.code, nextSuffix)
+
     const updated = await prisma.location.update({
       where: { id: locationId },
       data: {
-        name: prefixedName,
+        name: nextPrefixedName,
         description: input.description,
       },
     })
@@ -899,11 +921,80 @@ export async function updateTenantLocation(
 
     return {
       id: updated.id,
-      name: stripTenantPrefix(tenant.code, updated.name),
+      name: toActiveTenantLocationName(stripTenantPrefix(tenant.code, updated.name)),
       description: updated.description,
+      isActive: !isInactiveTenantLocationName(stripTenantPrefix(tenant.code, updated.name)),
     }
   } catch {
     throw new ApiError(409, 'LOCATION_EXISTS', 'Nama lokasi tenant sudah ada.')
+  }
+}
+
+export async function bulkTenantLocationAction(
+  actorUserId: string,
+  tenantId: string,
+  locationIds: string[],
+  action: BulkTenantLocationAction,
+) {
+  const tenant = await getTenantOrThrow(tenantId)
+  ensureTenantActive(tenant)
+
+  const uniqueLocationIds = [...new Set(locationIds)]
+  const locations = await prisma.location.findMany({
+    where: {
+      id: { in: uniqueLocationIds },
+      name: {
+        startsWith: `${tenant.code}::`,
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+    },
+  })
+
+  if (!locations.length) {
+    throw new ApiError(404, 'TENANT_LOCATIONS_NOT_FOUND', 'Lokasi tenant tidak ditemukan untuk aksi bulk.')
+  }
+
+  const foundIds = new Set(locations.map((loc) => loc.id))
+  const missingIds = uniqueLocationIds.filter((id) => !foundIds.has(id))
+
+  await prisma.$transaction(async (tx) => {
+    for (const loc of locations) {
+      const suffixName = stripTenantPrefix(tenant.code, loc.name)
+      const nextSuffix = action === 'DEACTIVATE' ? toInactiveTenantLocationName(suffixName) : toActiveTenantLocationName(suffixName)
+      const nextName = withTenantPrefix(tenant.code, nextSuffix)
+
+      await tx.location.update({
+        where: { id: loc.id },
+        data: {
+          name: nextName,
+        },
+      })
+    }
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId,
+        entityType: 'tenant_locations',
+        entityId: 'bulk',
+        action: `BULK_${action}`,
+        diffJson: {
+          tenantId,
+          locationIds: locations.map((loc) => loc.id),
+          missingIds,
+        },
+      },
+    })
+  })
+
+  return {
+    code: 'TENANT_LOCATIONS_BULK_ACTION_COMPLETED',
+    message: `Bulk lokasi tenant selesai. Berhasil: ${locations.length}, tidak ditemukan: ${missingIds.length}.`,
+    action,
+    affectedCount: locations.length,
+    missingIds,
   }
 }
 

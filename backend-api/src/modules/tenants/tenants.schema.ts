@@ -63,6 +63,11 @@ export const updateTenantLocationSchema = z.object({
   description: z.string().max(255).optional(),
 })
 
+export const bulkTenantLocationActionSchema = z.object({
+  locationIds: z.array(z.string().uuid()).min(1),
+  action: z.enum(['ACTIVATE', 'DEACTIVATE']),
+})
+
 export const updateTenantTelegramSettingsSchema = z.object({
   botToken: z.string().min(20).optional(),
   chatId: z.string().min(2).optional(),
