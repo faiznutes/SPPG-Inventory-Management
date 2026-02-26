@@ -362,6 +362,13 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  bulkAdjustTransactions: (accessToken, body) =>
+    request('/transactions/bulk/adjust', {
+      method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
+
   getTodayChecklist: (accessToken) =>
     request('/checklists/today', {
       headers: authHeader(accessToken),

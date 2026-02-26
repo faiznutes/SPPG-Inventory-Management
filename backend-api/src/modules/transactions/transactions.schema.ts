@@ -15,6 +15,21 @@ export const createTransactionSchema = z.object({
   ),
 })
 
+export const bulkAdjustTransactionSchema = z.object({
+  reason: z.string().min(1),
+  adjustments: z
+    .array(
+      z.object({
+        itemId: z.string().uuid(),
+        locationId: z.string().uuid(),
+        qty: z.coerce.number().refine((value) => value !== 0, {
+          message: 'Qty penyesuaian tidak boleh 0.',
+        }),
+      }),
+    )
+    .min(1),
+})
+
 export const listTransactionsQuerySchema = z
   .object({
     period: periodEnum.optional(),

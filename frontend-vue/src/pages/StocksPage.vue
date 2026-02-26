@@ -17,11 +17,18 @@ const isLoading = ref(false)
 const activeType = ref('Semua')
 const search = ref('')
 const showAdjustModal = ref(false)
+const showBulkAdjustModal = ref(false)
 const showCreateItemModal = ref(false)
 const showBulkItemModal = ref(false)
 const showCategoryPicker = ref(false)
 const categorySearch = ref('')
 const categoryTypeFilter = ref('ALL')
+const selectedStockIds = ref([])
+
+const bulkAdjustForm = reactive({
+  reason: '',
+  qtyByStockId: {},
+})
 const bulkItemSearch = ref('')
 const selectedItemIds = ref([])
 const bulkAction = ref('DEACTIVATE')
@@ -97,6 +104,8 @@ const filteredRows = computed(() => {
   })
 })
 
+const selectedStockRows = computed(() => rows.value.filter((row) => selectedStockIds.value.includes(row.id)))
+
 function statusClass(status) {
   if (status === 'Habis') return 'bg-rose-100 text-rose-700'
   if (status === 'Menipis') return 'bg-amber-100 text-amber-700'
@@ -121,6 +130,67 @@ function chooseCategory(category) {
 
 function clearCategory() {
   createItemForm.categoryId = ''
+}
+
+function toggleStockSelection(stockId) {
+  if (selectedStockIds.value.includes(stockId)) {
+    selectedStockIds.value = selectedStockIds.value.filter((id) => id !== stockId)
+    return
+  }
+  selectedStockIds.value.push(stockId)
+}
+
+function clearStockSelection() {
+  selectedStockIds.value = []
+}
+
+function openBulkAdjustModal() {
+  if (!selectedStockIds.value.length) {
+    notifications.showPopup('Belum ada pilihan', 'Pilih minimal 1 baris stok untuk bulk penyesuaian.', 'error')
+    return
+  }
+
+  bulkAdjustForm.reason = ''
+  bulkAdjustForm.qtyByStockId = {}
+  selectedStockRows.value.forEach((row) => {
+    bulkAdjustForm.qtyByStockId[row.id] = ''
+  })
+  showBulkAdjustModal.value = true
+}
+
+async function submitBulkAdjustStock() {
+  try {
+    const reason = bulkAdjustForm.reason.trim()
+    if (!reason) {
+      notifications.showPopup('Alasan wajib', 'Isi alasan untuk bulk penyesuaian stok.', 'error')
+      return
+    }
+
+    const adjustments = selectedStockRows.value
+      .map((row) => ({
+        itemId: row.itemId,
+        locationId: row.locationId,
+        qty: Number(bulkAdjustForm.qtyByStockId[row.id] || 0),
+      }))
+      .filter((row) => Number.isFinite(row.qty) && row.qty !== 0)
+
+    if (!adjustments.length) {
+      notifications.showPopup('Qty belum valid', 'Isi minimal satu perubahan qty yang tidak 0.', 'error')
+      return
+    }
+
+    await api.bulkAdjustTransactions(authStore.accessToken, {
+      reason,
+      adjustments,
+    })
+
+    showBulkAdjustModal.value = false
+    clearStockSelection()
+    notifications.showPopup('Bulk penyesuaian berhasil', 'Perubahan stok massal berhasil diproses.', 'success')
+    await loadData()
+  } catch (error) {
+    notifications.showPopup('Bulk penyesuaian gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+  }
 }
 
 function resetBulkItemForm() {
@@ -333,6 +403,20 @@ onMounted(async () => {
     <PageHeader title="Stok Inventaris" subtitle="Pantau stok per lokasi dengan cepat">
       <template #actions>
         <button
+          v-if="selectedStockIds.length"
+          class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
+          @click="openBulkAdjustModal"
+        >
+          Bulk Penyesuaian ({{ selectedStockIds.length }})
+        </button>
+        <button
+          v-if="selectedStockIds.length"
+          class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
+          @click="clearStockSelection"
+        >
+          Reset Pilihan
+        </button>
+        <button
           v-if="canCreateProduct"
           class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
           @click="openBulkItemModal"
@@ -380,7 +464,10 @@ onMounted(async () => {
               <p class="text-sm font-bold text-slate-900">{{ row.item }}</p>
               <p class="text-xs text-slate-500">{{ row.kategori }} - {{ row.lokasi }}</p>
             </div>
-            <span class="rounded-full px-2 py-0.5 text-[11px] font-bold" :class="statusClass(row.status)">{{ row.status }}</span>
+            <div class="flex items-center gap-2">
+              <input :checked="selectedStockIds.includes(row.id)" type="checkbox" @change="toggleStockSelection(row.id)" />
+              <span class="rounded-full px-2 py-0.5 text-[11px] font-bold" :class="statusClass(row.status)">{{ row.status }}</span>
+            </div>
           </div>
           <p class="mt-2 text-sm font-semibold text-slate-800">{{ row.qty }} {{ row.unit }}</p>
         </article>
@@ -405,6 +492,7 @@ onMounted(async () => {
               <td class="px-3 py-3 text-slate-600">{{ row.kategori }} - {{ row.lokasi }}</td>
               <td class="px-3 py-3 text-right font-semibold text-slate-900">{{ row.qty }} {{ row.unit }}</td>
               <td class="px-3 py-3 text-center">
+                <input class="mr-2 align-middle" :checked="selectedStockIds.includes(row.id)" type="checkbox" @change="toggleStockSelection(row.id)" />
                 <span class="rounded-full px-2.5 py-1 text-xs font-bold" :class="statusClass(row.status)">
                   {{ row.status }}
                 </span>
@@ -451,6 +539,47 @@ onMounted(async () => {
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="showAdjustModal = false">Batal</button>
           <button type="submit" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white">Simpan</button>
+        </div>
+      </form>
+    </BaseModal>
+
+    <BaseModal :show="showBulkAdjustModal" title="Bulk Penyesuaian Stok" max-width-class="max-w-3xl" @close="showBulkAdjustModal = false">
+      <form class="space-y-3" @submit.prevent="submitBulkAdjustStock">
+        <p class="text-sm text-slate-600">Isi perubahan qty untuk beberapa baris stok sekaligus. Nilai positif menambah, negatif mengurangi.</p>
+
+        <label class="block">
+          <span class="mb-1 block text-sm font-semibold text-slate-700">Alasan Bulk</span>
+          <textarea
+            v-model="bulkAdjustForm.reason"
+            class="min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            placeholder="Contoh: Stock opname akhir minggu"
+            required
+          />
+        </label>
+
+        <div class="max-h-72 overflow-auto rounded-lg border border-slate-200">
+          <div
+            v-for="row in selectedStockRows"
+            :key="`bulk-stock-${row.id}`"
+            class="grid grid-cols-1 gap-2 border-b border-slate-100 px-3 py-2 sm:grid-cols-[1fr_220px] sm:items-center"
+          >
+            <div>
+              <p class="text-sm font-semibold text-slate-900">{{ row.item }} - {{ row.lokasi }}</p>
+              <p class="text-xs text-slate-500">Stok saat ini: {{ row.qty }} {{ row.unit }}</p>
+            </div>
+            <input
+              v-model="bulkAdjustForm.qtyByStockId[row.id]"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              placeholder="Contoh: +2 atau -1"
+            />
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="showBulkAdjustModal = false">
+            Batal
+          </button>
+          <button type="submit" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white">Terapkan Bulk</button>
         </div>
       </form>
     </BaseModal>

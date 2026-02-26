@@ -12,6 +12,15 @@ type CreateTransactionInput = {
   reason?: string
 }
 
+type BulkAdjustInput = {
+  reason: string
+  adjustments: Array<{
+    itemId: string
+    locationId: string
+    qty: number
+  }>
+}
+
 type TransactionPeriod = 'DAILY' | 'WEEKLY' | 'MONTHLY'
 
 type ListTransactionsQuery = {
@@ -282,5 +291,89 @@ export async function createTransaction(input: CreateTransactionInput, actorUser
     reason: created.reason,
     createdBy: created.createdBy,
     createdAt: created.createdAt,
+  }
+}
+
+export async function createBulkAdjustTransactions(input: BulkAdjustInput, actorUserId: string) {
+  const reason = input.reason.trim()
+  if (!reason) {
+    throw new ApiError(400, 'REASON_REQUIRED', 'Alasan bulk penyesuaian wajib diisi.')
+  }
+
+  const uniqueAdjustments = input.adjustments.filter((row) => Number.isFinite(row.qty) && row.qty !== 0)
+  if (!uniqueAdjustments.length) {
+    throw new ApiError(400, 'ADJUSTMENTS_EMPTY', 'Isi minimal satu qty penyesuaian yang valid.')
+  }
+
+  const itemIds = [...new Set(uniqueAdjustments.map((row) => row.itemId))]
+  const items = await prisma.item.findMany({
+    where: {
+      id: { in: itemIds },
+    },
+    select: { id: true },
+  })
+
+  const itemSet = new Set(items.map((item) => item.id))
+  const missingItem = uniqueAdjustments.find((row) => !itemSet.has(row.itemId))
+  if (missingItem) {
+    throw new ApiError(404, 'ITEM_NOT_FOUND', 'Ada item bulk penyesuaian yang tidak ditemukan.')
+  }
+
+  const created = await prisma.$transaction(async (tx) => {
+    const results: Array<{ id: string; itemId: string; locationId: string; qty: number }> = []
+
+    for (const adj of uniqueAdjustments) {
+      const stock = await getOrCreateStock(tx, adj.itemId, adj.locationId)
+      const newQty = Number(stock.qty) + adj.qty
+      if (newQty < 0) {
+        throw new ApiError(400, 'STOCK_NEGATIVE', 'Hasil penyesuaian stok tidak boleh negatif.')
+      }
+
+      await tx.stock.update({
+        where: { id: stock.id },
+        data: { qty: new Prisma.Decimal(stock.qty).plus(adj.qty) },
+      })
+
+      const trx = await tx.inventoryTransaction.create({
+        data: {
+          trxType: TransactionType.ADJUST,
+          itemId: adj.itemId,
+          fromLocationId: adj.locationId,
+          qty: adj.qty,
+          reason,
+          createdBy: actorUserId,
+        },
+      })
+
+      results.push({
+        id: trx.id,
+        itemId: adj.itemId,
+        locationId: adj.locationId,
+        qty: adj.qty,
+      })
+    }
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId,
+        entityType: 'inventory_transactions',
+        entityId: 'bulk_adjust',
+        action: 'BULK_ADJUST',
+        diffJson: {
+          reason,
+          count: results.length,
+          adjustments: results,
+        },
+      },
+    })
+
+    return results
+  })
+
+  return {
+    code: 'BULK_ADJUST_COMPLETED',
+    message: `Bulk penyesuaian stok berhasil diproses untuk ${created.length} baris.`,
+    count: created.length,
+    transactions: created,
   }
 }
