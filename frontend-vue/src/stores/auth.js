@@ -3,7 +3,7 @@ import { api } from '../lib/api'
 
 const ACCESS_TOKEN_KEY = 'sppg_access_token'
 const USER_KEY = 'sppg_user'
-const DEFAULT_TENANT_NAME = 'SPPG Tambak Wedi'
+const DEFAULT_TENANT_NAME = 'INVENTORY SPPG MBG'
 
 const roleLabelMap = {
   SUPER_ADMIN: 'SUPER ADMIN',

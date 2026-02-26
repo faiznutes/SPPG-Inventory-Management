@@ -25,7 +25,7 @@ async function submitLogin() {
   <div class="flex min-h-screen items-center justify-center p-4">
     <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
       <div class="mb-6 text-center">
-        <p class="text-sm font-semibold text-blue-600">SPPG Tambak Wedi / MBG</p>
+        <p class="text-sm font-semibold text-blue-600">INVENTORY SPPG MBG</p>
         <h1 class="mt-1 text-2xl font-extrabold text-slate-900">Masuk Sistem</h1>
         <p class="mt-1 text-sm text-slate-500">Gunakan akun petugas untuk melanjutkan</p>
       </div>

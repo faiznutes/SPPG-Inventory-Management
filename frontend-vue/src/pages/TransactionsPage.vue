@@ -62,7 +62,7 @@ const dayNameMap = {
   6: 'Sabtu',
 }
 
-const tenantName = computed(() => authStore.user?.tenant?.name || authStore.tenantName || 'SPPG')
+const tenantName = computed(() => authStore.user?.tenant?.name || authStore.tenantName || 'INVENTORY SPPG MBG')
 const responsibleLine = computed(() => {
   const name = authStore.user?.name || authStore.user?.username || '-'
   const jabatan = authStore.user?.jabatan || authStore.operationalLabel || 'Staff'
