@@ -73,24 +73,43 @@ export async function ensureAdminSeed() {
         data: { role: UserRole.SUPER_ADMIN },
       })
 
-      await tx.tenant.updateMany({
-        where: { code: 'sppg-pusat' },
-        data: {
-          name: 'SPPG Tambak Wedi',
-          code: 'sppg-tambak-wedi',
-        },
+      const tenantByNewCode = await tx.tenant.findUnique({
+        where: { code: 'sppg-tambak-wedi' },
       })
 
-      const defaultTenant = await tx.tenant.upsert({
-        where: { code: 'sppg-tambak-wedi' },
-        create: {
-          name: 'SPPG Tambak Wedi',
-          code: 'sppg-tambak-wedi',
-        },
-        update: {
-          name: 'SPPG Tambak Wedi',
-        },
-      })
+      let defaultTenant
+      if (tenantByNewCode) {
+        defaultTenant = await tx.tenant.update({
+          where: { id: tenantByNewCode.id },
+          data: {
+            name: 'SPPG Tambak Wedi',
+            isActive: true,
+          },
+        })
+      } else {
+        const tenantByLegacyCode = await tx.tenant.findUnique({
+          where: { code: 'sppg-pusat' },
+        })
+
+        if (tenantByLegacyCode) {
+          defaultTenant = await tx.tenant.update({
+            where: { id: tenantByLegacyCode.id },
+            data: {
+              name: 'SPPG Tambak Wedi',
+              code: 'sppg-tambak-wedi',
+              isActive: true,
+            },
+          })
+        } else {
+          defaultTenant = await tx.tenant.create({
+            data: {
+              name: 'SPPG Tambak Wedi',
+              code: 'sppg-tambak-wedi',
+              isActive: true,
+            },
+          })
+        }
+      }
 
       await tx.tenantMembership.upsert({
         where: {
@@ -116,14 +135,6 @@ export async function ensureAdminSeed() {
 
   const passwordHash = await bcrypt.hash('admin12345', 10)
   await prisma.$transaction(async (tx) => {
-    await tx.tenant.updateMany({
-      where: { code: 'sppg-pusat' },
-      data: {
-        name: 'SPPG Tambak Wedi',
-        code: 'sppg-tambak-wedi',
-      },
-    })
-
     const user = await tx.user.create({
       data: {
         name: 'Admin SPPG',
@@ -134,16 +145,43 @@ export async function ensureAdminSeed() {
       },
     })
 
-    const defaultTenant = await tx.tenant.upsert({
+    const tenantByNewCode = await tx.tenant.findUnique({
       where: { code: 'sppg-tambak-wedi' },
-      create: {
-        name: 'SPPG Tambak Wedi',
-        code: 'sppg-tambak-wedi',
-      },
-      update: {
-        name: 'SPPG Tambak Wedi',
-      },
     })
+
+    let defaultTenant
+    if (tenantByNewCode) {
+      defaultTenant = await tx.tenant.update({
+        where: { id: tenantByNewCode.id },
+        data: {
+          name: 'SPPG Tambak Wedi',
+          isActive: true,
+        },
+      })
+    } else {
+      const tenantByLegacyCode = await tx.tenant.findUnique({
+        where: { code: 'sppg-pusat' },
+      })
+
+      if (tenantByLegacyCode) {
+        defaultTenant = await tx.tenant.update({
+          where: { id: tenantByLegacyCode.id },
+          data: {
+            name: 'SPPG Tambak Wedi',
+            code: 'sppg-tambak-wedi',
+            isActive: true,
+          },
+        })
+      } else {
+        defaultTenant = await tx.tenant.create({
+          data: {
+            name: 'SPPG Tambak Wedi',
+            code: 'sppg-tambak-wedi',
+            isActive: true,
+          },
+        })
+      }
+    }
 
     await tx.tenantMembership.create({
       data: {
