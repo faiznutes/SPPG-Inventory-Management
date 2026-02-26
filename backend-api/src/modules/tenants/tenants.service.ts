@@ -81,6 +81,12 @@ async function getTenantOrThrow(tenantId: string) {
   return tenant
 }
 
+function ensureTenantActive(tenant: { isActive: boolean }) {
+  if (!tenant.isActive) {
+    throw new ApiError(400, 'TENANT_INACTIVE', 'Tenant nonaktif. Aktifkan tenant terlebih dahulu untuk menyimpan perubahan ini.')
+  }
+}
+
 export async function listTenants() {
   return prisma.tenant.findMany({
     orderBy: { createdAt: 'desc' },
@@ -364,6 +370,7 @@ export async function getTenantDetail(tenantId: string) {
 
 export async function addTenantUser(actorUserId: string, tenantId: string, input: CreateTenantUserInput) {
   const tenant = await getTenantOrThrow(tenantId)
+  ensureTenantActive(tenant)
 
   const orConditions: Array<{ username?: string; email?: string }> = [{ username: input.username }]
   if (input.email) orConditions.push({ email: input.email })
@@ -439,6 +446,7 @@ export async function updateTenantUser(
   input: UpdateTenantUserInput,
 ) {
   const tenant = await getTenantOrThrow(tenantId)
+  ensureTenantActive(tenant)
   const membership = await prisma.tenantMembership.findFirst({
     where: { tenantId, userId },
   })
@@ -504,6 +512,7 @@ export async function updateTenantUser(
 
 export async function addTenantLocation(actorUserId: string, tenantId: string, input: CreateTenantLocationInput) {
   const tenant = await getTenantOrThrow(tenantId)
+  ensureTenantActive(tenant)
   const prefixedName = withTenantPrefix(tenant.code, input.name)
 
   try {
@@ -561,6 +570,7 @@ export async function updateTenantLocation(
   input: UpdateTenantLocationInput,
 ) {
   const tenant = await getTenantOrThrow(tenantId)
+  ensureTenantActive(tenant)
   const prefixedName = withTenantPrefix(tenant.code, input.name)
 
   const existing = await prisma.location.findUnique({ where: { id: locationId } })
@@ -624,7 +634,8 @@ export async function updateTenantTelegramSettings(
   tenantId: string,
   input: UpdateTenantTelegramSettingsInput,
 ) {
-  await getTenantOrThrow(tenantId)
+  const tenant = await getTenantOrThrow(tenantId)
+  ensureTenantActive(tenant)
 
   const existing = await prisma.tenantTelegramSetting.findUnique({
     where: { tenantId },

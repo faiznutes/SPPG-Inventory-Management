@@ -363,6 +363,10 @@ async function saveTenantIdentity() {
 
 async function saveTenantTelegramSettings() {
   if (!selectedTenant.value) return
+  if (!selectedTenant.value.isActive) {
+    notifications.showPopup('Tenant nonaktif', 'Aktifkan tenant dulu sebelum menyimpan integrasi Telegram.', 'error')
+    return
+  }
   try {
     if (tenantTelegramForm.isEnabled) {
       const hasTokenInput = tenantTelegramForm.botToken.trim().length >= 20
@@ -446,6 +450,10 @@ async function reactivateTenant(row) {
 
 async function addUserToTenant() {
   if (!selectedTenant.value) return
+  if (!selectedTenant.value.isActive) {
+    notifications.showPopup('Tenant nonaktif', 'Aktifkan tenant dulu sebelum menambah atau edit user tenant.', 'error')
+    return
+  }
   try {
     if (!tenantUserForm.name.trim() || !tenantUserForm.username.trim() || !tenantUserForm.jabatan.trim()) {
       notifications.showPopup('Form user tenant belum lengkap', 'Isi nama, username, dan jabatan.', 'error')
@@ -514,6 +522,10 @@ async function addUserToTenant() {
 
 async function addLocationToTenant() {
   if (!selectedTenant.value) return
+  if (!selectedTenant.value.isActive) {
+    notifications.showPopup('Tenant nonaktif', 'Aktifkan tenant dulu sebelum menambah atau edit lokasi.', 'error')
+    return
+  }
   try {
     if (!tenantLocationForm.name.trim()) {
       notifications.showPopup('Nama lokasi wajib', 'Isi nama lokasi tenant.', 'error')
