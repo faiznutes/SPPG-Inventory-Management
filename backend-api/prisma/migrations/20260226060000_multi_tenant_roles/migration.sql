@@ -36,13 +36,31 @@ CREATE TABLE IF NOT EXISTS "public"."tenant_memberships" (
 CREATE UNIQUE INDEX IF NOT EXISTS "tenant_memberships_user_id_tenant_id_key" ON "public"."tenant_memberships"("user_id", "tenant_id");
 CREATE INDEX IF NOT EXISTS "tenant_memberships_tenant_id_idx" ON "public"."tenant_memberships"("tenant_id");
 
-ALTER TABLE "public"."tenant_memberships"
-  ADD CONSTRAINT "tenant_memberships_user_id_fkey"
-  FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'tenant_memberships_user_id_fkey'
+  ) THEN
+    ALTER TABLE "public"."tenant_memberships"
+      ADD CONSTRAINT "tenant_memberships_user_id_fkey"
+      FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "public"."tenant_memberships"
-  ADD CONSTRAINT "tenant_memberships_tenant_id_fkey"
-  FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'tenant_memberships_tenant_id_fkey'
+  ) THEN
+    ALTER TABLE "public"."tenant_memberships"
+      ADD CONSTRAINT "tenant_memberships_tenant_id_fkey"
+      FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 -- Seed default tenant and bootstrap memberships from existing users
 UPDATE "public"."tenants"
