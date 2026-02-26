@@ -12,16 +12,30 @@ const authStore = useAuthStore()
 const rows = ref([])
 const items = ref([])
 const locations = ref([])
+const categories = ref([])
 const isLoading = ref(false)
 const activeType = ref('Semua')
 const search = ref('')
 const showAdjustModal = ref(false)
+const showCreateItemModal = ref(false)
+
+const canCreateProduct = computed(() => ['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN', 'WAREHOUSE'].includes(authStore.user?.role || ''))
 
 const adjustForm = reactive({
   itemId: '',
   locationId: '',
   qty: '',
   reason: '',
+})
+
+const createItemForm = reactive({
+  name: '',
+  sku: '',
+  categoryId: '',
+  type: 'CONSUMABLE',
+  unit: 'pcs',
+  minStock: '0',
+  reorderQty: '',
 })
 
 const typeMap = {
@@ -55,10 +69,11 @@ async function loadData() {
 
   isLoading.value = true
   try {
-    const [stocksData, itemsData, locationsData] = await Promise.all([
+    const [stocksData, itemsData, locationsData, categoriesData] = await Promise.all([
       api.listStocks(authStore.accessToken),
       api.listItems(authStore.accessToken),
       api.listLocations(authStore.accessToken),
+      api.listCategories(authStore.accessToken),
     ])
 
     rows.value = stocksData.map((row) => ({
@@ -75,10 +90,43 @@ async function loadData() {
 
     items.value = itemsData
     locations.value = locationsData
+    categories.value = categoriesData
   } catch (error) {
     notifications.showPopup('Gagal memuat stok', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   } finally {
     isLoading.value = false
+  }
+}
+
+async function submitCreateProduct() {
+  if (!canCreateProduct.value) {
+    notifications.showPopup('Akses ditolak', 'Role kamu belum memiliki akses tambah produk.', 'error')
+    return
+  }
+
+  try {
+    await api.createItem(authStore.accessToken, {
+      name: createItemForm.name,
+      sku: createItemForm.sku || undefined,
+      categoryId: createItemForm.categoryId || undefined,
+      type: createItemForm.type,
+      unit: createItemForm.unit,
+      minStock: Number(createItemForm.minStock || 0),
+      reorderQty: createItemForm.reorderQty ? Number(createItemForm.reorderQty) : undefined,
+    })
+
+    showCreateItemModal.value = false
+    createItemForm.name = ''
+    createItemForm.sku = ''
+    createItemForm.categoryId = ''
+    createItemForm.type = 'CONSUMABLE'
+    createItemForm.unit = 'pcs'
+    createItemForm.minStock = '0'
+    createItemForm.reorderQty = ''
+    notifications.showPopup('Produk ditambahkan', 'Produk baru berhasil disimpan.', 'success')
+    await loadData()
+  } catch (error) {
+    notifications.showPopup('Gagal tambah produk', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
 }
 
@@ -114,6 +162,13 @@ onMounted(async () => {
   <div class="space-y-5">
     <PageHeader title="Stok Inventaris" subtitle="Pantau stok per lokasi dengan cepat">
       <template #actions>
+        <button
+          v-if="canCreateProduct"
+          class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
+          @click="showCreateItemModal = true"
+        >
+          Tambah Produk
+        </button>
         <button class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white" @click="showAdjustModal = true">
           Penyesuaian Stok
         </button>
@@ -205,6 +260,61 @@ onMounted(async () => {
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="showAdjustModal = false">Batal</button>
           <button type="submit" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white">Simpan</button>
+        </div>
+      </form>
+    </BaseModal>
+
+    <BaseModal :show="showCreateItemModal" title="Tambah Produk" @close="showCreateItemModal = false">
+      <form class="space-y-3" @submit.prevent="submitCreateProduct">
+        <label class="block">
+          <span class="mb-1 block text-sm font-semibold text-slate-700">Nama Produk</span>
+          <input v-model="createItemForm.name" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Contoh: Minyak Goreng" required />
+        </label>
+
+        <label class="block">
+          <span class="mb-1 block text-sm font-semibold text-slate-700">SKU</span>
+          <input v-model="createItemForm.sku" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Contoh: MG-001" />
+        </label>
+
+        <label class="block">
+          <span class="mb-1 block text-sm font-semibold text-slate-700">Kategori</span>
+          <select v-model="createItemForm.categoryId" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+            <option value="">Tanpa kategori</option>
+            <option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option>
+          </select>
+        </label>
+
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label class="block">
+            <span class="mb-1 block text-sm font-semibold text-slate-700">Tipe</span>
+            <select v-model="createItemForm.type" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <option value="CONSUMABLE">Consumable</option>
+              <option value="GAS">Gas</option>
+              <option value="ASSET">Asset</option>
+            </select>
+          </label>
+
+          <label class="block">
+            <span class="mb-1 block text-sm font-semibold text-slate-700">Satuan</span>
+            <input v-model="createItemForm.unit" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="pcs, liter, kg" required />
+          </label>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label class="block">
+            <span class="mb-1 block text-sm font-semibold text-slate-700">Minimal Stok</span>
+            <input v-model="createItemForm.minStock" type="number" min="0" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" required />
+          </label>
+
+          <label class="block">
+            <span class="mb-1 block text-sm font-semibold text-slate-700">Reorder Qty</span>
+            <input v-model="createItemForm.reorderQty" type="number" min="0" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Opsional" />
+          </label>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="showCreateItemModal = false">Batal</button>
+          <button type="submit" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white">Simpan Produk</button>
         </div>
       </form>
     </BaseModal>

@@ -106,6 +106,10 @@ Terakhir diperbarui: 2026-02-26 (malam)
 - [x] Batasi fitur create user hanya untuk super admin di UI.
 - [ ] Uji 1 tenant dengan banyak staff dan role berbeda.
 - [x] Header navbar dan header halaman menampilkan nama tenant aktif (contoh: `SPPG Tambak Wedi`).
+- [x] Header sidebar menampilkan format `MBG - <DETAIL_ROLE>` sesuai role user (contoh: `MBG - KOORDINATOR LAPANGAN`).
+- [x] Tombol `Tambah Pengguna` disembunyikan untuk role admin non-super-admin.
+- [x] Tambah tombol `Tambah Produk` di halaman stok untuk role admin.
+- [x] Tambah halaman khusus `Kategori` agar input kategori lebih mudah.
 
 ---
 
@@ -154,3 +158,4 @@ Update aktual:
 - `2026-02-26 - Phase 9 DONE - auto refresh 401 + refresh lock + retry 1x + redirect login saat refresh gagal`
 - `2026-02-26 - Phase 11 DONE - badge unread notifikasi aktif dan menu Pengaturan role-aware + route guard role-aware`
 - `2026-02-26 - Progress Phase 12 - konteks nama tenant ditampilkan di navbar dan header halaman (tenant branding)`
+- `2026-02-26 - Progress Phase 12 - subtitle sidebar kini role-aware (MBG - detail role), tombol tambah pengguna hidden untuk admin, tombol tambah produk ditambahkan, dan halaman kategori dipisah`

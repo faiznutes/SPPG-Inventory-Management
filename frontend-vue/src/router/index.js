@@ -11,6 +11,7 @@ import PurchaseRequestListPage from '../pages/PurchaseRequestListPage.vue'
 import PurchaseRequestDetailPage from '../pages/PurchaseRequestDetailPage.vue'
 import SettingsPage from '../pages/SettingsPage.vue'
 import NotificationsPage from '../pages/NotificationsPage.vue'
+import CategoriesPage from '../pages/CategoriesPage.vue'
 
 const routes = [
   {
@@ -69,6 +70,15 @@ const routes = [
         component: SettingsPage,
         meta: {
           title: 'Pengaturan',
+          allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN'],
+        },
+      },
+      {
+        path: 'master/categories',
+        name: 'categories',
+        component: CategoriesPage,
+        meta: {
+          title: 'Kategori',
           allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN'],
         },
       },

@@ -17,7 +17,7 @@ categoriesRouter.get('/', async (_req, res, next) => {
   }
 })
 
-categoriesRouter.post('/', requireRole(['ADMIN']), async (req, res, next) => {
+categoriesRouter.post('/', requireRole(['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN']), async (req, res, next) => {
   try {
     const body = createCategorySchema.parse(req.body)
     const data = await createCategory(body)

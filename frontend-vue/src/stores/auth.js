@@ -5,6 +5,24 @@ const ACCESS_TOKEN_KEY = 'sppg_access_token'
 const USER_KEY = 'sppg_user'
 const DEFAULT_TENANT_NAME = 'SPPG Tambak Wedi'
 
+const roleLabelMap = {
+  SUPER_ADMIN: 'SUPER ADMIN',
+  TENANT_ADMIN: 'ADMIN TENANT',
+  ADMIN: 'ADMIN',
+  PIC: 'PIC',
+  WAREHOUSE: 'GUDANG',
+  KOORD_DAPUR: 'KOORDINATOR DAPUR',
+  KOORD_KEBERSIHAN: 'KOORDINATOR KEBERSIHAN',
+  KOORD_LAPANGAN: 'KOORDINATOR LAPANGAN',
+  STAFF: 'STAFF',
+  VIEWER: 'VIEWER',
+}
+
+function roleToLabel(role) {
+  if (!role) return 'OPERASIONAL'
+  return roleLabelMap[role] || String(role).replaceAll('_', ' ')
+}
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     accessToken: '',
@@ -17,6 +35,7 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     isAuthenticated: (state) => Boolean(state.accessToken && state.user),
     tenantName: (state) => state.user?.tenant?.name || DEFAULT_TENANT_NAME,
+    operationalLabel: (state) => roleToLabel(state.user?.role),
   },
 
   actions: {

@@ -23,6 +23,12 @@ const menus = [
   { name: 'Checklist', path: '/checklists/today', icon: 'checklist' },
   { name: 'Permintaan Pembelian', path: '/purchase-requests', icon: 'description' },
   {
+    name: 'Kategori',
+    path: '/master/categories',
+    icon: 'category',
+    roles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN'],
+  },
+  {
     name: 'Pengaturan',
     path: '/settings',
     icon: 'settings',
@@ -66,7 +72,7 @@ onMounted(async () => {
       <div class="mb-5 flex items-center justify-between">
         <div>
           <p class="text-lg font-extrabold text-slate-900">{{ authStore.tenantName }}</p>
-          <p class="text-xs text-slate-500">MBG - Operasional Tenant</p>
+          <p class="text-xs text-slate-500">MBG - {{ authStore.operationalLabel }}</p>
         </div>
         <button class="lg:hidden" @click="ui.closeSidebar">
           <span class="material-symbols-outlined text-slate-500">close</span>

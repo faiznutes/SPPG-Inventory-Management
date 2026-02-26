@@ -6,7 +6,7 @@ type CreateUserInput = {
   name: string
   username: string
   email?: string
-  role: 'TENANT_ADMIN' | 'KOORD_DAPUR' | 'KOORD_KEBERSIHAN' | 'KOORD_LAPANGAN' | 'STAFF'
+  role: 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'KOORD_DAPUR' | 'KOORD_KEBERSIHAN' | 'KOORD_LAPANGAN' | 'STAFF'
   password: string
 }
 

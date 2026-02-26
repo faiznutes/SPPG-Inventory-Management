@@ -98,6 +98,8 @@ Terakhir diperbarui: 2026-02-26 (malam)
 - [ ] Tambah role baru: `SUPER_ADMIN`, `TENANT_ADMIN`, `KOORD_DAPUR`, `KOORD_KEBERSIHAN`, `KOORD_LAPANGAN`, `STAFF`
 - [ ] Middleware akses tenant-aware (`tenant_id` scope)
 - [x] Atur rule: hanya `SUPER_ADMIN` bisa create user/staff/admin
+- [x] Endpoint create item/category menerima role tenant governance (`SUPER_ADMIN`, `TENANT_ADMIN`, `ADMIN`)
+- [ ] Finalisasi seed akun `SUPER_ADMIN` default untuk checklist role governance
 
 ### Phase 13 (TODO)
 - [ ] Migrasi data existing ke tenant default (`SPPG Tambak Wedi`)

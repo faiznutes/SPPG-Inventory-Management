@@ -25,6 +25,7 @@ const form = reactive({
 })
 
 const canManageUsers = computed(() => authStore.user?.role === 'SUPER_ADMIN')
+const canAddInTab = computed(() => activeTab.value !== 'Pengguna' || canManageUsers.value)
 
 const currentRows = computed(() => {
   if (activeTab.value === 'Lokasi') return locations.value
@@ -136,8 +137,8 @@ onMounted(async () => {
     <PageHeader title="Pengaturan" subtitle="Kelola user, lokasi, kategori, dan konfigurasi dasar">
       <template #actions>
         <button
+          v-if="canAddInTab"
           class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
-          :disabled="activeTab === 'Pengguna' && !canManageUsers"
           @click="showInputModal = true"
         >
           Tambah {{ activeTab }}
@@ -214,6 +215,7 @@ onMounted(async () => {
         <label v-if="activeTab === 'Pengguna'" class="block">
           <span class="mb-1 block text-sm font-semibold text-slate-700">Role</span>
           <select v-model="form.role" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+            <option value="SUPER_ADMIN">SUPER_ADMIN</option>
             <option value="TENANT_ADMIN">TENANT_ADMIN</option>
             <option value="KOORD_DAPUR">KOORD_DAPUR</option>
             <option value="KOORD_KEBERSIHAN">KOORD_KEBERSIHAN</option>

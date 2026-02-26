@@ -17,7 +17,7 @@ itemsRouter.get('/', async (_req, res, next) => {
   }
 })
 
-itemsRouter.post('/', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res, next) => {
+itemsRouter.post('/', requireRole(['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN', 'WAREHOUSE']), async (req, res, next) => {
   try {
     const body = createItemSchema.parse(req.body)
     const data = await createItem(body)
