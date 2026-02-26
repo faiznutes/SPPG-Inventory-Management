@@ -33,6 +33,8 @@ const form = reactive({
 const selectedTenant = ref(null)
 const tenantUsers = ref([])
 const tenantLocations = ref([])
+const selectedTenantUserIds = ref([])
+const tenantUserBulkAction = ref('ACCESS_VIEW')
 
 const tenantUserForm = reactive({
   id: '',
@@ -375,6 +377,7 @@ async function openTenantDetail(row) {
     selectedTenant.value = detail.tenant
     tenantUsers.value = detail.users || []
     tenantLocations.value = detail.locations || []
+    selectedTenantUserIds.value = []
     tenantIdentityForm.name = detail.tenant?.name || ''
     tenantIdentityForm.code = detail.tenant?.code || ''
     tenantTelegramForm.botToken = ''
@@ -618,6 +621,41 @@ async function addUserToTenant() {
     notifications.showPopup('User tenant disimpan', 'Data pengguna tenant berhasil disimpan.', 'success')
   } catch (error) {
     notifications.showPopup('Gagal tambah user tenant', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+  }
+}
+
+function toggleTenantUserSelection(userId) {
+  if (selectedTenantUserIds.value.includes(userId)) {
+    selectedTenantUserIds.value = selectedTenantUserIds.value.filter((id) => id !== userId)
+    return
+  }
+  selectedTenantUserIds.value.push(userId)
+}
+
+function clearTenantUserSelection() {
+  selectedTenantUserIds.value = []
+}
+
+async function applyBulkTenantUserAction() {
+  if (!selectedTenant.value) return
+  if (!selectedTenantUserIds.value.length) {
+    notifications.showPopup('Belum ada user dipilih', 'Pilih minimal 1 user tenant untuk aksi bulk.', 'error')
+    return
+  }
+
+  const ok = window.confirm(`Terapkan aksi ${tenantUserBulkAction.value} ke ${selectedTenantUserIds.value.length} user tenant?`)
+  if (!ok) return
+
+  try {
+    const result = await api.bulkTenantUserAction(authStore.accessToken, selectedTenant.value.id, {
+      userIds: selectedTenantUserIds.value,
+      action: tenantUserBulkAction.value,
+    })
+    notifications.showPopup('Bulk user tenant selesai', result.message || 'Aksi bulk user tenant berhasil diproses.', 'success')
+    clearTenantUserSelection()
+    await openTenantDetail({ id: selectedTenant.value.id })
+  } catch (error) {
+    notifications.showPopup('Bulk user tenant gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
 }
 
@@ -1058,6 +1096,29 @@ onMounted(async () => {
             <button class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700" @click="resetTenantUserForm">Reset</button>
             <button class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white" @click="addUserToTenant">{{ tenantUserForm.id ? 'Update User Tenant' : 'Tambah User Tenant' }}</button>
           </div>
+          <div class="mt-2 flex flex-wrap items-center justify-end gap-2">
+            <select v-model="tenantUserBulkAction" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-semibold text-slate-700">
+              <option value="ACCESS_NONE">Bulk Tidak Bisa Akses</option>
+              <option value="ACCESS_VIEW">Bulk Lihat Saja</option>
+              <option value="ACCESS_EDIT">Bulk Bisa Edit</option>
+              <option value="DEACTIVATE">Bulk Nonaktifkan Akun</option>
+              <option value="ACTIVATE">Bulk Aktifkan Akun</option>
+            </select>
+            <button
+              class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700"
+              :disabled="!selectedTenantUserIds.length"
+              @click="applyBulkTenantUserAction"
+            >
+              Terapkan Bulk ({{ selectedTenantUserIds.length }})
+            </button>
+            <button
+              v-if="selectedTenantUserIds.length"
+              class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700"
+              @click="clearTenantUserSelection"
+            >
+              Reset Pilihan
+            </button>
+          </div>
           <div class="mt-3 space-y-2 sm:hidden">
             <article v-for="u in tenantUsers" :key="`mu-${u.id}`" class="rounded-lg border border-slate-200 p-2 text-xs">
               <div class="flex items-start justify-between gap-2">
@@ -1065,9 +1126,12 @@ onMounted(async () => {
                   <p class="font-bold text-slate-900">{{ u.name }}</p>
                   <p class="text-slate-500">{{ u.username }} - {{ u.role }}</p>
                 </div>
-                <span class="rounded-full px-2 py-0.5 font-bold" :class="u.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'">
-                  {{ u.isActive ? 'Aktif' : 'Nonaktif' }}
-                </span>
+                <div class="flex items-center gap-2">
+                  <input :checked="selectedTenantUserIds.includes(u.id)" type="checkbox" @change="toggleTenantUserSelection(u.id)" />
+                  <span class="rounded-full px-2 py-0.5 font-bold" :class="u.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'">
+                    {{ u.isActive ? 'Aktif' : 'Nonaktif' }}
+                  </span>
+                </div>
               </div>
               <p class="mt-1 text-slate-600">Jabatan: {{ u.jabatan || '-' }}</p>
               <p class="text-slate-600">Mode: {{ u.canView ? (u.canEdit ? 'Bisa Edit' : 'Lihat Saja') : 'Tidak Bisa Akses' }}</p>
@@ -1099,7 +1163,10 @@ onMounted(async () => {
                   <td class="px-2 py-2">{{ u.role }}</td>
                   <td class="px-2 py-2">{{ u.jabatan || '-' }}</td>
                   <td class="px-2 py-2">{{ u.canView ? (u.canEdit ? 'Bisa Edit' : 'Lihat Saja') : 'Tidak Bisa Akses' }}</td>
-                  <td class="px-2 py-2">{{ u.isActive ? 'Aktif' : 'Nonaktif' }}</td>
+                  <td class="px-2 py-2">
+                    <input class="mr-2 align-middle" :checked="selectedTenantUserIds.includes(u.id)" type="checkbox" @change="toggleTenantUserSelection(u.id)" />
+                    {{ u.isActive ? 'Aktif' : 'Nonaktif' }}
+                  </td>
                   <td class="px-2 py-2 text-right">
                     <button class="rounded border border-slate-200 px-2 py-1 font-semibold text-slate-700" @click="editTenantUser(u)">Edit</button>
                   </td>

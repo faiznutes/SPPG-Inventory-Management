@@ -34,6 +34,8 @@ type UpdateTenantUserInput = {
   password?: string
 }
 
+type BulkTenantUserAction = 'ACTIVATE' | 'DEACTIVATE' | 'ACCESS_NONE' | 'ACCESS_VIEW' | 'ACCESS_EDIT'
+
 type CreateTenantLocationInput = {
   name: string
   description?: string
@@ -721,6 +723,86 @@ export async function updateTenantUser(
   return {
     code: 'TENANT_USER_UPDATED',
     message: 'User tenant berhasil diperbarui.',
+  }
+}
+
+export async function bulkTenantUserAction(
+  actorUserId: string,
+  tenantId: string,
+  userIds: string[],
+  action: BulkTenantUserAction,
+) {
+  const tenant = await getTenantOrThrow(tenantId)
+  ensureTenantActive(tenant)
+
+  const uniqueUserIds = [...new Set(userIds)]
+  const memberships = await prisma.tenantMembership.findMany({
+    where: {
+      tenantId,
+      userId: { in: uniqueUserIds },
+    },
+    select: {
+      userId: true,
+    },
+  })
+
+  const foundIds = new Set(memberships.map((m) => m.userId))
+  const missingIds = uniqueUserIds.filter((id) => !foundIds.has(id))
+
+  if (!memberships.length) {
+    throw new ApiError(404, 'TENANT_USERS_NOT_FOUND', 'User tenant tidak ditemukan untuk aksi bulk.')
+  }
+
+  const targetUserIds = memberships.map((m) => m.userId)
+
+  await prisma.$transaction(async (tx) => {
+    if (action === 'ACTIVATE' || action === 'DEACTIVATE') {
+      await tx.user.updateMany({
+        where: {
+          id: { in: targetUserIds },
+        },
+        data: {
+          isActive: action === 'ACTIVATE',
+        },
+      })
+    } else {
+      const next =
+        action === 'ACCESS_NONE'
+          ? { canView: false, canEdit: false }
+          : action === 'ACCESS_VIEW'
+            ? { canView: true, canEdit: false }
+            : { canView: true, canEdit: true }
+
+      await tx.tenantMembership.updateMany({
+        where: {
+          tenantId,
+          userId: { in: targetUserIds },
+        },
+        data: next,
+      })
+    }
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId,
+        entityType: 'tenant_users',
+        entityId: 'bulk',
+        action: `BULK_${action}`,
+        diffJson: {
+          tenantId,
+          userIds: targetUserIds,
+          missingIds,
+        },
+      },
+    })
+  })
+
+  return {
+    code: 'TENANT_USERS_BULK_ACTION_COMPLETED',
+    message: `Bulk user tenant selesai. Berhasil: ${targetUserIds.length}, tidak ditemukan: ${missingIds.length}.`,
+    action,
+    affectedCount: targetUserIds.length,
+    missingIds,
   }
 }
 

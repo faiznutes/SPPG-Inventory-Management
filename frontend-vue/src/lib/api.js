@@ -242,6 +242,13 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  bulkTenantUserAction: (accessToken, tenantId, body) =>
+    request(`/tenants/${tenantId}/users/bulk/action`, {
+      method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
+
   updateTenantUser: (accessToken, tenantId, userId, body) =>
     request(`/tenants/${tenantId}/users/${userId}`, {
       method: 'PATCH',

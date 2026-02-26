@@ -32,6 +32,7 @@ Last update: 2026-02-26
 | T-19 | Bulk produk/items: activate/deactivate/delete/update field | DONE |
 | T-20 | Bulk kategori: activate/deactivate/delete/update tipe | DONE |
 | T-21 | Bulk penyesuaian stok multi item/lokasi dengan alasan wajib | DONE |
+| T-22 | Bulk user tenant: aktif/nonaktif + mode akses none/view/edit | DONE |
 
 ## Acceptance Checklist
 - [x] Checklist submit tidak gagal validasi.
@@ -74,6 +75,7 @@ Last update: 2026-02-26
 - [x] Bulk action produk/items tersedia (Aktifkan, Nonaktifkan, Soft Delete, Bulk Edit field utama).
 - [x] Bulk action kategori tersedia (Aktifkan, Nonaktifkan, Hapus, Bulk Ubah tipe).
 - [x] Bulk penyesuaian stok tersedia dari halaman stok dengan alasan wajib dan multi-baris.
+- [x] Bulk user tenant tersedia di detail tenant untuk aktivasi akun dan mode akses massal.
 
 ## Notes
 - Untuk repo hygiene, file operasional yang tidak perlu di root akan didaftarkan agar bisa dipindah manual ke folder `docs/` oleh owner.

@@ -48,6 +48,11 @@ export const updateTenantUserSchema = z.object({
   password: z.string().min(6).optional(),
 })
 
+export const bulkTenantUserActionSchema = z.object({
+  userIds: z.array(z.string().uuid()).min(1),
+  action: z.enum(['ACTIVATE', 'DEACTIVATE', 'ACCESS_NONE', 'ACCESS_VIEW', 'ACCESS_EDIT']),
+})
+
 export const addTenantLocationSchema = z.object({
   name: z.string().min(2),
   description: z.string().max(255).optional(),
