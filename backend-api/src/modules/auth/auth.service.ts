@@ -59,6 +59,14 @@ export async function ensureAdminSeed() {
         data: { role: UserRole.SUPER_ADMIN },
       })
 
+      await tx.tenant.updateMany({
+        where: { code: 'sppg-pusat' },
+        data: {
+          name: 'SPPG Tambak Wedi',
+          code: 'sppg-tambak-wedi',
+        },
+      })
+
       const defaultTenant = await tx.tenant.upsert({
         where: { code: 'sppg-tambak-wedi' },
         create: {
@@ -94,6 +102,14 @@ export async function ensureAdminSeed() {
 
   const passwordHash = await bcrypt.hash('admin12345', 10)
   await prisma.$transaction(async (tx) => {
+    await tx.tenant.updateMany({
+      where: { code: 'sppg-pusat' },
+      data: {
+        name: 'SPPG Tambak Wedi',
+        code: 'sppg-tambak-wedi',
+      },
+    })
+
     const user = await tx.user.create({
       data: {
         name: 'Admin SPPG',

@@ -45,9 +45,20 @@ ALTER TABLE "public"."tenant_memberships"
   FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Seed default tenant and bootstrap memberships from existing users
+UPDATE "public"."tenants"
+SET
+  "name" = 'SPPG Tambak Wedi',
+  "code" = 'sppg-tambak-wedi',
+  "updated_at" = CURRENT_TIMESTAMP
+WHERE "id" = 'tenant-default';
+
 INSERT INTO "public"."tenants" ("id", "name", "code", "is_active", "created_at", "updated_at")
-SELECT 'tenant-default', 'SPPG Tambak Wedi', 'sppg-tambak-wedi', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-WHERE NOT EXISTS (SELECT 1 FROM "public"."tenants" WHERE "code" = 'sppg-tambak-wedi');
+VALUES ('tenant-default', 'SPPG Tambak Wedi', 'sppg-tambak-wedi', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("id") DO UPDATE SET
+  "name" = EXCLUDED."name",
+  "code" = EXCLUDED."code",
+  "is_active" = true,
+  "updated_at" = CURRENT_TIMESTAMP;
 
 INSERT INTO "public"."tenant_memberships" (
   "id",
@@ -61,7 +72,7 @@ INSERT INTO "public"."tenant_memberships" (
 SELECT
   ('tm-' || u."id")::text,
   u."id",
-  (SELECT t."id" FROM "public"."tenants" t WHERE t."code" = 'sppg-tambak-wedi' LIMIT 1),
+  (SELECT t."id" FROM "public"."tenants" t WHERE t."id" = 'tenant-default' LIMIT 1),
   u."role",
   true,
   CURRENT_TIMESTAMP,
@@ -71,5 +82,5 @@ WHERE NOT EXISTS (
   SELECT 1
   FROM "public"."tenant_memberships" tm
   WHERE tm."user_id" = u."id"
-    AND tm."tenant_id" = (SELECT t."id" FROM "public"."tenants" t WHERE t."code" = 'sppg-tambak-wedi' LIMIT 1)
+    AND tm."tenant_id" = (SELECT t."id" FROM "public"."tenants" t WHERE t."id" = 'tenant-default' LIMIT 1)
 );
