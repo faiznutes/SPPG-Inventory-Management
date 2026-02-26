@@ -1,6 +1,6 @@
 # Tasks Operasional SPPG (Deployment + Stability)
 
-Terakhir diperbarui: 2026-02-26 (siang)
+Terakhir diperbarui: 2026-02-26 (malam)
 
 ## Gambaran Phase
 
@@ -14,6 +14,7 @@ Terakhir diperbarui: 2026-02-26 (siang)
 | 6 | Backup/restore drill database berkala | 0.5 hari | TODO |
 | 7 | Monitoring + alert ringan | 0.5 hari | TODO |
 | 8 | Incident handling hipam-id unavailable | 0.25 hari | DONE |
+| 9 | Rollout multi-tenant tanpa downtime | 1 hari | TODO |
 
 ## Checklist
 
@@ -51,3 +52,9 @@ Terakhir diperbarui: 2026-02-26 (siang)
 - [x] Temukan akar masalah: `hipam-db` container sempat stop (status exited), aplikasi jadi HTTP 500 dan health turun
 - [x] Perbaikan: start ulang `hipam-db`, verifikasi app kembali 200 internal/public, status Coolify kembali `running:healthy`
 - [x] Catat bahwa limit memory bukan pemicu OOM langsung (OOMKilled=false), tetap monitor restart/exit code DB
+
+### Phase 9 (TODO)
+- [ ] Siapkan checklist pre-migration (backup DB, snapshot env, status app)
+- [ ] Jalankan migrasi tenant secara additive (tanpa memutus layanan)
+- [ ] Verifikasi matrix akses role antar tenant di production-like data
+- [ ] Siapkan rollback playbook jika ada kegagalan pasca migrasi

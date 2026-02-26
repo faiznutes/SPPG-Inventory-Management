@@ -10,6 +10,7 @@ import ChecklistTodayPage from '../pages/ChecklistTodayPage.vue'
 import PurchaseRequestListPage from '../pages/PurchaseRequestListPage.vue'
 import PurchaseRequestDetailPage from '../pages/PurchaseRequestDetailPage.vue'
 import SettingsPage from '../pages/SettingsPage.vue'
+import NotificationsPage from '../pages/NotificationsPage.vue'
 
 const routes = [
   {
@@ -67,6 +68,12 @@ const routes = [
         name: 'settings',
         component: SettingsPage,
         meta: { title: 'Pengaturan' },
+      },
+      {
+        path: 'notifications',
+        name: 'notifications',
+        component: NotificationsPage,
+        meta: { title: 'Notifikasi' },
       },
     ],
   },

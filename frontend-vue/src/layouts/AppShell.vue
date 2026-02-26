@@ -5,7 +5,6 @@ import { RouterLink, RouterView } from 'vue-router'
 import { useUiStore } from '../stores/ui'
 import { useNotificationsStore } from '../stores/notifications'
 import { useAuthStore } from '../stores/auth'
-import BaseModal from '../components/common/BaseModal.vue'
 import PopupToast from '../components/common/PopupToast.vue'
 
 const ui = useUiStore()
@@ -87,7 +86,7 @@ async function handleLogout() {
             </div>
             <button
               class="relative rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
-              @click="notifications.openList"
+              @click="router.push('/notifications')"
             >
               <span class="material-symbols-outlined align-middle text-base">notifications</span>
               <span class="ml-1 hidden sm:inline">Notifikasi</span>
@@ -113,25 +112,6 @@ async function handleLogout() {
         <RouterView />
       </main>
     </div>
-
-    <BaseModal
-      :show="notifications.isListOpen"
-      title="Notifikasi"
-      max-width-class="max-w-md"
-      @close="notifications.closeList"
-    >
-      <div class="space-y-2">
-        <article
-          v-for="item in notifications.items"
-          :key="item.id"
-          class="rounded-xl border border-slate-200 bg-slate-50 p-3"
-        >
-          <p class="text-sm font-bold text-slate-900">{{ item.title }}</p>
-          <p class="mt-1 text-sm text-slate-600">{{ item.message }}</p>
-          <p class="mt-1 text-xs text-slate-400">{{ item.time }}</p>
-        </article>
-      </div>
-    </BaseModal>
 
     <PopupToast
       :show="notifications.toast.show"

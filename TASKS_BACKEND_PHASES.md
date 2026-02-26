@@ -1,6 +1,6 @@
 # Tasks Backend SPPG/MBG (API Auth + Database)
 
-Terakhir diperbarui: 2026-02-26 (siang)
+Terakhir diperbarui: 2026-02-26 (malam)
 
 ## Gambaran Phase
 
@@ -15,6 +15,10 @@ Terakhir diperbarui: 2026-02-26 (siang)
 | 7 | Modul inventory inti (items/stocks/transactions) | 1 hari | DONE |
 | 8 | Modul checklist dan purchase request | 1.5 hari | DONE |
 | 9 | Hardening baseline production (cors/cookie/proxy) | 0.5 hari | DONE |
+| 10 | Session resilience (auto recover 401) | 0.5 hari | TODO |
+| 11 | API dashboard + notifikasi tanpa hardcode | 0.5 hari | TODO |
+| 12 | Multi-tenant schema (`tenant_id`) + role governance | 2 hari | TODO |
+| 13 | Migrasi data tenant default + verifikasi akses | 1 hari | TODO |
 
 ## Checklist Implementasi
 
@@ -77,6 +81,29 @@ Terakhir diperbarui: 2026-02-26 (siang)
 - [x] Implement whitelist CORS berbasis env
 - [x] Cookie refresh token mengikuti env `COOKIE_SECURE`
 - [x] Tambah catatan konfigurasi keamanan di README dan `.env.example`
+
+### Phase 10 (TODO)
+- [ ] Standarisasi respons 401 agar frontend bisa trigger refresh otomatis
+- [ ] Tambah guard di endpoint penting untuk kode error auth konsisten
+- [ ] Verifikasi alur: token expired -> refresh -> retry request -> sukses
+
+### Phase 11 (TODO)
+- [ ] Tambah endpoint `GET /api/v1/dashboard/summary`
+- [ ] Tambah endpoint `GET /api/v1/dashboard/low-stock`
+- [ ] Tambah endpoint `GET /api/v1/notifications`
+- [ ] Pastikan semua endpoint di atas tidak pakai data hardcode
+
+### Phase 12 (TODO)
+- [ ] Tambah model `Tenant` dan `TenantMembership` di schema
+- [ ] Tambah role baru: `SUPER_ADMIN`, `TENANT_ADMIN`, `KOORD_DAPUR`, `KOORD_KEBERSIHAN`, `KOORD_LAPANGAN`, `STAFF`
+- [ ] Middleware akses tenant-aware (`tenant_id` scope)
+- [ ] Atur rule: hanya `SUPER_ADMIN` bisa create user/staff/admin
+
+### Phase 13 (TODO)
+- [ ] Migrasi data existing ke tenant default (`SPPG Pusat`)
+- [ ] Backfill `tenant_id` untuk tabel operasional utama
+- [ ] Validasi role matrix dan pembatasan akses antar tenant
+- [ ] Smoke test multi-tenant dengan lebih dari 1 user per tenant
 
 ## Catatan Update
 - `2026-02-25 - Phase 1-4 DONE - fondasi backend auth + schema database selesai`

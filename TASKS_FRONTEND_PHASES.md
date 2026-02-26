@@ -1,6 +1,6 @@
 # Tasks Frontend SPPG/MBG (Vue + Vite + Tailwind)
 
-Terakhir diperbarui: 2026-02-25 (malam)
+Terakhir diperbarui: 2026-02-26 (malam)
 
 ## Legenda Status
 - `TODO` = belum dikerjakan
@@ -20,6 +20,10 @@ Terakhir diperbarui: 2026-02-25 (malam)
 | 6 | Migrasi PR (List + Detail) dan Pengaturan | 1.5 hari | DONE |
 | 7 | Lokalisasi penuh Bahasa Indonesia + format Rupiah + konsistensi tab/header | 1 hari | DONE |
 | 8 | Polishing responsive HP/tablet + QA frontend | 1 hari | DONE |
+| 9 | Session handling anti-401 spam | 0.5 hari | TODO |
+| 10 | De-hardcode dashboard + notifikasi API | 1 hari | TODO |
+| 11 | Notifikasi ter-route + role-aware menu | 0.5 hari | TODO |
+| 12 | UI multi-tenant (context tenant + role-based access) | 1 hari | TODO |
 
 > Total estimasi frontend: sekitar 8-9 hari kerja.
 
@@ -79,6 +83,29 @@ Terakhir diperbarui: 2026-02-25 (malam)
 - [x] Cek overflow tabel dan fallback tampilan mobile.
 - [x] Final pass konsistensi spacing, font, dan tombol.
 
+### Phase 9 - Session Handling Anti-401 (TODO)
+- [ ] Tambah interceptor request response untuk auto-refresh saat 401.
+- [ ] Tambah mekanisme single refresh lock (hindari refresh paralel).
+- [ ] Retry 1x request setelah refresh berhasil.
+- [ ] Jika refresh gagal, clear session + redirect ke `/login`.
+
+### Phase 10 - De-hardcode Dashboard + Notifikasi (TODO)
+- [ ] Hapus data statis di dashboard (`stats`, low-stock list, aksi contoh).
+- [ ] Hapus notifikasi seed statis pada store notifikasi.
+- [ ] Integrasikan dashboard dan notifikasi ke endpoint backend.
+
+### Phase 11 - Notifikasi Ter-route + Role-aware Menu (TODO)
+- [ ] Tambah halaman `NotificationsPage.vue`.
+- [ ] Tambah route `/notifications` dan navigasi dari tombol lonceng.
+- [ ] Tampilkan badge unread dari API.
+- [ ] Pastikan menu sensitif hanya tampil sesuai role.
+
+### Phase 12 - UI Multi-tenant (TODO)
+- [ ] Tambah konteks tenant aktif di store auth/session.
+- [ ] Tambah selector tenant (untuk super admin).
+- [ ] Batasi fitur create user hanya untuk super admin di UI.
+- [ ] Uji 1 tenant dengan banyak staff dan role berbeda.
+
 ---
 
 ## Pemetaan Desain Lama ke Halaman Vue
@@ -119,3 +146,4 @@ Update aktual:
 - `2026-02-25 - Integrasi Pengaturan FE-BE DONE - tab Pengguna/Lokasi/Kategori terhubung ke API master data`
 - `2026-02-25 - Integrasi Stok/Transaksi FE-BE DONE - halaman Stok dan Transaksi terhubung ke API inventory`
 - `2026-02-26 - Integrasi Checklist/PR FE-BE DONE - Checklist Hari Ini dan PR List/Detail terhubung ke API backend`
+- `2026-02-26 - Phase lanjutan 9-12 ditambahkan untuk anti-401, de-hardcode, notifikasi route, dan multi-tenant UI`

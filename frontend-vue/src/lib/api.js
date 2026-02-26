@@ -1,4 +1,60 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+const ACCESS_TOKEN_KEY = 'sppg_access_token'
+const USER_KEY = 'sppg_user'
+
+let refreshPromise = null
+
+function getStoredAccessToken() {
+  return localStorage.getItem(ACCESS_TOKEN_KEY) || ''
+}
+
+function setStoredAccessToken(accessToken) {
+  if (!accessToken) return
+  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
+}
+
+function clearStoredSession() {
+  localStorage.removeItem(ACCESS_TOKEN_KEY)
+  localStorage.removeItem(USER_KEY)
+}
+
+async function refreshAccessToken() {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      })
+
+      const payload = await response.json().catch(() => ({}))
+
+      if (!response.ok || !payload.accessToken) {
+        throw new Error(payload.message || 'Sesi berakhir. Silakan login ulang.')
+      }
+
+      setStoredAccessToken(payload.accessToken)
+      return payload.accessToken
+    })().finally(() => {
+      refreshPromise = null
+    })
+  }
+
+  return refreshPromise
+}
+
+function redirectToLogin() {
+  const currentPath = `${window.location.pathname}${window.location.search}`
+  const redirectParam = encodeURIComponent(currentPath)
+  window.location.assign(`/login?redirect=${redirectParam}`)
+}
+
+function shouldSkipRefresh(path) {
+  return path.startsWith('/auth/login') || path.startsWith('/auth/refresh') || path.startsWith('/auth/logout')
+}
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -12,6 +68,24 @@ async function request(path, options = {}) {
 
   const payload = await response.json().catch(() => ({}))
 
+  if (response.status === 401 && !options._retry && !shouldSkipRefresh(path)) {
+    try {
+      const refreshedAccessToken = await refreshAccessToken()
+      return request(path, {
+        ...options,
+        _retry: true,
+        headers: {
+          ...(options.headers || {}),
+          Authorization: `Bearer ${refreshedAccessToken}`,
+        },
+      })
+    } catch {
+      clearStoredSession()
+      redirectToLogin()
+      throw new Error('Sesi berakhir. Silakan login ulang.')
+    }
+  }
+
   if (!response.ok) {
     throw new Error(payload.message || 'Request gagal diproses.')
   }
@@ -20,7 +94,9 @@ async function request(path, options = {}) {
 }
 
 function authHeader(accessToken) {
-  return accessToken ? { Authorization: `Bearer ${accessToken}` } : {}
+  const latestToken = getStoredAccessToken()
+  const finalToken = latestToken || accessToken
+  return finalToken ? { Authorization: `Bearer ${finalToken}` } : {}
 }
 
 export const api = {
