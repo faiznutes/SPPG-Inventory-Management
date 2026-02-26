@@ -14,6 +14,7 @@ const authStore = useAuthStore()
 const rows = ref([])
 const isLoading = ref(false)
 const activeStatus = ref('Semua')
+const activePeriod = ref('MONTHLY')
 const showCreateModal = ref(false)
 const showBulkModal = ref(false)
 const selectedIds = ref([])
@@ -35,6 +36,31 @@ const statusMap = {
   CLOSED: 'Ditutup',
 }
 
+const periodLabelMap = {
+  DAILY: 'Harian',
+  WEEKLY: 'Mingguan',
+  MONTHLY: 'Bulanan',
+}
+
+const dayNameMap = {
+  0: 'Minggu',
+  1: 'Senin',
+  2: 'Selasa',
+  3: 'Rabu',
+  4: 'Kamis',
+  5: 'Jumat',
+  6: 'Sabtu',
+}
+
+const tenantName = computed(() => authStore.user?.tenant?.name || authStore.tenantName || 'SPPG')
+const responsibleLine = computed(() => {
+  const name = authStore.user?.name || authStore.user?.username || '-'
+  const jabatan = authStore.user?.jabatan || authStore.operationalLabel || 'Staff'
+  return `${name} - ${jabatan}`
+})
+
+const periodLabel = computed(() => periodLabelMap[activePeriod.value] || activePeriod.value)
+
 function parseNumberInput(value) {
   const normalized = String(value || '')
     .replace(/\./g, '')
@@ -54,12 +80,15 @@ async function loadRows() {
 
   isLoading.value = true
   try {
-    const data = await api.listPurchaseRequests(authStore.accessToken)
+    const data = await api.listPurchaseRequests(authStore.accessToken, { period: activePeriod.value })
     rows.value = data.map((row) => ({
       id: row.id,
       prNumber: row.prNumber,
       peminta: row.requestedBy?.name || row.requestedBy?.username || '-',
+      createdAt: row.createdAt,
       tanggal: new Date(row.createdAt).toLocaleDateString('id-ID'),
+      hari: dayNameMap[new Date(row.createdAt).getDay()],
+      isSunday: new Date(row.createdAt).getDay() === 0,
       total: row.totalAmount,
       status: row.status,
       statusLabel: statusMap[row.status] || row.status,
@@ -71,15 +100,139 @@ async function loadRows() {
   }
 }
 
+async function changePeriod(period) {
+  activePeriod.value = period
+  await loadRows()
+}
+
+function exportCsv() {
+  const headers = ['Tanggal', 'Hari', 'Nomor PR', 'Peminta', 'Status', 'Total', 'Minggu/Libur']
+  const today = new Date().toLocaleDateString('id-ID')
+  const meta = [
+    ['Tenant', tenantName.value],
+    ['Penanggung Jawab', responsibleLine.value],
+    ['Periode', periodLabel.value],
+    ['Tanggal Export', today],
+    [],
+  ]
+
+  const lines = filteredRows.value.map((row) => [
+    row.tanggal,
+    row.hari,
+    row.prNumber,
+    row.peminta,
+    row.statusLabel,
+    formatRupiah(row.total),
+    activePeriod.value === 'WEEKLY' && row.isSunday ? 'YA' : '-',
+  ])
+
+  const csv = [...meta, headers, ...lines]
+    .map((line) => line.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
+    .join('\n')
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `purchase-requests-${activePeriod.value.toLowerCase()}-${new Date().toISOString().slice(0, 10)}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function exportPdfA4() {
+  const rowsHtml = filteredRows.value
+    .map((row) => {
+      const sundayBlockStyle = activePeriod.value === 'WEEKLY' && row.isSunday ? 'background:#fee2e2;' : ''
+      const holidayBadge = activePeriod.value === 'WEEKLY' && row.isSunday ? 'MINGGU' : '-'
+      return `
+      <tr style="${sundayBlockStyle}">
+        <td>${row.tanggal}</td>
+        <td>${row.hari}</td>
+        <td>${row.prNumber}</td>
+        <td>${row.peminta}</td>
+        <td>${row.statusLabel}</td>
+        <td style="text-align:right;">${formatRupiah(row.total)}</td>
+        <td style="font-weight:700;color:${holidayBadge === 'MINGGU' ? '#b91c1c' : '#475569'};">${holidayBadge}</td>
+      </tr>`
+    })
+    .join('')
+
+  const html = `
+    <html>
+      <head>
+        <title>Export Permintaan Pembelian</title>
+        <style>
+          @page { size: A4; margin: 12mm; }
+          body { font-family: Arial, sans-serif; font-size: 12px; color: #0f172a; }
+          h1 { font-size: 18px; margin: 0 0 4px; }
+          h2 { font-size: 14px; margin: 0 0 10px; color: #334155; }
+          p { margin: 0 0 6px; color: #475569; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th, td { border: 1px solid #cbd5e1; padding: 6px; text-align: left; }
+          th { background: #f8fafc; }
+        </style>
+      </head>
+      <body>
+        <h1>${tenantName.value}</h1>
+        <h2>${responsibleLine.value}</h2>
+        <p>Laporan: Permintaan Pembelian</p>
+        <p>Periode: ${periodLabel.value}</p>
+        <p>Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Hari</th>
+              <th>Nomor PR</th>
+              <th>Peminta</th>
+              <th>Status</th>
+              <th>Total</th>
+              <th>Libur</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </body>
+    </html>
+  `
+
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) return
+  let didClose = false
+  const closePrintWindow = () => {
+    if (didClose) return
+    didClose = true
+    printWindow.close()
+    window.focus()
+  }
+
+  printWindow.onafterprint = closePrintWindow
+  printWindow.document.open()
+  printWindow.document.write(html)
+  printWindow.document.close()
+  printWindow.focus()
+  printWindow.print()
+  setTimeout(closePrintWindow, 700)
+}
+
 async function submitCreatePr() {
   try {
-    const normalizedItems = form.items
-      .map((item) => ({
-        itemName: item.itemName.trim(),
-        qty: parseNumberInput(item.qty),
-        unitPrice: parseNumberInput(item.unitPrice),
-      }))
-      .filter((item) => item.itemName && item.qty > 0 && item.unitPrice >= 0 && Number.isFinite(item.qty) && Number.isFinite(item.unitPrice))
+    const mappedItems = form.items.map((item) => ({
+      itemName: item.itemName.trim(),
+      qty: parseNumberInput(item.qty),
+      unitPrice: parseNumberInput(item.unitPrice),
+    }))
+
+    const firstInvalid = mappedItems.find(
+      (item) => item.itemName.length < 2 || item.qty <= 0 || item.unitPrice < 0 || !Number.isFinite(item.qty) || !Number.isFinite(item.unitPrice),
+    )
+
+    if (firstInvalid) {
+      notifications.showPopup('Item PR belum valid', 'Nama item minimal 2 karakter, qty > 0, dan harga tidak boleh negatif.', 'error')
+      return
+    }
+
+    const normalizedItems = mappedItems.filter((item) => item.itemName)
 
     if (!normalizedItems.length) {
       notifications.showPopup('Item PR kosong', 'Tambahkan minimal 1 item valid.', 'error')
@@ -87,7 +240,7 @@ async function submitCreatePr() {
     }
 
     await api.createPurchaseRequest(authStore.accessToken, {
-      notes: form.notes,
+      notes: form.notes.trim(),
       items: normalizedItems,
     })
 
@@ -153,6 +306,12 @@ onMounted(async () => {
   <div class="space-y-5">
     <PageHeader title="Permintaan Pembelian" subtitle="Pantau dan kelola pengajuan pembelian stok">
       <template #actions>
+        <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="exportCsv">
+          Export CSV
+        </button>
+        <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="exportPdfA4">
+          Export PDF A4
+        </button>
         <button class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white" @click="showCreateModal = true">
           Buat PR Baru
         </button>
@@ -163,6 +322,17 @@ onMounted(async () => {
     </PageHeader>
 
     <section class="rounded-xl border border-slate-200 bg-white">
+      <div class="flex flex-wrap gap-2 border-b border-slate-200 px-3 py-3">
+        <button
+          v-for="period in ['DAILY', 'WEEKLY', 'MONTHLY']"
+          :key="period"
+          class="rounded-lg px-3 py-2 text-sm font-semibold"
+          :class="activePeriod === period ? 'bg-emerald-50 text-emerald-700' : 'border border-slate-200 text-slate-600'"
+          @click="changePeriod(period)"
+        >
+          {{ periodLabelMap[period] }}
+        </button>
+      </div>
       <div class="flex flex-wrap gap-2 border-b border-slate-200 px-3 py-3">
         <button
           v-for="status in ['Semua', 'Draf', 'Diajukan', 'Disetujui', 'Ditolak', 'Diterima']"
@@ -181,10 +351,13 @@ onMounted(async () => {
           <div class="flex items-start justify-between gap-2">
             <div>
               <p class="text-sm font-bold text-slate-900">{{ row.prNumber }}</p>
-              <p class="text-xs text-slate-500">{{ row.peminta }} - {{ row.tanggal }}</p>
+              <p class="text-xs text-slate-500">{{ row.peminta }} - {{ row.hari }}, {{ row.tanggal }}</p>
             </div>
             <input :checked="selectedIds.includes(row.id)" type="checkbox" @change="toggleRowSelection(row.id)" />
           </div>
+          <p v-if="activePeriod === 'WEEKLY' && row.isSunday" class="mt-2 rounded bg-rose-100 px-2 py-1 text-[11px] font-bold text-rose-700">
+            Tanggal merah / libur (Minggu)
+          </p>
           <div class="mt-2 flex items-center justify-between">
             <span class="rounded-full bg-blue-100 px-2.5 py-1 text-[11px] font-bold text-blue-700">{{ row.statusLabel }}</span>
             <p class="text-sm font-semibold text-slate-900">{{ formatRupiah(row.total) }}</p>
@@ -202,24 +375,31 @@ onMounted(async () => {
               <th class="px-3 py-3 font-semibold">Nomor PR</th>
               <th class="px-3 py-3 font-semibold">Peminta</th>
               <th class="px-3 py-3 font-semibold">Tanggal</th>
+              <th class="px-3 py-3 font-semibold">Hari</th>
               <th class="px-3 py-3 text-right font-semibold">Total</th>
               <th class="px-3 py-3 text-center font-semibold">Status</th>
+              <th class="px-3 py-3 text-center font-semibold">Libur</th>
               <th class="px-3 py-3 text-right font-semibold">Aksi</th>
               <th class="px-3 py-3 text-center font-semibold">Pilih</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="isLoading">
-              <td class="px-3 py-3 text-slate-500" colspan="7">Memuat data PR...</td>
+              <td class="px-3 py-3 text-slate-500" colspan="9">Memuat data PR...</td>
             </tr>
 
-            <tr v-for="row in filteredRows" :key="row.id" class="border-b border-slate-100">
+            <tr v-for="row in filteredRows" :key="row.id" class="border-b border-slate-100" :class="activePeriod === 'WEEKLY' && row.isSunday ? 'bg-rose-50' : ''">
               <td class="px-3 py-3 font-bold text-slate-900">{{ row.prNumber }}</td>
               <td class="px-3 py-3 text-slate-700">{{ row.peminta }}</td>
               <td class="px-3 py-3 text-slate-700">{{ row.tanggal }}</td>
+              <td class="px-3 py-3 text-slate-700">{{ row.hari }}</td>
               <td class="px-3 py-3 text-right font-semibold text-slate-900">{{ formatRupiah(row.total) }}</td>
               <td class="px-3 py-3 text-center">
                 <span class="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700">{{ row.statusLabel }}</span>
+              </td>
+              <td class="px-3 py-3 text-center">
+                <span v-if="activePeriod === 'WEEKLY' && row.isSunday" class="rounded bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-700">Minggu</span>
+                <span v-else class="text-slate-400">-</span>
               </td>
               <td class="px-3 py-3 text-right">
                 <RouterLink :to="`/purchase-requests/${row.id}`" class="text-sm font-bold text-blue-600 hover:text-blue-700">

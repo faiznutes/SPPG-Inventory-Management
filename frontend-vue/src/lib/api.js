@@ -87,16 +87,43 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(payload.message || 'Request gagal diproses.')
+    throw new Error(extractErrorMessage(payload))
   }
 
   return payload
+}
+
+function extractErrorMessage(payload) {
+  if (payload?.code === 'VALIDATION_ERROR' && payload?.details?.fieldErrors) {
+    const entries = Object.entries(payload.details.fieldErrors).filter(([, messages]) => Array.isArray(messages) && messages.length)
+    if (entries.length) {
+      const [field, messages] = entries[0]
+      return `${field}: ${messages[0]}`
+    }
+  }
+
+  if (payload?.code === 'VALIDATION_ERROR' && Array.isArray(payload?.details?.formErrors) && payload.details.formErrors.length) {
+    return payload.details.formErrors[0]
+  }
+
+  if (payload?.message) return payload.message
+  return 'Request gagal diproses.'
 }
 
 function authHeader(accessToken) {
   const latestToken = getStoredAccessToken()
   const finalToken = latestToken || accessToken
   return finalToken ? { Authorization: `Bearer ${finalToken}` } : {}
+}
+
+function withQuery(path, query = {}) {
+  const params = new URLSearchParams()
+  Object.entries(query).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return
+    params.set(key, String(value))
+  })
+  const queryString = params.toString()
+  return queryString ? `${path}?${queryString}` : path
 }
 
 export const api = {
@@ -249,8 +276,8 @@ export const api = {
       headers: authHeader(accessToken),
     }),
 
-  listTransactions: (accessToken) =>
-    request('/transactions', {
+  listTransactions: (accessToken, query = {}) =>
+    request(withQuery('/transactions', query), {
       headers: authHeader(accessToken),
     }),
 
@@ -273,8 +300,8 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  listPurchaseRequests: (accessToken) =>
-    request('/purchase-requests', {
+  listPurchaseRequests: (accessToken, query = {}) =>
+    request(withQuery('/purchase-requests', query), {
       headers: authHeader(accessToken),
     }),
 

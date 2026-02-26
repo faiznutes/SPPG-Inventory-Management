@@ -3,6 +3,7 @@ import { requireAuth } from '../../middleware/auth.js'
 import {
   bulkUpdatePurchaseRequestStatusSchema,
   createPurchaseRequestSchema,
+  listPurchaseRequestsQuerySchema,
   updatePurchaseRequestStatusSchema,
 } from './purchase-requests.schema.js'
 import {
@@ -17,9 +18,10 @@ const purchaseRequestsRouter = Router()
 
 purchaseRequestsRouter.use(requireAuth)
 
-purchaseRequestsRouter.get('/', async (_req, res, next) => {
+purchaseRequestsRouter.get('/', async (req, res, next) => {
   try {
-    const data = await listPurchaseRequests()
+    const query = listPurchaseRequestsQuerySchema.parse(req.query)
+    const data = await listPurchaseRequests(query)
     return res.json(data)
   } catch (error) {
     return next(error)

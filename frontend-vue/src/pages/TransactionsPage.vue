@@ -16,6 +16,7 @@ const isLoading = ref(false)
 const action = ref('Masuk')
 const showActionModal = ref(false)
 const activeTab = ref('Semua')
+const activePeriod = ref('MONTHLY')
 
 const form = reactive({
   itemId: '',
@@ -38,6 +39,38 @@ const trxLabelMap = {
   ADJUST: 'Penyesuaian',
 }
 
+const periodLabelMap = {
+  DAILY: 'Harian',
+  WEEKLY: 'Mingguan',
+  MONTHLY: 'Bulanan',
+}
+
+const trxTypeQueryMap = {
+  Masuk: 'IN',
+  Keluar: 'OUT',
+  Transfer: 'TRANSFER',
+  Penyesuaian: 'ADJUST',
+}
+
+const dayNameMap = {
+  0: 'Minggu',
+  1: 'Senin',
+  2: 'Selasa',
+  3: 'Rabu',
+  4: 'Kamis',
+  5: 'Jumat',
+  6: 'Sabtu',
+}
+
+const tenantName = computed(() => authStore.user?.tenant?.name || authStore.tenantName || 'SPPG')
+const responsibleLine = computed(() => {
+  const name = authStore.user?.name || authStore.user?.username || '-'
+  const jabatan = authStore.user?.jabatan || authStore.operationalLabel || 'Staff'
+  return `${name} - ${jabatan}`
+})
+
+const periodLabel = computed(() => periodLabelMap[activePeriod.value] || activePeriod.value)
+
 const filteredRows = computed(() => {
   if (activeTab.value === 'Semua') return rows.value
   return rows.value.filter((row) => row.kategoriTrx === activeTab.value)
@@ -58,8 +91,12 @@ async function loadData() {
 
   isLoading.value = true
   try {
+    const trxType = trxTypeQueryMap[activeTab.value]
     const [transactionsData, itemsData, locationsData] = await Promise.all([
-      api.listTransactions(authStore.accessToken),
+      api.listTransactions(authStore.accessToken, {
+        period: activePeriod.value,
+        trxType,
+      }),
       api.listItems(authStore.accessToken),
       api.listLocations(authStore.accessToken),
     ])
@@ -70,9 +107,12 @@ async function loadData() {
     rows.value = transactionsData.map((row) => ({
       id: row.id,
       tanggal: new Date(row.createdAt).toLocaleString('id-ID'),
+      hari: dayNameMap[new Date(row.createdAt).getDay()],
+      isSunday: new Date(row.createdAt).getDay() === 0,
       kategoriTrx: trxLabelMap[row.trxType] || row.trxType,
       item: itemNameMap[row.itemId] || row.itemId,
       qty: row.qty,
+      reason: row.reason || '-',
       user: row.actor?.name || row.actor?.username || userNameMap[row.createdBy] || '-',
     }))
 
@@ -83,6 +123,131 @@ async function loadData() {
   } finally {
     isLoading.value = false
   }
+}
+
+async function changePeriod(period) {
+  activePeriod.value = period
+  await loadData()
+}
+
+async function changeTypeTab(tab) {
+  activeTab.value = tab
+  await loadData()
+}
+
+function exportCsv() {
+  const headers = ['Tanggal', 'Hari', 'Kategori', 'Item', 'Qty', 'Penginput', 'Keterangan', 'Minggu/Libur']
+  const today = new Date().toLocaleDateString('id-ID')
+  const meta = [
+    ['Tenant', tenantName.value],
+    ['Penanggung Jawab', responsibleLine.value],
+    ['Periode', periodLabel.value],
+    ['Filter Kategori', activeTab.value],
+    ['Tanggal Export', today],
+    [],
+  ]
+
+  const lines = filteredRows.value.map((row) => [
+    row.tanggal,
+    row.hari,
+    row.kategoriTrx,
+    row.item,
+    row.qty,
+    row.user,
+    row.reason,
+    activePeriod.value === 'WEEKLY' && row.isSunday ? 'YA' : '-',
+  ])
+
+  const csv = [...meta, headers, ...lines]
+    .map((line) => line.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
+    .join('\n')
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `transactions-${activePeriod.value.toLowerCase()}-${new Date().toISOString().slice(0, 10)}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function exportPdfA4() {
+  const rowsHtml = filteredRows.value
+    .map((row) => {
+      const sundayBlockStyle = activePeriod.value === 'WEEKLY' && row.isSunday ? 'background:#fee2e2;' : ''
+      const holidayBadge = activePeriod.value === 'WEEKLY' && row.isSunday ? 'MINGGU' : '-'
+      return `
+      <tr style="${sundayBlockStyle}">
+        <td>${row.tanggal}</td>
+        <td>${row.hari}</td>
+        <td>${row.kategoriTrx}</td>
+        <td>${row.item}</td>
+        <td style="text-align:right;">${row.qty}</td>
+        <td>${row.user}</td>
+        <td>${row.reason}</td>
+        <td style="font-weight:700;color:${holidayBadge === 'MINGGU' ? '#b91c1c' : '#475569'};">${holidayBadge}</td>
+      </tr>`
+    })
+    .join('')
+
+  const html = `
+    <html>
+      <head>
+        <title>Export Transaksi</title>
+        <style>
+          @page { size: A4; margin: 12mm; }
+          body { font-family: Arial, sans-serif; font-size: 12px; color: #0f172a; }
+          h1 { font-size: 18px; margin: 0 0 4px; }
+          h2 { font-size: 14px; margin: 0 0 10px; color: #334155; }
+          p { margin: 0 0 6px; color: #475569; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th, td { border: 1px solid #cbd5e1; padding: 6px; text-align: left; vertical-align: top; }
+          th { background: #f8fafc; }
+        </style>
+      </head>
+      <body>
+        <h1>${tenantName.value}</h1>
+        <h2>${responsibleLine.value}</h2>
+        <p>Laporan: Transaksi Inventaris</p>
+        <p>Periode: ${periodLabel.value}</p>
+        <p>Filter Kategori: ${activeTab.value}</p>
+        <p>Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Hari</th>
+              <th>Kategori</th>
+              <th>Item</th>
+              <th>Qty</th>
+              <th>Penginput</th>
+              <th>Keterangan</th>
+              <th>Libur</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </body>
+    </html>
+  `
+
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) return
+  let didClose = false
+  const closePrintWindow = () => {
+    if (didClose) return
+    didClose = true
+    printWindow.close()
+    window.focus()
+  }
+
+  printWindow.onafterprint = closePrintWindow
+  printWindow.document.open()
+  printWindow.document.write(html)
+  printWindow.document.close()
+  printWindow.focus()
+  printWindow.print()
+  setTimeout(closePrintWindow, 700)
 }
 
 async function submitTransaction() {
@@ -97,13 +262,41 @@ async function submitTransaction() {
       return
     }
 
+    if (!form.itemId) {
+      notifications.showPopup('Item wajib dipilih', 'Pilih item terlebih dahulu sebelum menyimpan transaksi.', 'error')
+      return
+    }
+
+    const qty = Number(form.qty)
+    if (!Number.isFinite(qty) || qty <= 0) {
+      notifications.showPopup('Jumlah tidak valid', 'Isi jumlah transaksi dengan angka lebih dari 0.', 'error')
+      return
+    }
+
+    if (action.value !== 'Masuk' && !form.fromLocationId) {
+      notifications.showPopup('Lokasi asal wajib', 'Pilih lokasi asal untuk transaksi ini.', 'error')
+      return
+    }
+
+    if (action.value !== 'Keluar' && !form.toLocationId) {
+      notifications.showPopup('Lokasi tujuan wajib', 'Pilih lokasi tujuan untuk transaksi ini.', 'error')
+      return
+    }
+
+    if (action.value === 'Transfer' && form.fromLocationId === form.toLocationId) {
+      notifications.showPopup('Lokasi tidak valid', 'Lokasi asal dan tujuan tidak boleh sama.', 'error')
+      return
+    }
+
+    const reason = form.reason.trim()
+
     await api.createTransaction(authStore.accessToken, {
       trxType: trxTypeMap[action.value],
       itemId: form.itemId,
       fromLocationId: action.value === 'Masuk' ? undefined : form.fromLocationId,
       toLocationId: action.value === 'Keluar' ? undefined : form.toLocationId,
-      qty: Number(form.qty),
-      reason: form.reason,
+      qty,
+      reason: reason || undefined,
     })
 
     showActionModal.value = false
@@ -123,7 +316,8 @@ onMounted(async () => {
   <div class="space-y-5">
     <PageHeader title="Transaksi Inventaris" subtitle="Catatan barang masuk, keluar, dan transfer">
       <template #actions>
-        <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">Export CSV</button>
+        <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" @click="exportCsv">Export CSV</button>
+        <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" @click="exportPdfA4">Export PDF A4</button>
       </template>
     </PageHeader>
 
@@ -145,11 +339,22 @@ onMounted(async () => {
     <section class="rounded-xl border border-slate-200 bg-white">
       <div class="flex flex-wrap gap-2 border-b border-slate-200 px-3 py-3">
         <button
+          v-for="period in ['DAILY', 'WEEKLY', 'MONTHLY']"
+          :key="period"
+          class="rounded-lg px-3 py-2 text-sm font-semibold"
+          :class="activePeriod === period ? 'bg-emerald-50 text-emerald-700' : 'border border-slate-200 text-slate-600'"
+          @click="changePeriod(period)"
+        >
+          {{ periodLabelMap[period] }}
+        </button>
+      </div>
+      <div class="flex flex-wrap gap-2 border-b border-slate-200 px-3 py-3">
+        <button
           v-for="tab in ['Semua', 'Masuk', 'Keluar', 'Transfer', 'Penyesuaian']"
           :key="tab"
           class="rounded-lg px-3 py-2 text-sm font-semibold"
           :class="activeTab === tab ? 'bg-blue-50 text-blue-700' : 'border border-slate-200 text-slate-600'"
-          @click="activeTab = tab"
+          @click="changeTypeTab(tab)"
         >
           {{ tab }}
         </button>
@@ -161,10 +366,13 @@ onMounted(async () => {
           <div class="flex items-start justify-between gap-2">
             <div>
               <p class="text-sm font-bold text-slate-900">{{ row.item }}</p>
-              <p class="text-xs text-slate-500">{{ row.tanggal }}</p>
+              <p class="text-xs text-slate-500">{{ row.hari }}, {{ row.tanggal }}</p>
             </div>
             <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700">{{ row.kategoriTrx }}</span>
           </div>
+          <p v-if="activePeriod === 'WEEKLY' && row.isSunday" class="mt-2 rounded bg-rose-100 px-2 py-1 text-[11px] font-bold text-rose-700">
+            Tanggal merah / libur (Minggu)
+          </p>
           <div class="mt-2 flex items-center justify-between text-sm">
             <p class="font-semibold text-slate-800">Qty: {{ row.qty }}</p>
             <p class="text-slate-600">{{ row.user }}</p>
@@ -177,22 +385,29 @@ onMounted(async () => {
           <thead class="border-b border-slate-200 text-slate-500">
             <tr>
               <th class="px-3 py-3 font-semibold">Tanggal</th>
+              <th class="px-3 py-3 font-semibold">Hari</th>
                 <th class="px-3 py-3 font-semibold">Kategori Transaksi</th>
               <th class="px-3 py-3 font-semibold">Item</th>
               <th class="px-3 py-3 font-semibold">Jumlah</th>
               <th class="px-3 py-3 font-semibold">Penginput</th>
+              <th class="px-3 py-3 font-semibold">Libur</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="isLoading">
-              <td class="px-3 py-3 text-slate-500" colspan="5">Memuat transaksi...</td>
+              <td class="px-3 py-3 text-slate-500" colspan="7">Memuat transaksi...</td>
             </tr>
-            <tr v-for="row in filteredRows" :key="row.id" class="border-b border-slate-100">
+            <tr v-for="row in filteredRows" :key="row.id" class="border-b border-slate-100" :class="activePeriod === 'WEEKLY' && row.isSunday ? 'bg-rose-50' : ''">
               <td class="px-3 py-3 text-slate-700">{{ row.tanggal }}</td>
+              <td class="px-3 py-3 text-slate-700">{{ row.hari }}</td>
               <td class="px-3 py-3 font-bold text-slate-900">{{ row.kategoriTrx }}</td>
               <td class="px-3 py-3 text-slate-700">{{ row.item }}</td>
               <td class="px-3 py-3 font-semibold text-slate-900">{{ row.qty }}</td>
               <td class="px-3 py-3 text-slate-700">{{ row.user }}</td>
+              <td class="px-3 py-3 text-slate-700">
+                <span v-if="activePeriod === 'WEEKLY' && row.isSunday" class="rounded bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-700">Minggu</span>
+                <span v-else class="text-slate-400">-</span>
+              </td>
             </tr>
           </tbody>
         </table>

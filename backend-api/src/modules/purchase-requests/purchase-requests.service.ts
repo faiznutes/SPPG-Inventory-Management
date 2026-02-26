@@ -15,6 +15,14 @@ type CreatePurchaseRequestInput = {
   }>
 }
 
+type PurchaseRequestPeriod = 'DAILY' | 'WEEKLY' | 'MONTHLY'
+
+type ListPurchaseRequestsQuery = {
+  period?: PurchaseRequestPeriod
+  from?: string
+  to?: string
+}
+
 function toPrNumber(sequence: number) {
   const now = new Date()
   const yyyy = now.getFullYear()
@@ -28,8 +36,19 @@ function totalOf(items: Array<{ qty: number; unitPrice: number }>) {
   return items.reduce((sum, item) => sum + item.qty * item.unitPrice, 0)
 }
 
-export async function listPurchaseRequests() {
+export async function listPurchaseRequests(query: ListPurchaseRequestsQuery = {}) {
+  const range = resolveRange(query)
   const rows = await prisma.purchaseRequest.findMany({
+    where: {
+      ...(range
+        ? {
+            createdAt: {
+              gte: range.from,
+              lte: range.to,
+            },
+          }
+        : {}),
+    },
     include: {
       items: true,
       requester: {
@@ -57,6 +76,58 @@ export async function listPurchaseRequests() {
       })),
     ),
   }))
+}
+
+function resolveRange(query: ListPurchaseRequestsQuery): { from: Date; to: Date } | null {
+  if (query.from || query.to) {
+    const now = new Date()
+    return {
+      from: query.from ? new Date(query.from) : startOfDay(now),
+      to: query.to ? new Date(query.to) : endOfDay(now),
+    }
+  }
+
+  if (!query.period) return null
+
+  const now = new Date()
+  if (query.period === 'DAILY') {
+    return {
+      from: startOfDay(now),
+      to: endOfDay(now),
+    }
+  }
+
+  if (query.period === 'WEEKLY') {
+    const mondayOffset = (now.getDay() + 6) % 7
+    const monday = new Date(now)
+    monday.setDate(now.getDate() - mondayOffset)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+
+    return {
+      from: startOfDay(monday),
+      to: endOfDay(sunday),
+    }
+  }
+
+  const startMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  return {
+    from: startOfDay(startMonth),
+    to: endOfDay(endMonth),
+  }
+}
+
+function startOfDay(date: Date) {
+  const next = new Date(date)
+  next.setHours(0, 0, 0, 0)
+  return next
+}
+
+function endOfDay(date: Date) {
+  const next = new Date(date)
+  next.setHours(23, 59, 59, 999)
+  return next
 }
 
 export async function createPurchaseRequest(userId: string, input: CreatePurchaseRequestInput) {

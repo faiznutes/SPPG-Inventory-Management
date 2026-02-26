@@ -1,15 +1,16 @@
 import { Router } from 'express'
 import { requireAuth } from '../../middleware/auth.js'
-import { createTransactionSchema } from './transactions.schema.js'
+import { createTransactionSchema, listTransactionsQuerySchema } from './transactions.schema.js'
 import { createTransaction, listTransactions } from './transactions.service.js'
 
 const transactionsRouter = Router()
 
 transactionsRouter.use(requireAuth)
 
-transactionsRouter.get('/', async (_req, res, next) => {
+transactionsRouter.get('/', async (req, res, next) => {
   try {
-    const data = await listTransactions()
+    const query = listTransactionsQuerySchema.parse(req.query)
+    const data = await listTransactions(query)
     return res.json(data)
   } catch (error) {
     return next(error)
