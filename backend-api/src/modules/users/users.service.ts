@@ -6,7 +6,7 @@ type CreateUserInput = {
   name: string
   username: string
   email?: string
-  role: 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'KOORD_DAPUR' | 'KOORD_KEBERSIHAN' | 'KOORD_LAPANGAN' | 'STAFF'
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'STAFF'
   password: string
 }
 
@@ -26,9 +26,12 @@ export async function listUsers() {
 }
 
 export async function createUser(input: CreateUserInput) {
+  const orConditions: Array<{ username?: string; email?: string }> = [{ username: input.username }]
+  if (input.email) orConditions.push({ email: input.email })
+
   const existing = await prisma.user.findFirst({
     where: {
-      OR: [{ username: input.username }, { email: input.email || undefined }],
+      OR: orConditions,
     },
   })
 

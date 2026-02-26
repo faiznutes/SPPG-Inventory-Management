@@ -15,6 +15,8 @@ const router = useRouter()
 
 const pageTitle = computed(() => route.meta.title || authStore.tenantName)
 const currentRole = computed(() => authStore.user?.role || '')
+const canEdit = computed(() => authStore.canEditTenantData)
+const canView = computed(() => authStore.canViewTenantData)
 const selectedTenantId = ref('')
 const canSwitchTenant = computed(() => authStore.isSuperAdmin && authStore.availableTenants.length > 1)
 
@@ -28,18 +30,25 @@ const menus = [
     name: 'Kategori',
     path: '/master/categories',
     icon: 'category',
-    roles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN'],
+    roles: ['SUPER_ADMIN', 'ADMIN', 'STAFF'],
+    requiresEdit: true,
   },
   {
     name: 'Pengaturan',
     path: '/settings',
     icon: 'settings',
-    roles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN'],
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+    requiresEdit: true,
   },
 ]
 
 const visibleMenus = computed(() =>
-  menus.filter((item) => !item.roles || item.roles.includes(currentRole.value)),
+  menus.filter((item) => {
+    if (!canView.value) return false
+    const passRole = !item.roles || item.roles.includes(currentRole.value)
+    const passEdit = !item.requiresEdit || canEdit.value
+    return passRole && passEdit
+  }),
 )
 
 async function handleLogout() {

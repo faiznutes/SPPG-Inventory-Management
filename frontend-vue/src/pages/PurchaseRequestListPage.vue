@@ -35,6 +35,15 @@ const statusMap = {
   CLOSED: 'Ditutup',
 }
 
+function parseNumberInput(value) {
+  const normalized = String(value || '')
+    .replace(/\./g, '')
+    .replace(/,/g, '.')
+    .trim()
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : NaN
+}
+
 const filteredRows = computed(() => {
   if (activeStatus.value === 'Semua') return rows.value
   return rows.value.filter((row) => row.statusLabel === activeStatus.value)
@@ -67,10 +76,10 @@ async function submitCreatePr() {
     const normalizedItems = form.items
       .map((item) => ({
         itemName: item.itemName.trim(),
-        qty: Number(item.qty),
-        unitPrice: Number(item.unitPrice),
+        qty: parseNumberInput(item.qty),
+        unitPrice: parseNumberInput(item.unitPrice),
       }))
-      .filter((item) => item.itemName && item.qty > 0)
+      .filter((item) => item.itemName && item.qty > 0 && item.unitPrice >= 0 && Number.isFinite(item.qty) && Number.isFinite(item.unitPrice))
 
     if (!normalizedItems.length) {
       notifications.showPopup('Item PR kosong', 'Tambahkan minimal 1 item valid.', 'error')

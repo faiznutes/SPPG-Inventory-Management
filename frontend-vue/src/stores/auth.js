@@ -7,15 +7,8 @@ const DEFAULT_TENANT_NAME = 'SPPG Tambak Wedi'
 
 const roleLabelMap = {
   SUPER_ADMIN: 'SUPER ADMIN',
-  TENANT_ADMIN: 'ADMIN TENANT',
   ADMIN: 'ADMIN',
-  PIC: 'PIC',
-  WAREHOUSE: 'GUDANG',
-  KOORD_DAPUR: 'KOORDINATOR DAPUR',
-  KOORD_KEBERSIHAN: 'KOORDINATOR KEBERSIHAN',
-  KOORD_LAPANGAN: 'KOORDINATOR LAPANGAN',
   STAFF: 'STAFF',
-  VIEWER: 'VIEWER',
 }
 
 function roleToLabel(role) {
@@ -38,6 +31,8 @@ export const useAuthStore = defineStore('auth', {
     tenantName: (state) => state.user?.tenant?.name || DEFAULT_TENANT_NAME,
     operationalLabel: (state) => roleToLabel(state.user?.role),
     isSuperAdmin: (state) => state.user?.role === 'SUPER_ADMIN',
+    canViewTenantData: (state) => state.user?.canView !== false,
+    canEditTenantData: (state) => state.user?.role === 'SUPER_ADMIN' || state.user?.canEdit === true,
   },
 
   actions: {

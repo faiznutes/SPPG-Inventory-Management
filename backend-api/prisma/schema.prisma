@@ -124,6 +124,9 @@ model TenantMembership {
   userId     String   @map("user_id")
   tenantId   String   @map("tenant_id")
   role       UserRole
+  jabatan    String?
+  canView    Boolean  @default(true) @map("can_view")
+  canEdit    Boolean  @default(false) @map("can_edit")
   isDefault  Boolean  @default(false) @map("is_default")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")

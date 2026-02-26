@@ -22,7 +22,7 @@ const showCategoryPicker = ref(false)
 const categorySearch = ref('')
 const categoryTypeFilter = ref('ALL')
 
-const canCreateProduct = computed(() => ['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN', 'WAREHOUSE'].includes(authStore.user?.role || ''))
+const canCreateProduct = computed(() => authStore.canEditTenantData && ['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(authStore.user?.role || ''))
 
 const selectedCategoryLabel = computed(() => {
   if (!createItemForm.categoryId) return 'Tanpa kategori'

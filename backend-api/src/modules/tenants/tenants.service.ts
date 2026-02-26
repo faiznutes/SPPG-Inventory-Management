@@ -11,8 +11,22 @@ type CreateTenantUserInput = {
   name: string
   username: string
   email?: string
-  role: 'TENANT_ADMIN' | 'KOORD_DAPUR' | 'KOORD_KEBERSIHAN' | 'KOORD_LAPANGAN' | 'STAFF'
+  role: 'ADMIN' | 'STAFF'
+  jabatan: string
+  canView: boolean
+  canEdit: boolean
   password: string
+}
+
+type UpdateTenantUserInput = {
+  name: string
+  username: string
+  email?: string
+  role: 'ADMIN' | 'STAFF'
+  jabatan: string
+  canView: boolean
+  canEdit: boolean
+  password?: string
 }
 
 type CreateTenantLocationInput = {
@@ -20,8 +34,22 @@ type CreateTenantLocationInput = {
   description?: string
 }
 
+type UpdateTenantLocationInput = {
+  name: string
+  description?: string
+}
+
 function withTenantPrefix(tenantCode: string, name: string) {
   return `${tenantCode}::${name}`
+}
+
+function toSlug(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
 }
 
 function stripTenantPrefix(tenantCode: string, value: string) {
@@ -42,11 +70,16 @@ export async function listTenants() {
 }
 
 export async function createTenant(actorUserId: string, input: CreateTenantInput) {
+  const normalizedCode = toSlug(input.code || input.name)
+  if (!normalizedCode) {
+    throw new ApiError(400, 'TENANT_CODE_INVALID', 'Kode tenant tidak valid.')
+  }
+
   try {
     const tenant = await prisma.tenant.create({
       data: {
-        name: input.name,
-        code: input.code,
+        name: input.name.trim(),
+        code: normalizedCode,
         isActive: true,
       },
     })
@@ -75,7 +108,14 @@ export async function getTenantDetail(tenantId: string) {
 
   const [memberships, locations] = await Promise.all([
     prisma.tenantMembership.findMany({
-      where: { tenantId },
+      where: {
+        tenantId,
+        user: {
+          username: {
+            notIn: ['superadmin', 'admin'],
+          },
+        },
+      },
       include: {
         user: {
           select: {
@@ -108,6 +148,9 @@ export async function getTenantDetail(tenantId: string) {
       username: m.user.username,
       email: m.user.email,
       role: m.role,
+      jabatan: m.jabatan || '-',
+      canView: m.canView,
+      canEdit: m.canEdit,
       isActive: m.user.isActive,
       isDefault: m.isDefault,
     })),
@@ -151,6 +194,9 @@ export async function addTenantUser(actorUserId: string, tenantId: string, input
         userId: user.id,
         tenantId,
         role: input.role,
+        jabatan: input.jabatan,
+        canView: input.canView,
+        canEdit: input.canEdit,
         isDefault: true,
       },
     })
@@ -165,6 +211,9 @@ export async function addTenantUser(actorUserId: string, tenantId: string, input
           tenantId,
           tenantCode: tenant.code,
           role: input.role,
+          jabatan: input.jabatan,
+          canView: input.canView,
+          canEdit: input.canEdit,
         },
       },
     })
@@ -178,6 +227,79 @@ export async function addTenantUser(actorUserId: string, tenantId: string, input
     username: created.username,
     email: created.email,
     role: input.role,
+    jabatan: input.jabatan,
+    canView: input.canView,
+    canEdit: input.canEdit,
+  }
+}
+
+export async function updateTenantUser(
+  actorUserId: string,
+  tenantId: string,
+  userId: string,
+  input: UpdateTenantUserInput,
+) {
+  const tenant = await getTenantOrThrow(tenantId)
+  const membership = await prisma.tenantMembership.findFirst({
+    where: { tenantId, userId },
+  })
+  if (!membership) throw new ApiError(404, 'TENANT_USER_NOT_FOUND', 'User tenant tidak ditemukan.')
+
+  const duplicate = await prisma.user.findFirst({
+    where: {
+      id: { not: userId },
+      OR: [{ username: input.username }, ...(input.email ? [{ email: input.email }] : [])],
+    },
+  })
+  if (duplicate) throw new ApiError(409, 'USER_EXISTS', 'Username atau email sudah digunakan.')
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        name: input.name,
+        username: input.username,
+        email: input.email,
+        ...(input.password ? { passwordHash: await bcrypt.hash(input.password, 10) } : {}),
+      },
+    })
+
+    await tx.tenantMembership.update({
+      where: {
+        userId_tenantId: {
+          userId,
+          tenantId,
+        },
+      },
+      data: {
+        role: input.role,
+        jabatan: input.jabatan,
+        canView: input.canView,
+        canEdit: input.canEdit,
+      },
+    })
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId,
+        entityType: 'tenant_users',
+        entityId: userId,
+        action: 'UPDATE',
+        diffJson: {
+          tenantId,
+          tenantCode: tenant.code,
+          role: input.role,
+          jabatan: input.jabatan,
+          canView: input.canView,
+          canEdit: input.canEdit,
+        },
+      },
+    })
+  })
+
+  return {
+    code: 'TENANT_USER_UPDATED',
+    message: 'User tenant berhasil diperbarui.',
   }
 }
 
@@ -227,6 +349,53 @@ export async function addTenantLocation(actorUserId: string, tenantId: string, i
       id: location.id,
       name: stripTenantPrefix(tenant.code, location.name),
       description: location.description,
+    }
+  } catch {
+    throw new ApiError(409, 'LOCATION_EXISTS', 'Nama lokasi tenant sudah ada.')
+  }
+}
+
+export async function updateTenantLocation(
+  actorUserId: string,
+  tenantId: string,
+  locationId: string,
+  input: UpdateTenantLocationInput,
+) {
+  const tenant = await getTenantOrThrow(tenantId)
+  const prefixedName = withTenantPrefix(tenant.code, input.name)
+
+  const existing = await prisma.location.findUnique({ where: { id: locationId } })
+  if (!existing || !existing.name.startsWith(`${tenant.code}::`)) {
+    throw new ApiError(404, 'TENANT_LOCATION_NOT_FOUND', 'Lokasi tenant tidak ditemukan.')
+  }
+
+  try {
+    const updated = await prisma.location.update({
+      where: { id: locationId },
+      data: {
+        name: prefixedName,
+        description: input.description,
+      },
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        actorUserId,
+        entityType: 'tenant_locations',
+        entityId: updated.id,
+        action: 'UPDATE',
+        diffJson: {
+          tenantId,
+          tenantCode: tenant.code,
+          name: input.name,
+        },
+      },
+    })
+
+    return {
+      id: updated.id,
+      name: stripTenantPrefix(tenant.code, updated.name),
+      description: updated.description,
     }
   } catch {
     throw new ApiError(409, 'LOCATION_EXISTS', 'Nama lokasi tenant sudah ada.')

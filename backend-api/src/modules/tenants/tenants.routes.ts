@@ -1,8 +1,22 @@
 import { Router } from 'express'
 import { requireAuth } from '../../middleware/auth.js'
 import { requireRole } from '../../middleware/role.js'
-import { addTenantLocationSchema, createTenantSchema, createTenantUserSchema } from './tenants.schema.js'
-import { addTenantLocation, addTenantUser, createTenant, getTenantDetail, listTenants } from './tenants.service.js'
+import {
+  addTenantLocationSchema,
+  createTenantSchema,
+  createTenantUserSchema,
+  updateTenantLocationSchema,
+  updateTenantUserSchema,
+} from './tenants.schema.js'
+import {
+  addTenantLocation,
+  addTenantUser,
+  createTenant,
+  getTenantDetail,
+  listTenants,
+  updateTenantLocation,
+  updateTenantUser,
+} from './tenants.service.js'
 
 const tenantsRouter = Router()
 
@@ -51,6 +65,26 @@ tenantsRouter.post('/:tenantId/locations', async (req, res, next) => {
     const body = addTenantLocationSchema.parse(req.body)
     const data = await addTenantLocation(req.user!.id, req.params.tenantId, body)
     return res.status(201).json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+tenantsRouter.patch('/:tenantId/users/:userId', async (req, res, next) => {
+  try {
+    const body = updateTenantUserSchema.parse(req.body)
+    const data = await updateTenantUser(req.user!.id, req.params.tenantId, req.params.userId, body)
+    return res.json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+tenantsRouter.patch('/:tenantId/locations/:locationId', async (req, res, next) => {
+  try {
+    const body = updateTenantLocationSchema.parse(req.body)
+    const data = await updateTenantLocation(req.user!.id, req.params.tenantId, req.params.locationId, body)
+    return res.json(data)
   } catch (error) {
     return next(error)
   }

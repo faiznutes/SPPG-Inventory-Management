@@ -18,7 +18,7 @@ const form = reactive({
   type: 'CONSUMABLE',
 })
 
-const canManageCategories = computed(() => ['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN'].includes(authStore.user?.role || ''))
+const canManageCategories = computed(() => authStore.canEditTenantData && ['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(authStore.user?.role || ''))
 
 async function loadCategories() {
   if (!authStore.accessToken) return

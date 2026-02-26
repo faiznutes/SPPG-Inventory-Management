@@ -70,7 +70,8 @@ const routes = [
         component: SettingsPage,
         meta: {
           title: 'Pengaturan',
-          allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN'],
+          allowedRoles: ['SUPER_ADMIN', 'ADMIN'],
+          requiresEdit: true,
         },
       },
       {
@@ -79,7 +80,8 @@ const routes = [
         component: CategoriesPage,
         meta: {
           title: 'Kategori',
-          allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN'],
+          allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STAFF'],
+          requiresEdit: true,
         },
       },
       {
@@ -108,8 +110,15 @@ router.beforeEach(async (to) => {
   }
 
   if (!isLoginPage && authStore.isAuthenticated) {
+    if (!authStore.canViewTenantData) {
+      return { path: '/login' }
+    }
+
     const allowedRoles = to.meta.allowedRoles
     if (Array.isArray(allowedRoles) && !allowedRoles.includes(authStore.user?.role || '')) {
+      return { path: '/dashboard' }
+    }
+    if (to.meta.requiresEdit && !authStore.canEditTenantData) {
       return { path: '/dashboard' }
     }
     return true
@@ -126,6 +135,9 @@ router.beforeEach(async (to) => {
 
     const allowedRoles = to.meta.allowedRoles
     if (Array.isArray(allowedRoles) && !allowedRoles.includes(authStore.user?.role || '')) {
+      return { path: '/dashboard' }
+    }
+    if (to.meta.requiresEdit && !authStore.canEditTenantData) {
       return { path: '/dashboard' }
     }
   }

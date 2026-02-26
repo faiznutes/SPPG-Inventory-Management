@@ -24,15 +24,11 @@ const DEFAULT_TENANT = {
   code: 'sppg-tambak-wedi',
 }
 
-type TenantContext = {
-  id: string
-  name: string
-  code: string
-}
-
 function resolveSessionRole(user: { role: string; username: string }) {
   if (user.username === SUPER_ADMIN_USERNAME) return 'SUPER_ADMIN'
-  return user.role
+  if (user.role === 'ADMIN') return 'ADMIN'
+  if (user.role === 'SUPER_ADMIN') return 'SUPER_ADMIN'
+  return 'STAFF'
 }
 
 function isSessionSuperAdmin(user: { role: string; username: string }) {
@@ -72,6 +68,9 @@ async function listTenantMemberships(userId: string) {
       name: membership.tenant.name,
       code: membership.tenant.code,
       role: membership.role,
+      jabatan: membership.jabatan,
+      canView: membership.canView,
+      canEdit: membership.canEdit,
       isDefault: membership.isDefault,
     }))
   } catch {
@@ -82,33 +81,6 @@ async function listTenantMemberships(userId: string) {
 async function getDefaultTenantContext(userId: string) {
   const memberships = await listTenantMemberships(userId)
   return memberships[0] || DEFAULT_TENANT
-}
-
-type UserRoleValue = (typeof UserRole)[keyof typeof UserRole]
-
-async function ensureTenantMembership(userId: string, tenant: TenantContext, role: UserRoleValue) {
-  try {
-    await prisma.tenantMembership.upsert({
-      where: {
-        userId_tenantId: {
-          userId,
-          tenantId: tenant.id,
-        },
-      },
-      create: {
-        userId,
-        tenantId: tenant.id,
-        role,
-        isDefault: true,
-      },
-      update: {
-        role,
-        isDefault: true,
-      },
-    })
-  } catch {
-    return
-  }
 }
 
 function getRefreshExpiryDate() {
@@ -175,10 +147,6 @@ export async function login(input: LoginInput) {
   const sessionRole = resolveSessionRole({ role: user.role, username: user.username })
   const sessionIsSuperAdmin = isSessionSuperAdmin({ role: user.role, username: user.username })
 
-  if (sessionIsSuperAdmin) {
-    await ensureTenantMembership(user.id, tenant, UserRole.ADMIN)
-  }
-
   const payload = {
     sub: user.id,
     role: sessionRole,
@@ -209,6 +177,9 @@ export async function login(input: LoginInput) {
       username: user.username,
       role: sessionRole,
       tenant,
+      jabatan: (tenant as { jabatan?: string }).jabatan || null,
+      canView: (tenant as { canView?: boolean }).canView ?? true,
+      canEdit: (tenant as { canEdit?: boolean }).canEdit ?? (sessionRole === 'SUPER_ADMIN' || sessionRole === 'ADMIN'),
       isSuperAdmin: sessionIsSuperAdmin,
       availableTenants: memberships.length ? memberships : [{ ...DEFAULT_TENANT, role: sessionRole, isDefault: true }],
     },
@@ -320,6 +291,9 @@ export async function me(userId: string) {
     ...user,
     role: sessionRole,
     tenant,
+    jabatan: (tenant as { jabatan?: string }).jabatan || null,
+    canView: (tenant as { canView?: boolean }).canView ?? true,
+    canEdit: (tenant as { canEdit?: boolean }).canEdit ?? (sessionRole === 'SUPER_ADMIN' || sessionRole === 'ADMIN'),
     isSuperAdmin: sessionIsSuperAdmin,
     availableTenants,
   }
@@ -422,6 +396,10 @@ export async function selectTenant(userId: string, tenantId: string) {
     throw new ApiError(403, 'FORBIDDEN', 'Kamu tidak memiliki akses ke tenant ini.')
   }
 
+  if (!membership.canView) {
+    throw new ApiError(403, 'FORBIDDEN', 'Akses tenant dinonaktifkan oleh admin.')
+  }
+
   await prisma.$transaction([
     prisma.tenantMembership.updateMany({
       where: {
@@ -488,6 +466,9 @@ export async function selectTenant(userId: string, tenantId: string) {
       username: user.username,
       role: resolveSessionRole({ role: user.role, username: user.username }),
       tenant: membership.tenant,
+      jabatan: membership.jabatan || null,
+      canView: membership.canView,
+      canEdit: membership.canEdit,
       isSuperAdmin: isSessionSuperAdmin({ role: user.role, username: user.username }),
       availableTenants: await listTenantMemberships(user.id),
     },

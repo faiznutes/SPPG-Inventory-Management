@@ -33,14 +33,18 @@ const tenantUsers = ref([])
 const tenantLocations = ref([])
 
 const tenantUserForm = reactive({
+  id: '',
   name: '',
   username: '',
   email: '',
-  role: 'STAFF',
+  role: 'ADMIN',
+  jabatan: '',
+  visibilityMode: 'edit',
   password: '',
 })
 
 const tenantLocationForm = reactive({
+  id: '',
   name: '',
   description: '',
 })
@@ -83,6 +87,44 @@ function toStatusLabel(value) {
   return value ? 'Aktif' : 'Nonaktif'
 }
 
+function slugify(value) {
+  return String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+}
+
+function modeToFlags(mode) {
+  if (mode === 'none') return { canView: false, canEdit: false }
+  if (mode === 'view') return { canView: true, canEdit: false }
+  return { canView: true, canEdit: true }
+}
+
+function flagsToMode(canView, canEdit) {
+  if (!canView) return 'none'
+  if (!canEdit) return 'view'
+  return 'edit'
+}
+
+function resetTenantUserForm() {
+  tenantUserForm.id = ''
+  tenantUserForm.name = ''
+  tenantUserForm.username = ''
+  tenantUserForm.email = ''
+  tenantUserForm.role = 'ADMIN'
+  tenantUserForm.jabatan = ''
+  tenantUserForm.visibilityMode = 'edit'
+  tenantUserForm.password = ''
+}
+
+function resetTenantLocationForm() {
+  tenantLocationForm.id = ''
+  tenantLocationForm.name = ''
+  tenantLocationForm.description = ''
+}
+
 function resetPasswordForm() {
   passwordForm.currentPassword = ''
   passwordForm.newPassword = ''
@@ -106,10 +148,11 @@ async function loadData() {
     }
 
     users.value = usersData.map((item) => ({
+      id: item.id,
       nama: item.name,
       role: item.role,
       status: toStatusLabel(item.isActive),
-    }))
+    })).filter((item) => ['SUPER_ADMIN', 'ADMIN'].includes(item.role))
 
     locations.value = locationsData.map((item) => ({
       nama: item.name,
@@ -145,8 +188,8 @@ async function saveData() {
       }
 
       await api.createTenant(authStore.accessToken, {
-        name: form.name,
-        code: form.code,
+        name: form.name.trim(),
+        code: slugify(form.code || form.name),
       })
     } else if (activeTab.value === 'Pengguna') {
       if (!canManageUsers.value) {
@@ -167,8 +210,13 @@ async function saveData() {
         description: form.description || undefined,
       })
     } else {
+      if (!form.name?.trim()) {
+        notifications.showPopup('Nama kategori wajib', 'Isi nama kategori dulu.', 'error')
+        return
+      }
+
       await api.createCategory(authStore.accessToken, {
-        name: form.name,
+        name: form.name.trim(),
         type: form.categoryType,
       })
     }
@@ -190,6 +238,8 @@ async function openTenantDetail(row) {
     selectedTenant.value = detail.tenant
     tenantUsers.value = detail.users || []
     tenantLocations.value = detail.locations || []
+    resetTenantUserForm()
+    resetTenantLocationForm()
     showTenantDetailModal.value = true
   } catch (error) {
     notifications.showPopup('Gagal memuat tenant', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
@@ -199,20 +249,40 @@ async function openTenantDetail(row) {
 async function addUserToTenant() {
   if (!selectedTenant.value) return
   try {
-    await api.addTenantUser(authStore.accessToken, selectedTenant.value.id, {
-      name: tenantUserForm.name,
-      username: tenantUserForm.username,
-      email: tenantUserForm.email || undefined,
+    if (!tenantUserForm.name.trim() || !tenantUserForm.username.trim() || !tenantUserForm.jabatan.trim()) {
+      notifications.showPopup('Form user tenant belum lengkap', 'Isi nama, username, dan jabatan.', 'error')
+      return
+    }
+
+    if (!tenantUserForm.id && !tenantUserForm.password) {
+      notifications.showPopup('Password wajib', 'Password wajib diisi saat menambah user tenant.', 'error')
+      return
+    }
+
+    const visibility = modeToFlags(tenantUserForm.visibilityMode)
+    const payload = {
+      name: tenantUserForm.name.trim(),
+      username: tenantUserForm.username.trim(),
+      email: tenantUserForm.email?.trim() || undefined,
       role: tenantUserForm.role,
+      jabatan: tenantUserForm.jabatan.trim(),
+      canView: visibility.canView,
+      canEdit: visibility.canEdit,
       password: tenantUserForm.password,
-    })
-    tenantUserForm.name = ''
-    tenantUserForm.username = ''
-    tenantUserForm.email = ''
-    tenantUserForm.role = 'STAFF'
-    tenantUserForm.password = ''
+    }
+
+    if (tenantUserForm.id) {
+      await api.updateTenantUser(authStore.accessToken, selectedTenant.value.id, tenantUserForm.id, {
+        ...payload,
+        password: payload.password || undefined,
+      })
+    } else {
+      await api.addTenantUser(authStore.accessToken, selectedTenant.value.id, payload)
+    }
+
+    resetTenantUserForm()
     await openTenantDetail({ id: selectedTenant.value.id })
-    notifications.showPopup('User tenant ditambahkan', 'Pengguna tenant berhasil dibuat.', 'success')
+    notifications.showPopup('User tenant disimpan', 'Data pengguna tenant berhasil disimpan.', 'success')
   } catch (error) {
     notifications.showPopup('Gagal tambah user tenant', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
@@ -221,17 +291,45 @@ async function addUserToTenant() {
 async function addLocationToTenant() {
   if (!selectedTenant.value) return
   try {
-    await api.addTenantLocation(authStore.accessToken, selectedTenant.value.id, {
-      name: tenantLocationForm.name,
-      description: tenantLocationForm.description || undefined,
-    })
-    tenantLocationForm.name = ''
-    tenantLocationForm.description = ''
+    if (!tenantLocationForm.name.trim()) {
+      notifications.showPopup('Nama lokasi wajib', 'Isi nama lokasi tenant.', 'error')
+      return
+    }
+
+    if (tenantLocationForm.id) {
+      await api.updateTenantLocation(authStore.accessToken, selectedTenant.value.id, tenantLocationForm.id, {
+        name: tenantLocationForm.name.trim(),
+        description: tenantLocationForm.description || undefined,
+      })
+    } else {
+      await api.addTenantLocation(authStore.accessToken, selectedTenant.value.id, {
+        name: tenantLocationForm.name.trim(),
+        description: tenantLocationForm.description || undefined,
+      })
+    }
+    resetTenantLocationForm()
     await openTenantDetail({ id: selectedTenant.value.id })
-    notifications.showPopup('Lokasi tenant ditambahkan', 'Lokasi baru tenant berhasil dibuat.', 'success')
+    notifications.showPopup('Lokasi tenant disimpan', 'Lokasi tenant berhasil disimpan.', 'success')
   } catch (error) {
     notifications.showPopup('Gagal tambah lokasi tenant', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
+}
+
+function editTenantUser(user) {
+  tenantUserForm.id = user.id
+  tenantUserForm.name = user.name || ''
+  tenantUserForm.username = user.username || ''
+  tenantUserForm.email = user.email || ''
+  tenantUserForm.role = user.role === 'STAFF' ? 'STAFF' : 'ADMIN'
+  tenantUserForm.jabatan = user.jabatan || ''
+  tenantUserForm.visibilityMode = flagsToMode(user.canView, user.canEdit)
+  tenantUserForm.password = ''
+}
+
+function editTenantLocation(location) {
+  tenantLocationForm.id = location.id
+  tenantLocationForm.name = location.name || ''
+  tenantLocationForm.description = location.description || ''
 }
 
 async function changeMyPassword() {
@@ -263,6 +361,9 @@ async function changeMyPassword() {
 }
 
 onMounted(async () => {
+  if (!canManageUsers.value && activeTab.value === 'Pengguna') {
+    activeTab.value = 'Lokasi'
+  }
   await loadData()
 })
 </script>
@@ -400,10 +501,7 @@ onMounted(async () => {
           <span class="mb-1 block text-sm font-semibold text-slate-700">Role</span>
           <select v-model="form.role" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
             <option value="SUPER_ADMIN">SUPER_ADMIN</option>
-            <option value="TENANT_ADMIN">TENANT_ADMIN</option>
-            <option value="KOORD_DAPUR">KOORD_DAPUR</option>
-            <option value="KOORD_KEBERSIHAN">KOORD_KEBERSIHAN</option>
-            <option value="KOORD_LAPANGAN">KOORD_LAPANGAN</option>
+            <option value="ADMIN">ADMIN</option>
             <option value="STAFF">STAFF</option>
           </select>
         </label>
@@ -429,21 +527,25 @@ onMounted(async () => {
       <div class="space-y-4">
         <section class="rounded-lg border border-slate-200 p-3">
           <p class="text-sm font-bold text-slate-900">User Tenant</p>
-          <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-5">
+          <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-4">
             <input v-model="tenantUserForm.name" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" placeholder="Nama" />
             <input v-model="tenantUserForm.username" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" placeholder="Username" />
             <input v-model="tenantUserForm.email" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" placeholder="Email" />
             <select v-model="tenantUserForm.role" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs">
-              <option value="TENANT_ADMIN">TENANT_ADMIN</option>
-              <option value="KOORD_DAPUR">KOORD_DAPUR</option>
-              <option value="KOORD_KEBERSIHAN">KOORD_KEBERSIHAN</option>
-              <option value="KOORD_LAPANGAN">KOORD_LAPANGAN</option>
+              <option value="ADMIN">ADMIN</option>
               <option value="STAFF">STAFF</option>
             </select>
-            <input v-model="tenantUserForm.password" type="password" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" placeholder="Password" />
+            <input v-model="tenantUserForm.jabatan" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" placeholder="Jabatan (custom)" />
+            <select v-model="tenantUserForm.visibilityMode" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs">
+              <option value="none">Tidak Bisa Akses</option>
+              <option value="view">Lihat Saja</option>
+              <option value="edit">Bisa Edit</option>
+            </select>
+            <input v-model="tenantUserForm.password" type="password" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" placeholder="Password (isi saat tambah/reset)" />
           </div>
-          <div class="mt-2 flex justify-end">
-            <button class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white" @click="addUserToTenant">Tambah User Tenant</button>
+          <div class="mt-2 flex justify-end gap-2">
+            <button class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700" @click="resetTenantUserForm">Reset</button>
+            <button class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white" @click="addUserToTenant">{{ tenantUserForm.id ? 'Update User Tenant' : 'Tambah User Tenant' }}</button>
           </div>
           <div class="mt-3 overflow-x-auto">
             <table class="min-w-full text-left text-xs">
@@ -451,16 +553,26 @@ onMounted(async () => {
                 <tr>
                   <th class="px-2 py-2">Nama</th>
                   <th class="px-2 py-2">Username</th>
+                  <th class="px-2 py-2">Email</th>
                   <th class="px-2 py-2">Role</th>
+                  <th class="px-2 py-2">Jabatan</th>
+                  <th class="px-2 py-2">Mode</th>
                   <th class="px-2 py-2">Status</th>
+                  <th class="px-2 py-2 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="u in tenantUsers" :key="u.id" class="border-b border-slate-100">
                   <td class="px-2 py-2">{{ u.name }}</td>
                   <td class="px-2 py-2">{{ u.username }}</td>
+                  <td class="px-2 py-2">{{ u.email || '-' }}</td>
                   <td class="px-2 py-2">{{ u.role }}</td>
+                  <td class="px-2 py-2">{{ u.jabatan || '-' }}</td>
+                  <td class="px-2 py-2">{{ u.canView ? (u.canEdit ? 'Bisa Edit' : 'Lihat Saja') : 'Tidak Bisa Akses' }}</td>
                   <td class="px-2 py-2">{{ u.isActive ? 'Aktif' : 'Nonaktif' }}</td>
+                  <td class="px-2 py-2 text-right">
+                    <button class="rounded border border-slate-200 px-2 py-1 font-semibold text-slate-700" @click="editTenantUser(u)">Edit</button>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -472,7 +584,10 @@ onMounted(async () => {
           <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
             <input v-model="tenantLocationForm.name" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" placeholder="Nama lokasi" />
             <input v-model="tenantLocationForm.description" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" placeholder="Deskripsi" />
-            <button class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white" @click="addLocationToTenant">Tambah Lokasi Tenant</button>
+            <div class="flex gap-2">
+              <button class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700" @click="resetTenantLocationForm">Reset</button>
+              <button class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white" @click="addLocationToTenant">{{ tenantLocationForm.id ? 'Update Lokasi Tenant' : 'Tambah Lokasi Tenant' }}</button>
+            </div>
           </div>
           <div class="mt-3 overflow-x-auto">
             <table class="min-w-full text-left text-xs">
@@ -480,12 +595,16 @@ onMounted(async () => {
                 <tr>
                   <th class="px-2 py-2">Nama</th>
                   <th class="px-2 py-2">Deskripsi</th>
+                  <th class="px-2 py-2 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="loc in tenantLocations" :key="loc.id" class="border-b border-slate-100">
                   <td class="px-2 py-2">{{ loc.name }}</td>
                   <td class="px-2 py-2">{{ loc.description || '-' }}</td>
+                  <td class="px-2 py-2 text-right">
+                    <button class="rounded border border-slate-200 px-2 py-1 font-semibold text-slate-700" @click="editTenantLocation(loc)">Edit</button>
+                  </td>
                 </tr>
               </tbody>
             </table>

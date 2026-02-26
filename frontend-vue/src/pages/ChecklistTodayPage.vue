@@ -46,6 +46,13 @@ function itemTypeLabel(itemType) {
   return 'Consumable'
 }
 
+const tenantName = computed(() => authStore.user?.tenant?.name || authStore.tenantName || 'SPPG')
+const responsibleLine = computed(() => {
+  const name = authStore.user?.name || authStore.user?.username || '-'
+  const jabatan = authStore.user?.jabatan || authStore.operationalLabel || 'Staff'
+  return `${name} - ${jabatan}`
+})
+
 function resultLabel(result) {
   if (result === 'LOW') return 'Menipis'
   if (result === 'OUT') return 'Habis'
@@ -61,8 +68,14 @@ function toApiResult(label) {
 }
 
 function exportCsv() {
-  const headers = ['Tanggal', 'Template', 'Item', 'Jenis', 'Status', 'Kondisi(%)', 'Catatan']
+  const headers = ['Tanggal', 'Template', 'Item', 'Kategori', 'Status', 'Kondisi(%)', 'Catatan']
   const today = new Date().toLocaleDateString('id-ID')
+  const meta = [
+    ['Tenant', tenantName.value],
+    ['Penanggung Jawab', responsibleLine.value],
+    ['Tanggal Export', today],
+    [],
+  ]
   const lines = items.value.map((item) => [
     today,
     templateName.value,
@@ -73,7 +86,7 @@ function exportCsv() {
     (item.notes || '').replaceAll('\n', ' '),
   ])
 
-  const csv = [headers, ...lines]
+  const csv = [...meta, headers, ...lines]
     .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
     .join('\n')
 
@@ -108,6 +121,7 @@ function exportPdfA4() {
           @page { size: A4; margin: 14mm; }
           body { font-family: Arial, sans-serif; font-size: 12px; color: #0f172a; }
           h1 { font-size: 18px; margin: 0 0 4px; }
+          h2 { font-size: 14px; margin: 0 0 12px; color: #334155; }
           p { margin: 0 0 8px; color: #475569; }
           table { width: 100%; border-collapse: collapse; margin-top: 10px; }
           th, td { border: 1px solid #cbd5e1; padding: 6px; text-align: left; vertical-align: top; }
@@ -115,7 +129,9 @@ function exportPdfA4() {
         </style>
       </head>
       <body>
-        <h1>${templateName.value}</h1>
+        <h1>${tenantName.value}</h1>
+        <h2>${responsibleLine.value}</h2>
+        <p>${templateName.value}</p>
         <p>Tanggal: ${new Date().toLocaleDateString('id-ID')}</p>
         <table>
           <thead>
@@ -140,6 +156,10 @@ function exportPdfA4() {
   printWindow.document.close()
   printWindow.focus()
   printWindow.print()
+  setTimeout(() => {
+    printWindow.close()
+    window.focus()
+  }, 400)
 }
 
 async function loadChecklist() {
@@ -172,15 +192,22 @@ function openConfirm(mode) {
 
 async function processChecklist() {
   try {
+    const payloadItems = items.value.map((item) => {
+      const parsedCondition = Number(item.conditionPercent)
+      const hasValidCondition = Number.isFinite(parsedCondition) && parsedCondition >= 0 && parsedCondition <= 100
+
+      return {
+        id: item.id,
+        result: toApiResult(item.label),
+        notes: item.notes?.trim() || undefined,
+        conditionPercent: item.itemType === 'ASSET' && hasValidCondition ? parsedCondition : undefined,
+      }
+    })
+
     await api.submitTodayChecklist(authStore.accessToken, {
       runId: runId.value,
       status: submitMode.value,
-      items: items.value.map((item) => ({
-        id: item.id,
-        result: toApiResult(item.label),
-        notes: item.notes,
-        conditionPercent: item.itemType === 'ASSET' ? Number(item.conditionPercent) : undefined,
-      })),
+      items: payloadItems,
     })
 
     showConfirmModal.value = false

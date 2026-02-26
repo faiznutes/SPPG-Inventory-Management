@@ -174,9 +174,23 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  updateTenantUser: (accessToken, tenantId, userId, body) =>
+    request(`/tenants/${tenantId}/users/${userId}`, {
+      method: 'PATCH',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
+
   addTenantLocation: (accessToken, tenantId, body) =>
     request(`/tenants/${tenantId}/locations`, {
       method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
+
+  updateTenantLocation: (accessToken, tenantId, locationId, body) =>
+    request(`/tenants/${tenantId}/locations/${locationId}`, {
+      method: 'PATCH',
       headers: authHeader(accessToken),
       body: JSON.stringify(body),
     }),
