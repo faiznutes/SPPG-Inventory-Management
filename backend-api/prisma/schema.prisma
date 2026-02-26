@@ -115,8 +115,23 @@ model Tenant {
   createdAt   DateTime           @default(now()) @map("created_at")
   updatedAt   DateTime           @updatedAt @map("updated_at")
   memberships TenantMembership[]
+  telegramSetting TenantTelegramSetting?
 
   @@map("tenants")
+}
+
+model TenantTelegramSetting {
+  id                   String   @id @default(uuid())
+  tenantId             String   @unique @map("tenant_id")
+  botToken             String   @map("bot_token")
+  chatId               String   @map("chat_id")
+  isEnabled            Boolean  @default(false) @map("is_enabled")
+  sendOnChecklistExport Boolean @default(true) @map("send_on_checklist_export")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_telegram_settings")
 }
 
 model TenantMembership {

@@ -36,3 +36,10 @@ export const updateTenantLocationSchema = z.object({
   name: z.string().min(2),
   description: z.string().max(255).optional(),
 })
+
+export const updateTenantTelegramSettingsSchema = z.object({
+  botToken: z.string().min(20).optional(),
+  chatId: z.string().min(2).optional(),
+  isEnabled: z.boolean().default(false),
+  sendOnChecklistExport: z.boolean().default(true),
+})

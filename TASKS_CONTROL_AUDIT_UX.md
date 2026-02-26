@@ -25,6 +25,8 @@ Last update: 2026-02-26
 | T-12 | Regression pass add/edit/delete/export + hardening validasi form | DONE |
 | T-13 | Final hardening error field-level untuk flow transaksi/PR/checklist | DONE |
 | T-14 | Sweep copy text minor agar tidak ada istilah teknis lama di UI utama | DONE |
+| T-15 | Integrasi Telegram per tenant untuk export checklist (print + kirim PDF) | IN PROGRESS |
+| T-16 | Stabilisasi API simpan item dan keselarasan akses frontend-backend | DONE |
 
 ## Acceptance Checklist
 - [x] Checklist submit tidak gagal validasi.
@@ -57,6 +59,10 @@ Last update: 2026-02-26
 - [x] Schema backend transaksi/PR menormalisasi field string kosong opsional agar tidak gagal validasi generik.
 - [x] Template default checklist ikut memakai istilah kategori operasional terbaru agar konsisten dengan UI.
 - [x] Sweep ulang kata kunci lama (Consumable/Gas/Asset/Jenis Kategori/Tipe) di frontend utama sudah bersih.
+- [x] Endpoint tambah item pakai actor user aktual untuk audit log dan validasi error DB lebih jelas.
+- [x] Hak akses tambah item di frontend diselaraskan dengan backend (SUPER_ADMIN/ADMIN).
+- [x] Startup backend distabilkan dengan alur migrasi `prisma migrate deploy` tanpa langkah resolve manual yang memicu noise error.
+- [ ] Integrasi Telegram per tenant (SUPER_ADMIN setting) + auto kirim PDF saat export checklist.
 
 ## Notes
 - Untuk repo hygiene, file operasional yang tidak perlu di root akan didaftarkan agar bisa dipindah manual ke folder `docs/` oleh owner.

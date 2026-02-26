@@ -5,6 +5,7 @@ import {
   addTenantLocationSchema,
   createTenantSchema,
   createTenantUserSchema,
+  updateTenantTelegramSettingsSchema,
   updateTenantLocationSchema,
   updateTenantUserSchema,
 } from './tenants.schema.js'
@@ -12,8 +13,10 @@ import {
   addTenantLocation,
   addTenantUser,
   createTenant,
+  getTenantTelegramSettings,
   getTenantDetail,
   listTenants,
+  updateTenantTelegramSettings,
   updateTenantLocation,
   updateTenantUser,
 } from './tenants.service.js'
@@ -84,6 +87,25 @@ tenantsRouter.patch('/:tenantId/locations/:locationId', async (req, res, next) =
   try {
     const body = updateTenantLocationSchema.parse(req.body)
     const data = await updateTenantLocation(req.user!.id, req.params.tenantId, req.params.locationId, body)
+    return res.json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+tenantsRouter.get('/:tenantId/telegram-settings', async (req, res, next) => {
+  try {
+    const data = await getTenantTelegramSettings(req.params.tenantId)
+    return res.json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+tenantsRouter.put('/:tenantId/telegram-settings', async (req, res, next) => {
+  try {
+    const body = updateTenantTelegramSettingsSchema.parse(req.body)
+    const data = await updateTenantTelegramSettings(req.user!.id, req.params.tenantId, body)
     return res.json(data)
   } catch (error) {
     return next(error)

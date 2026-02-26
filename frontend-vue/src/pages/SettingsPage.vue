@@ -49,6 +49,15 @@ const tenantLocationForm = reactive({
   description: '',
 })
 
+const tenantTelegramForm = reactive({
+  botToken: '',
+  chatId: '',
+  isEnabled: false,
+  sendOnChecklistExport: true,
+  hasBotToken: false,
+  botTokenMasked: '',
+})
+
 const passwordForm = reactive({
   currentPassword: '',
   newPassword: '',
@@ -138,6 +147,15 @@ function resetTenantLocationForm() {
   tenantLocationForm.id = ''
   tenantLocationForm.name = ''
   tenantLocationForm.description = ''
+}
+
+function resetTenantTelegramForm() {
+  tenantTelegramForm.botToken = ''
+  tenantTelegramForm.chatId = ''
+  tenantTelegramForm.isEnabled = false
+  tenantTelegramForm.sendOnChecklistExport = true
+  tenantTelegramForm.hasBotToken = false
+  tenantTelegramForm.botTokenMasked = ''
 }
 
 function resetPasswordForm() {
@@ -279,15 +297,60 @@ async function saveData() {
 async function openTenantDetail(row) {
   if (!canManageUsers.value || !row?.id) return
   try {
-    const detail = await api.getTenantDetail(authStore.accessToken, row.id)
+    const [detail, telegramSettings] = await Promise.all([
+      api.getTenantDetail(authStore.accessToken, row.id),
+      api.getTenantTelegramSettings(authStore.accessToken, row.id),
+    ])
     selectedTenant.value = detail.tenant
     tenantUsers.value = detail.users || []
     tenantLocations.value = detail.locations || []
+    tenantTelegramForm.botToken = ''
+    tenantTelegramForm.chatId = telegramSettings.chatId || ''
+    tenantTelegramForm.isEnabled = Boolean(telegramSettings.isEnabled)
+    tenantTelegramForm.sendOnChecklistExport = telegramSettings.sendOnChecklistExport !== false
+    tenantTelegramForm.hasBotToken = Boolean(telegramSettings.hasBotToken)
+    tenantTelegramForm.botTokenMasked = telegramSettings.botTokenMasked || ''
     resetTenantUserForm()
     resetTenantLocationForm()
     showTenantDetailModal.value = true
   } catch (error) {
     notifications.showPopup('Gagal memuat tenant', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+  }
+}
+
+async function saveTenantTelegramSettings() {
+  if (!selectedTenant.value) return
+  try {
+    if (tenantTelegramForm.isEnabled) {
+      const hasTokenInput = tenantTelegramForm.botToken.trim().length >= 20
+      const hasTokenSaved = tenantTelegramForm.hasBotToken
+      if (!hasTokenInput && !hasTokenSaved) {
+        notifications.showPopup('Bot token wajib', 'Isi bot token Telegram atau simpan token terlebih dulu.', 'error')
+        return
+      }
+      if (!tenantTelegramForm.chatId.trim()) {
+        notifications.showPopup('Chat ID wajib', 'Isi chat ID Telegram untuk tenant ini.', 'error')
+        return
+      }
+    }
+
+    const result = await api.updateTenantTelegramSettings(authStore.accessToken, selectedTenant.value.id, {
+      botToken: tenantTelegramForm.botToken.trim() || undefined,
+      chatId: tenantTelegramForm.chatId.trim() || undefined,
+      isEnabled: tenantTelegramForm.isEnabled,
+      sendOnChecklistExport: tenantTelegramForm.sendOnChecklistExport,
+    })
+
+    tenantTelegramForm.botToken = ''
+    tenantTelegramForm.hasBotToken = Boolean(result.hasBotToken)
+    tenantTelegramForm.botTokenMasked = result.botTokenMasked || ''
+    tenantTelegramForm.chatId = result.chatId || tenantTelegramForm.chatId
+    tenantTelegramForm.isEnabled = Boolean(result.isEnabled)
+    tenantTelegramForm.sendOnChecklistExport = result.sendOnChecklistExport !== false
+
+    notifications.showPopup('Integrasi Telegram disimpan', 'Pengaturan Telegram tenant berhasil diperbarui.', 'success')
+  } catch (error) {
+    notifications.showPopup('Gagal simpan Telegram', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
 }
 
@@ -738,6 +801,51 @@ onMounted(async () => {
                 </tr>
               </tbody>
             </table>
+          </div>
+        </section>
+
+        <section class="rounded-lg border border-slate-200 p-3">
+          <p class="text-sm font-bold text-slate-900">Integrasi Telegram</p>
+          <p class="mt-1 text-xs text-slate-500">Setiap export checklist akan print hardcopy dan kirim PDF ke Telegram tenant jika aktif.</p>
+
+          <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <label class="block">
+              <span class="mb-1 block text-xs font-semibold text-slate-700">Bot Token</span>
+              <input
+                v-model="tenantTelegramForm.botToken"
+                class="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
+                placeholder="Isi token baru jika ingin ganti"
+              />
+              <p v-if="tenantTelegramForm.hasBotToken" class="mt-1 text-[11px] text-slate-500">
+                Token tersimpan: {{ tenantTelegramForm.botTokenMasked || '********' }}
+              </p>
+            </label>
+
+            <label class="block">
+              <span class="mb-1 block text-xs font-semibold text-slate-700">Chat ID / UID</span>
+              <input
+                v-model="tenantTelegramForm.chatId"
+                class="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
+                placeholder="Contoh: 123456789"
+              />
+            </label>
+          </div>
+
+          <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <label class="inline-flex items-center gap-2 text-xs text-slate-700">
+              <input v-model="tenantTelegramForm.isEnabled" type="checkbox" />
+              Aktifkan integrasi Telegram tenant
+            </label>
+            <label class="inline-flex items-center gap-2 text-xs text-slate-700">
+              <input v-model="tenantTelegramForm.sendOnChecklistExport" type="checkbox" />
+              Kirim otomatis saat export checklist
+            </label>
+          </div>
+
+          <div class="mt-3 flex justify-end">
+            <button class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white" @click="saveTenantTelegramSettings">
+              Simpan Integrasi Telegram
+            </button>
           </div>
         </section>
       </div>

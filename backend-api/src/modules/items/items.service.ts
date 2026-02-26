@@ -1,3 +1,4 @@
+import { Prisma } from '../../lib/prisma-client.js'
 import { prisma } from '../../lib/prisma.js'
 import { ApiError } from '../../utils/api-error.js'
 
@@ -37,16 +38,28 @@ export async function listItems() {
   }))
 }
 
-export async function createItem(input: CreateItemInput) {
+export async function createItem(input: CreateItemInput, actorUserId: string) {
+  const name = input.name.trim()
+  const unit = input.unit.trim()
+  const sku = input.sku?.trim() || undefined
+
+  if (name.length < 2) {
+    throw new ApiError(400, 'ITEM_NAME_INVALID', 'Nama item minimal 2 karakter.')
+  }
+
+  if (!unit) {
+    throw new ApiError(400, 'ITEM_UNIT_INVALID', 'Satuan item wajib diisi.')
+  }
+
   try {
     const item = await prisma.$transaction(async (tx) => {
       const created = await tx.item.create({
         data: {
-          name: input.name,
-          sku: input.sku,
+          name,
+          sku,
           categoryId: input.categoryId,
           type: input.type,
-          unit: input.unit,
+          unit,
           minStock: input.minStock,
           reorderQty: input.reorderQty,
         },
@@ -69,7 +82,7 @@ export async function createItem(input: CreateItemInput) {
 
       await tx.auditLog.create({
         data: {
-          actorUserId: 'system',
+          actorUserId,
           entityType: 'items',
           entityId: created.id,
           action: 'CREATE',
@@ -101,7 +114,17 @@ export async function createItem(input: CreateItemInput) {
         : null,
       isActive: item.isActive,
     }
-  } catch {
-    throw new ApiError(409, 'ITEM_EXISTS', 'SKU atau data item sudah ada.')
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        throw new ApiError(409, 'ITEM_EXISTS', 'SKU atau data item sudah ada.')
+      }
+
+      if (error.code === 'P2003') {
+        throw new ApiError(400, 'CATEGORY_NOT_FOUND', 'Kategori tidak ditemukan atau tidak valid.')
+      }
+    }
+
+    throw new ApiError(500, 'ITEM_CREATE_FAILED', 'Gagal menyimpan item baru.')
   }
 }

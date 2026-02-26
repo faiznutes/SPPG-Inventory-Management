@@ -39,6 +39,13 @@ type UpdateTenantLocationInput = {
   description?: string
 }
 
+type UpdateTenantTelegramSettingsInput = {
+  botToken?: string
+  chatId?: string
+  isEnabled: boolean
+  sendOnChecklistExport: boolean
+}
+
 function withTenantPrefix(tenantCode: string, name: string) {
   return `${tenantCode}::${name}`
 }
@@ -55,6 +62,12 @@ function toSlug(value: string) {
 function stripTenantPrefix(tenantCode: string, value: string) {
   const prefix = `${tenantCode}::`
   return value.startsWith(prefix) ? value.slice(prefix.length) : value
+}
+
+function maskToken(token?: string | null) {
+  if (!token) return null
+  if (token.length <= 10) return '**********'
+  return `${token.slice(0, 6)}********${token.slice(-4)}`
 }
 
 async function getTenantOrThrow(tenantId: string) {
@@ -399,5 +412,87 @@ export async function updateTenantLocation(
     }
   } catch {
     throw new ApiError(409, 'LOCATION_EXISTS', 'Nama lokasi tenant sudah ada.')
+  }
+}
+
+export async function getTenantTelegramSettings(tenantId: string) {
+  await getTenantOrThrow(tenantId)
+
+  const settings = await prisma.tenantTelegramSetting.findUnique({
+    where: { tenantId },
+  })
+
+  return {
+    tenantId,
+    hasBotToken: Boolean(settings?.botToken),
+    botTokenMasked: maskToken(settings?.botToken),
+    chatId: settings?.chatId || '',
+    isEnabled: settings?.isEnabled ?? false,
+    sendOnChecklistExport: settings?.sendOnChecklistExport ?? true,
+    updatedAt: settings?.updatedAt || null,
+  }
+}
+
+export async function updateTenantTelegramSettings(
+  actorUserId: string,
+  tenantId: string,
+  input: UpdateTenantTelegramSettingsInput,
+) {
+  await getTenantOrThrow(tenantId)
+
+  const existing = await prisma.tenantTelegramSetting.findUnique({
+    where: { tenantId },
+  })
+
+  const nextBotToken = input.botToken?.trim() || existing?.botToken || ''
+  const nextChatId = input.chatId?.trim() || existing?.chatId || ''
+
+  if (input.isEnabled && (!nextBotToken || !nextChatId)) {
+    throw new ApiError(400, 'TELEGRAM_SETTINGS_INVALID', 'Bot token dan chat ID wajib diisi saat integrasi Telegram aktif.')
+  }
+
+  const saved = await prisma.tenantTelegramSetting.upsert({
+    where: { tenantId },
+    update: {
+      botToken: nextBotToken,
+      chatId: nextChatId,
+      isEnabled: input.isEnabled,
+      sendOnChecklistExport: input.sendOnChecklistExport,
+    },
+    create: {
+      tenantId,
+      botToken: nextBotToken,
+      chatId: nextChatId,
+      isEnabled: input.isEnabled,
+      sendOnChecklistExport: input.sendOnChecklistExport,
+    },
+  })
+
+  await prisma.auditLog.create({
+    data: {
+      actorUserId,
+      entityType: 'tenant_telegram_settings',
+      entityId: saved.id,
+      action: 'UPDATE',
+      diffJson: {
+        tenantId,
+        hasBotToken: Boolean(saved.botToken),
+        chatId: saved.chatId,
+        isEnabled: saved.isEnabled,
+        sendOnChecklistExport: saved.sendOnChecklistExport,
+      },
+    },
+  })
+
+  return {
+    code: 'TENANT_TELEGRAM_SETTINGS_UPDATED',
+    message: 'Pengaturan Telegram tenant berhasil disimpan.',
+    tenantId,
+    hasBotToken: Boolean(saved.botToken),
+    botTokenMasked: maskToken(saved.botToken),
+    chatId: saved.chatId,
+    isEnabled: saved.isEnabled,
+    sendOnChecklistExport: saved.sendOnChecklistExport,
+    updatedAt: saved.updatedAt,
   }
 }

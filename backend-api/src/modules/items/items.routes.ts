@@ -20,7 +20,7 @@ itemsRouter.get('/', async (_req, res, next) => {
 itemsRouter.post('/', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req, res, next) => {
   try {
     const body = createItemSchema.parse(req.body)
-    const data = await createItem(body)
+    const data = await createItem(body, req.user!.id)
     return res.status(201).json(data)
   } catch (error) {
     return next(error)

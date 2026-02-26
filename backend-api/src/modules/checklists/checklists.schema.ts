@@ -13,3 +13,7 @@ export const submitChecklistSchema = z.object({
     }),
   ),
 })
+
+export const sendChecklistExportTelegramSchema = z.object({
+  runId: z.string().uuid().optional(),
+})

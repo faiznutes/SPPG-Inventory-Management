@@ -97,9 +97,12 @@ function exportCsv() {
   link.download = `checklist-${new Date().toISOString().slice(0, 10)}.csv`
   link.click()
   URL.revokeObjectURL(url)
+
+  openChecklistPrintWindow()
+  void sendChecklistExportTelegram()
 }
 
-function exportPdfA4() {
+function openChecklistPrintWindow() {
   const rowsHtml = items.value
     .map(
       (item) => `
@@ -166,6 +169,31 @@ function exportPdfA4() {
   printWindow.focus()
   printWindow.print()
   setTimeout(closePrintWindow, 700)
+}
+
+async function sendChecklistExportTelegram() {
+  if (!authStore.accessToken || !runId.value) return
+
+  try {
+    const response = await api.sendChecklistExportTelegram(authStore.accessToken, {
+      runId: runId.value,
+    })
+
+    if (response?.sent) {
+      notifications.showPopup('Laporan terkirim', 'PDF checklist terkirim ke Telegram tenant.', 'success')
+    }
+  } catch (error) {
+    notifications.showPopup(
+      'Kirim Telegram gagal',
+      error instanceof Error ? error.message : 'Export lokal tetap tersimpan, tetapi kirim Telegram gagal.',
+      'error',
+    )
+  }
+}
+
+function exportPdfA4() {
+  openChecklistPrintWindow()
+  void sendChecklistExportTelegram()
 }
 
 async function loadChecklist() {

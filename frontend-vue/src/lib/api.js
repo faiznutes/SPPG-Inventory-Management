@@ -222,6 +222,18 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  getTenantTelegramSettings: (accessToken, tenantId) =>
+    request(`/tenants/${tenantId}/telegram-settings`, {
+      headers: authHeader(accessToken),
+    }),
+
+  updateTenantTelegramSettings: (accessToken, tenantId, body) =>
+    request(`/tenants/${tenantId}/telegram-settings`, {
+      method: 'PUT',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
+
   listLocations: (accessToken) =>
     request('/locations', {
       headers: authHeader(accessToken),
@@ -295,6 +307,13 @@ export const api = {
 
   submitTodayChecklist: (accessToken, body) =>
     request('/checklists/today/submit', {
+      method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
+
+  sendChecklistExportTelegram: (accessToken, body) =>
+    request('/checklists/today/export/send-telegram', {
       method: 'POST',
       headers: authHeader(accessToken),
       body: JSON.stringify(body),

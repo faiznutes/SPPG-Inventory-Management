@@ -25,6 +25,7 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.1",
+    "pdfkit": "^0.17.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -35,6 +36,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
     "@types/node": "^25.3.0",
+    "@types/pdfkit": "^0.17.3",
     "prisma": "^6.16.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"

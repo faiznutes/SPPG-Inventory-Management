@@ -19,4 +19,4 @@ COPY --from=build /app/dist ./dist
 
 EXPOSE 4000
 
-CMD ["sh", "-c", "npx prisma db execute --schema prisma/schema.prisma --file prisma/migrations/20260226060000_multi_tenant_roles/migration.sql && (npx prisma migrate resolve --applied 20260226060000_multi_tenant_roles || true) && npx prisma migrate deploy && node dist/index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
