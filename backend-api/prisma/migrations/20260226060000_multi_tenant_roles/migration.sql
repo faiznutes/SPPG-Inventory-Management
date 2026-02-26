@@ -62,10 +62,7 @@ SELECT
   ('tm-' || u."id")::text,
   u."id",
   (SELECT t."id" FROM "public"."tenants" t WHERE t."code" = 'sppg-pusat' LIMIT 1),
-  CASE
-    WHEN u."role" = 'ADMIN'::"public"."UserRole" THEN 'SUPER_ADMIN'::"public"."UserRole"
-    ELSE u."role"
-  END,
+  u."role",
   true,
   CURRENT_TIMESTAMP,
   CURRENT_TIMESTAMP
@@ -76,8 +73,3 @@ WHERE NOT EXISTS (
   WHERE tm."user_id" = u."id"
     AND tm."tenant_id" = (SELECT t."id" FROM "public"."tenants" t WHERE t."code" = 'sppg-pusat' LIMIT 1)
 );
-
--- Promote legacy ADMIN users to SUPER_ADMIN for governance transition
-UPDATE "public"."users"
-SET "role" = 'SUPER_ADMIN'::"public"."UserRole"
-WHERE "role" = 'ADMIN'::"public"."UserRole";
