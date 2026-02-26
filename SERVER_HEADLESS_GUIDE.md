@@ -114,6 +114,9 @@ Implementasi:
 - Script: `/usr/local/sbin/apply-docker-port-guard.sh`
 - Service: `/etc/systemd/system/docker-port-guard.service`
 - Timer: `/etc/systemd/system/docker-port-guard.timer`
+- Export backup: `/usr/local/sbin/docker-port-guard-export.sh`
+- Restore backup: `/usr/local/sbin/docker-port-guard-restore.sh`
+- Timer export backup: `/etc/systemd/system/docker-port-guard-export.timer`
 
 Cek status:
 
@@ -122,8 +125,16 @@ systemctl status docker-port-guard.timer
 iptables -S DOCKER-USER
 ```
 
+Cek file backup rules:
+
+```bash
+sed -n '1,80p' /etc/docker-port-guard/docker-user.rules
+```
+
 Jalankan manual:
 
 ```bash
 systemctl start docker-port-guard.service
+systemctl start docker-port-guard-export.service
+/usr/local/sbin/docker-port-guard-restore.sh
 ```

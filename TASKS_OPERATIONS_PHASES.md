@@ -36,6 +36,7 @@ Terakhir diperbarui: 2026-02-26 (siang)
 ### Phase 5 (DONE)
 - [x] Batasi port direct host (`3000`, `3001`, `5432`, `3307`, `8082`, `8088`) hanya untuk LAN `192.168.1.0/24` + localhost
 - [x] Pasang timer `docker-port-guard.timer` agar rule tetap konsisten
+- [x] Tambah script export/restore rule (`docker-port-guard-export.sh` / `docker-port-guard-restore.sh`) + backup harian via timer
 
 ### Phase 6 (TODO)
 - [ ] Tambah backup harian DB (minimal dump PostgreSQL app)
