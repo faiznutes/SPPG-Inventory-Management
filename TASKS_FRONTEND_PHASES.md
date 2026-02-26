@@ -20,9 +20,9 @@ Terakhir diperbarui: 2026-02-26 (malam)
 | 6 | Migrasi PR (List + Detail) dan Pengaturan | 1.5 hari | DONE |
 | 7 | Lokalisasi penuh Bahasa Indonesia + format Rupiah + konsistensi tab/header | 1 hari | DONE |
 | 8 | Polishing responsive HP/tablet + QA frontend | 1 hari | DONE |
-| 9 | Session handling anti-401 spam | 0.5 hari | TODO |
-| 10 | De-hardcode dashboard + notifikasi API | 1 hari | TODO |
-| 11 | Notifikasi ter-route + role-aware menu | 0.5 hari | TODO |
+| 9 | Session handling anti-401 spam | 0.5 hari | DONE |
+| 10 | De-hardcode dashboard + notifikasi API | 1 hari | DONE |
+| 11 | Notifikasi ter-route + role-aware menu | 0.5 hari | DONE |
 | 12 | UI multi-tenant (context tenant + role-based access) | 1 hari | TODO |
 
 > Total estimasi frontend: sekitar 8-9 hari kerja.
@@ -83,28 +83,29 @@ Terakhir diperbarui: 2026-02-26 (malam)
 - [x] Cek overflow tabel dan fallback tampilan mobile.
 - [x] Final pass konsistensi spacing, font, dan tombol.
 
-### Phase 9 - Session Handling Anti-401 (TODO)
-- [ ] Tambah interceptor request response untuk auto-refresh saat 401.
-- [ ] Tambah mekanisme single refresh lock (hindari refresh paralel).
-- [ ] Retry 1x request setelah refresh berhasil.
-- [ ] Jika refresh gagal, clear session + redirect ke `/login`.
+### Phase 9 - Session Handling Anti-401 (DONE)
+- [x] Tambah interceptor request response untuk auto-refresh saat 401.
+- [x] Tambah mekanisme single refresh lock (hindari refresh paralel).
+- [x] Retry 1x request setelah refresh berhasil.
+- [x] Jika refresh gagal, clear session + redirect ke `/login`.
 
-### Phase 10 - De-hardcode Dashboard + Notifikasi (TODO)
+### Phase 10 - De-hardcode Dashboard + Notifikasi (DONE)
 - [x] Hapus data statis di dashboard (`stats`, low-stock list, aksi contoh).
 - [x] Hapus notifikasi seed statis pada store notifikasi.
 - [x] Integrasikan dashboard dan notifikasi ke endpoint backend.
 
-### Phase 11 - Notifikasi Ter-route + Role-aware Menu (TODO)
+### Phase 11 - Notifikasi Ter-route + Role-aware Menu (DONE)
 - [x] Tambah halaman `NotificationsPage.vue`.
 - [x] Tambah route `/notifications` dan navigasi dari tombol lonceng.
-- [ ] Tampilkan badge unread dari API.
-- [ ] Pastikan menu sensitif hanya tampil sesuai role.
+- [x] Tampilkan badge unread dari API.
+- [x] Pastikan menu sensitif hanya tampil sesuai role.
 
 ### Phase 12 - UI Multi-tenant (TODO)
-- [ ] Tambah konteks tenant aktif di store auth/session.
+- [x] Tambah konteks tenant aktif di store auth/session.
 - [ ] Tambah selector tenant (untuk super admin).
 - [x] Batasi fitur create user hanya untuk super admin di UI.
 - [ ] Uji 1 tenant dengan banyak staff dan role berbeda.
+- [x] Header navbar dan header halaman menampilkan nama tenant aktif (contoh: `SPPG Tambak Wedi`).
 
 ---
 
@@ -150,3 +151,6 @@ Update aktual:
 - `2026-02-26 - Progress Phase 10/11 - dashboard & notifikasi tidak hardcode, route /notifications aktif, data notifikasi sudah dari API`
 - `2026-02-26 - Dashboard kini pakai endpoint /dashboard/summary dan /dashboard/low-stock (tanpa kalkulasi hardcode di frontend)`
 - `2026-02-26 - Pengaturan user dibatasi ke role SUPER_ADMIN, role form disesuaikan ke tenant governance`
+- `2026-02-26 - Phase 9 DONE - auto refresh 401 + refresh lock + retry 1x + redirect login saat refresh gagal`
+- `2026-02-26 - Phase 11 DONE - badge unread notifikasi aktif dan menu Pengaturan role-aware + route guard role-aware`
+- `2026-02-26 - Progress Phase 12 - konteks nama tenant ditampilkan di navbar dan header halaman (tenant branding)`

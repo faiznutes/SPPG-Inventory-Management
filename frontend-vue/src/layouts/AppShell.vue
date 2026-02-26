@@ -13,7 +13,8 @@ const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
-const pageTitle = computed(() => route.meta.title || 'Inventory SPPG')
+const pageTitle = computed(() => route.meta.title || authStore.tenantName)
+const currentRole = computed(() => authStore.user?.role || '')
 
 const menus = [
   { name: 'Dashboard', path: '/dashboard', icon: 'dashboard' },
@@ -21,8 +22,17 @@ const menus = [
   { name: 'Transaksi', path: '/inventory/transactions', icon: 'swap_horiz' },
   { name: 'Checklist', path: '/checklists/today', icon: 'checklist' },
   { name: 'Permintaan Pembelian', path: '/purchase-requests', icon: 'description' },
-  { name: 'Pengaturan', path: '/settings', icon: 'settings' },
+  {
+    name: 'Pengaturan',
+    path: '/settings',
+    icon: 'settings',
+    roles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN'],
+  },
 ]
+
+const visibleMenus = computed(() =>
+  menus.filter((item) => !item.roles || item.roles.includes(currentRole.value)),
+)
 
 async function handleLogout() {
   await authStore.logout()
@@ -55,8 +65,8 @@ onMounted(async () => {
     >
       <div class="mb-5 flex items-center justify-between">
         <div>
-          <p class="text-lg font-extrabold text-slate-900">Inventory SPPG</p>
-          <p class="text-xs text-slate-500">MBG - Operasional Dapur</p>
+          <p class="text-lg font-extrabold text-slate-900">{{ authStore.tenantName }}</p>
+          <p class="text-xs text-slate-500">MBG - Operasional Tenant</p>
         </div>
         <button class="lg:hidden" @click="ui.closeSidebar">
           <span class="material-symbols-outlined text-slate-500">close</span>
@@ -65,7 +75,7 @@ onMounted(async () => {
 
       <nav class="flex flex-col gap-1">
         <RouterLink
-          v-for="item in menus"
+          v-for="item in visibleMenus"
           :key="item.path"
           :to="item.path"
           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition"
@@ -87,7 +97,7 @@ onMounted(async () => {
             </button>
             <div>
               <p class="text-base font-bold text-slate-900 sm:text-lg">{{ pageTitle }}</p>
-              <p class="text-xs text-slate-500">Sistem inventory & checklist dapur</p>
+              <p class="text-xs text-slate-500">Sistem inventory & checklist {{ authStore.tenantName }}</p>
             </div>
           </div>
           <div class="flex items-center gap-2">
@@ -101,10 +111,10 @@ onMounted(async () => {
               <span class="material-symbols-outlined align-middle text-base">notifications</span>
               <span class="ml-1 hidden sm:inline">Notifikasi</span>
               <span
-                v-if="notifications.items.length"
+                v-if="notifications.unreadCount > 0"
                 class="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white"
               >
-                {{ notifications.items.length }}
+                {{ notifications.unreadCount }}
               </span>
             </button>
 

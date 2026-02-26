@@ -67,7 +67,10 @@ const routes = [
         path: 'settings',
         name: 'settings',
         component: SettingsPage,
-        meta: { title: 'Pengaturan' },
+        meta: {
+          title: 'Pengaturan',
+          allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN'],
+        },
       },
       {
         path: 'notifications',
@@ -95,6 +98,10 @@ router.beforeEach(async (to) => {
   }
 
   if (!isLoginPage && authStore.isAuthenticated) {
+    const allowedRoles = to.meta.allowedRoles
+    if (Array.isArray(allowedRoles) && !allowedRoles.includes(authStore.user?.role || '')) {
+      return { path: '/dashboard' }
+    }
     return true
   }
 
@@ -105,6 +112,11 @@ router.beforeEach(async (to) => {
         path: '/login',
         query: { redirect: to.fullPath },
       }
+    }
+
+    const allowedRoles = to.meta.allowedRoles
+    if (Array.isArray(allowedRoles) && !allowedRoles.includes(authStore.user?.role || '')) {
+      return { path: '/dashboard' }
     }
   }
 

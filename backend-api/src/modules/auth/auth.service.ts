@@ -15,6 +15,32 @@ type LoginInput = {
   password: string
 }
 
+async function getDefaultTenantContext(userId: string) {
+  const membership = await prisma.tenantMembership.findFirst({
+    where: {
+      userId,
+      tenant: {
+        isActive: true,
+      },
+    },
+    include: {
+      tenant: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+        },
+      },
+    },
+    orderBy: [
+      { isDefault: 'desc' },
+      { createdAt: 'asc' },
+    ],
+  })
+
+  return membership?.tenant || null
+}
+
 function getRefreshExpiryDate() {
   const expiresAt = new Date()
   expiresAt.setDate(expiresAt.getDate() + env.REFRESH_TOKEN_EXPIRES_DAYS)
@@ -34,12 +60,14 @@ export async function ensureAdminSeed() {
       })
 
       const defaultTenant = await tx.tenant.upsert({
-        where: { code: 'sppg-pusat' },
+        where: { code: 'sppg-tambak-wedi' },
         create: {
-          name: 'SPPG Pusat',
-          code: 'sppg-pusat',
+          name: 'SPPG Tambak Wedi',
+          code: 'sppg-tambak-wedi',
         },
-        update: {},
+        update: {
+          name: 'SPPG Tambak Wedi',
+        },
       })
 
       await tx.tenantMembership.upsert({
@@ -77,12 +105,14 @@ export async function ensureAdminSeed() {
     })
 
     const defaultTenant = await tx.tenant.upsert({
-      where: { code: 'sppg-pusat' },
+      where: { code: 'sppg-tambak-wedi' },
       create: {
-        name: 'SPPG Pusat',
-        code: 'sppg-pusat',
+        name: 'SPPG Tambak Wedi',
+        code: 'sppg-tambak-wedi',
       },
-      update: {},
+      update: {
+        name: 'SPPG Tambak Wedi',
+      },
     })
 
     await tx.tenantMembership.create({
@@ -110,6 +140,8 @@ export async function login(input: LoginInput) {
     throw new ApiError(401, 'AUTH_INVALID', 'Username atau password tidak sesuai.')
   }
 
+  const tenant = await getDefaultTenantContext(user.id)
+
   const payload = {
     sub: user.id,
     role: user.role,
@@ -135,6 +167,7 @@ export async function login(input: LoginInput) {
       name: user.name,
       username: user.username,
       role: user.role,
+      tenant,
     },
   }
 }
@@ -228,5 +261,10 @@ export async function me(userId: string) {
     throw new ApiError(404, 'USER_NOT_FOUND', 'User tidak ditemukan.')
   }
 
-  return user
+  const tenant = await getDefaultTenantContext(user.id)
+
+  return {
+    ...user,
+    tenant,
+  }
 }

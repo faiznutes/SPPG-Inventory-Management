@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { api } from '../lib/api'
 
 let toastTimeoutId
+const LAST_READ_AT_KEY = 'sppg_notifications_last_read_at'
 
 export const useNotificationsStore = defineStore('notifications', {
   state: () => ({
@@ -12,7 +13,14 @@ export const useNotificationsStore = defineStore('notifications', {
       variant: 'info',
     },
     items: [],
+    lastReadAt: Number(localStorage.getItem(LAST_READ_AT_KEY) || 0),
   }),
+  getters: {
+    unreadCount: (state) => {
+      if (!state.lastReadAt) return state.items.length
+      return state.items.filter((item) => new Date(item.time).getTime() > state.lastReadAt).length
+    },
+  },
   actions: {
     formatRelativeTime(isoTime) {
       const date = new Date(isoTime)
@@ -38,9 +46,15 @@ export const useNotificationsStore = defineStore('notifications', {
         id: item.id,
         title: item.title,
         message: item.message,
-        time: this.formatRelativeTime(item.time),
+        time: item.time,
+        relativeTime: this.formatRelativeTime(item.time),
         type: item.type,
       }))
+    },
+
+    markAllAsRead() {
+      this.lastReadAt = Date.now()
+      localStorage.setItem(LAST_READ_AT_KEY, String(this.lastReadAt))
     },
 
     showPopup(title, message, variant = 'info') {
@@ -65,7 +79,8 @@ export const useNotificationsStore = defineStore('notifications', {
         id: Date.now(),
         title,
         message,
-        time: 'Baru saja',
+        time: new Date().toISOString(),
+        relativeTime: 'Baru saja',
         type: 'info',
       })
     },

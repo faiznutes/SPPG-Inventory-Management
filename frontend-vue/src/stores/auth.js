@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 
 const ACCESS_TOKEN_KEY = 'sppg_access_token'
 const USER_KEY = 'sppg_user'
+const DEFAULT_TENANT_NAME = 'SPPG Tambak Wedi'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -15,6 +16,7 @@ export const useAuthStore = defineStore('auth', {
 
   getters: {
     isAuthenticated: (state) => Boolean(state.accessToken && state.user),
+    tenantName: (state) => state.user?.tenant?.name || DEFAULT_TENANT_NAME,
   },
 
   actions: {

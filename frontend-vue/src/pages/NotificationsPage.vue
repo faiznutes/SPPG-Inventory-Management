@@ -16,6 +16,7 @@ onMounted(async () => {
   isLoading.value = true
   try {
     await notifications.loadFromApi(authStore.accessToken)
+    notifications.markAllAsRead()
   } finally {
     isLoading.value = false
   }
@@ -43,7 +44,7 @@ onMounted(async () => {
         >
           <p class="text-sm font-bold text-slate-900">{{ item.title }}</p>
           <p class="mt-1 text-sm text-slate-600">{{ item.message }}</p>
-          <p class="mt-1 text-xs text-slate-400">{{ item.time }}</p>
+          <p class="mt-1 text-xs text-slate-400">{{ item.relativeTime }}</p>
         </article>
       </div>
     </section>

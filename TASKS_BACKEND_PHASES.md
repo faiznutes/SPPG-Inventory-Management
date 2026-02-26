@@ -100,7 +100,7 @@ Terakhir diperbarui: 2026-02-26 (malam)
 - [x] Atur rule: hanya `SUPER_ADMIN` bisa create user/staff/admin
 
 ### Phase 13 (TODO)
-- [ ] Migrasi data existing ke tenant default (`SPPG Pusat`)
+- [ ] Migrasi data existing ke tenant default (`SPPG Tambak Wedi`)
 - [ ] Backfill `tenant_id` untuk tabel operasional utama
 - [ ] Validasi role matrix dan pembatasan akses antar tenant
 - [ ] Smoke test multi-tenant dengan lebih dari 1 user per tenant
