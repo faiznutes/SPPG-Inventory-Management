@@ -2,6 +2,7 @@ import { PurchaseRequestStatus } from '../../lib/prisma-client.js'
 import type { PurchaseRequestStatus as PurchaseRequestStatusType } from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
 import { ApiError } from '../../utils/api-error.js'
+import { fromTenantScopedItemName, tenantItemSuffix } from '../../utils/item-scope.js'
 
 type TxClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
@@ -174,6 +175,38 @@ export async function createPurchaseRequest(userId: string, input: CreatePurchas
     throw new ApiError(403, 'FORBIDDEN', 'User tidak terdaftar pada tenant aktif ini.')
   }
 
+  const requestedItemIds = [...new Set(input.items.map((item) => item.itemId).filter(Boolean) as string[])]
+  const tenantSuffix = tenantItemSuffix(scope.tenant.id)
+  const tenantItems = requestedItemIds.length
+    ? await prisma.item.findMany({
+        where: {
+          id: {
+            in: requestedItemIds,
+          },
+          name: {
+            endsWith: tenantSuffix,
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          isActive: true,
+        },
+      })
+    : []
+
+  const tenantItemMap = new Map(tenantItems.map((item) => [item.id, item]))
+  for (const itemId of requestedItemIds) {
+    if (!tenantItemMap.has(itemId)) {
+      throw new ApiError(403, 'FORBIDDEN', 'Item pada PR tidak tersedia untuk tenant aktif ini.')
+    }
+  }
+
+  const inactiveTenantItem = tenantItems.find((item) => !item.isActive)
+  if (inactiveTenantItem) {
+    throw new ApiError(400, 'ITEM_INACTIVE', 'Item nonaktif tidak dapat diajukan pada PR.')
+  }
+
   const total = await prisma.purchaseRequest.count()
   const prNumber = toPrNumber(total + 1)
 
@@ -185,12 +218,15 @@ export async function createPurchaseRequest(userId: string, input: CreatePurchas
         requestedBy: userId,
         notes: input.notes,
         items: {
-          create: input.items.map((item) => ({
-            itemId: item.itemId,
-            itemName: item.itemName,
-            qty: item.qty,
-            unitPrice: item.unitPrice,
-          })),
+          create: input.items.map((item) => {
+            const scopedItem = item.itemId ? tenantItemMap.get(item.itemId) : null
+            return {
+              itemId: item.itemId,
+              itemName: scopedItem ? fromTenantScopedItemName(scopedItem.name) : item.itemName,
+              qty: item.qty,
+              unitPrice: item.unitPrice,
+            }
+          }),
         },
       },
       include: {
