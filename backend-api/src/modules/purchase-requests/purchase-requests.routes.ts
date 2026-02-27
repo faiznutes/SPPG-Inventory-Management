@@ -18,6 +18,7 @@ import {
 const purchaseRequestsRouter = Router()
 
 purchaseRequestsRouter.use(requireAuth)
+purchaseRequestsRouter.use(requireRole(['SUPER_ADMIN', 'ADMIN', 'STAFF']))
 
 purchaseRequestsRouter.get('/', async (req, res, next) => {
   try {

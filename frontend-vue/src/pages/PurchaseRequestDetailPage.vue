@@ -18,7 +18,7 @@ const activeTab = ref('Item')
 const actionType = ref('APPROVED')
 const showActionModal = ref(false)
 const actionNote = ref('')
-const canApprovePr = computed(() => ['SUPER_ADMIN', 'ADMIN'].includes(authStore.user?.role || ''))
+const canApprovePr = computed(() => authStore.canEditTenantData && ['SUPER_ADMIN', 'ADMIN'].includes(authStore.user?.role || ''))
 
 const statusLabelMap = {
   DRAFT: 'Draf',

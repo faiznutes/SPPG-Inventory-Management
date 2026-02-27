@@ -55,7 +55,8 @@ const dayNameMap = {
 
 const tenantName = computed(() => authStore.user?.tenant?.name || authStore.tenantName || APP_NAME)
 const tenantCode = computed(() => authStore.user?.tenant?.code || '-')
-const canApprovePr = computed(() => ['SUPER_ADMIN', 'ADMIN'].includes(authStore.user?.role || ''))
+const canCreatePr = computed(() => authStore.canEditTenantData)
+const canApprovePr = computed(() => authStore.canEditTenantData && ['SUPER_ADMIN', 'ADMIN'].includes(authStore.user?.role || ''))
 const responsibleLine = computed(() => {
   const name = authStore.user?.name || authStore.user?.username || '-'
   const jabatan = authStore.user?.jabatan || authStore.operationalLabel || 'Staff'
@@ -222,6 +223,11 @@ function exportPdfA4() {
 
 async function submitCreatePr() {
   try {
+    if (!canCreatePr.value) {
+      notifications.showPopup('Akses ditolak', 'Akun ini tidak memiliki izin membuat PR.', 'error')
+      return
+    }
+
     const mappedItems = form.items.map((item) => ({
       itemName: item.itemName.trim(),
       qty: parseNumberInput(item.qty),
@@ -329,7 +335,7 @@ watch(
         <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="exportPdfA4">
           Export PDF A4
         </button>
-        <button class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white" @click="showCreateModal = true">
+        <button v-if="canCreatePr" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white" @click="showCreateModal = true">
           Buat PR Baru
         </button>
         <button v-if="canApprovePr" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="openBulkModal">
