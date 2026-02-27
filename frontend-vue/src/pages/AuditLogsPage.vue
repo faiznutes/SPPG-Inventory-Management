@@ -15,8 +15,10 @@ const router = useRouter()
 const FILTER_STORAGE_KEY = 'audit_logs_filters_v1'
 const PRESET_STORAGE_KEY = 'audit_logs_presets_v1'
 const PRESET_BACKUP_STORAGE_KEY = 'audit_logs_presets_backup_v1'
+const PRESET_BACKUP_HISTORY_STORAGE_KEY = 'audit_logs_presets_backup_history_v1'
 const MAX_PRESET_IMPORT_BYTES = 1_000_000
 const MAX_PRESET_IMPORT_COUNT = 300
+const MAX_BACKUP_HISTORY = 10
 
 const rows = ref([])
 const stats = ref({
@@ -34,6 +36,8 @@ const selectedPresetId = ref('')
 const presetOptions = ref([])
 const presetImportInputRef = ref(null)
 const hasPresetBackup = ref(false)
+const backupHistoryOptions = ref([])
+const selectedBackupId = ref('')
 const autoApplyNotice = ref('')
 const lastAppliedFilterSignature = ref('')
 const suppressAutoApply = ref(false)
@@ -236,6 +240,20 @@ function normalizePresetPayload(payload = {}) {
   }
 }
 
+function normalizePresetList(items) {
+  return Array.isArray(items)
+    ? items
+        .filter((item) => item && typeof item === 'object' && typeof item.id === 'string' && typeof item.name === 'string')
+        .map((item) => ({
+          id: item.id,
+          name: item.name,
+          payload: normalizePresetPayload(item.payload && typeof item.payload === 'object' ? item.payload : {}),
+          updatedAt: item.updatedAt || null,
+          isDefault: Boolean(item.isDefault),
+        }))
+    : []
+}
+
 function buildFilterSignature() {
   return JSON.stringify({
     fromDate: filters.fromDate || '',
@@ -279,17 +297,7 @@ function loadPresetsFromStorage() {
       return
     }
     const parsed = JSON.parse(raw)
-    const normalized = Array.isArray(parsed)
-      ? parsed
-          .filter((item) => item && typeof item === 'object' && typeof item.id === 'string' && typeof item.name === 'string')
-          .map((item) => ({
-            id: item.id,
-            name: item.name,
-            payload: normalizePresetPayload(item.payload && typeof item.payload === 'object' ? item.payload : {}),
-            updatedAt: item.updatedAt || null,
-            isDefault: Boolean(item.isDefault),
-          }))
-      : []
+    const normalized = normalizePresetList(parsed)
 
     const defaultIndex = normalized.findIndex((item) => item.isDefault)
     if (defaultIndex >= 0) {
@@ -308,49 +316,92 @@ function persistPresetsToStorage() {
   localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presetOptions.value))
 }
 
+function readBackupHistoryFromStorage() {
+  try {
+    const raw = localStorage.getItem(PRESET_BACKUP_HISTORY_STORAGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
 function backupPresetsToStorage() {
   const payload = {
+    id: `backup-${Date.now()}`,
     createdAt: new Date().toISOString(),
     presets: presetOptions.value,
   }
+
+  const history = [payload, ...readBackupHistoryFromStorage()].slice(0, MAX_BACKUP_HISTORY)
+  localStorage.setItem(PRESET_BACKUP_HISTORY_STORAGE_KEY, JSON.stringify(history))
   localStorage.setItem(PRESET_BACKUP_STORAGE_KEY, JSON.stringify(payload))
+  backupHistoryOptions.value = history
+  selectedBackupId.value = payload.id
   hasPresetBackup.value = true
 }
 
 function loadPresetBackupState() {
   try {
-    const raw = localStorage.getItem(PRESET_BACKUP_STORAGE_KEY)
-    hasPresetBackup.value = Boolean(raw)
+    const history = readBackupHistoryFromStorage()
+    if (history.length) {
+      backupHistoryOptions.value = history
+      hasPresetBackup.value = true
+      selectedBackupId.value = history[0].id || ''
+      return
+    }
+
+    const legacyRaw = localStorage.getItem(PRESET_BACKUP_STORAGE_KEY)
+    const legacyParsed = legacyRaw ? JSON.parse(legacyRaw) : null
+    if (legacyParsed?.presets && Array.isArray(legacyParsed.presets)) {
+      const legacyHistory = [
+        {
+          id: `backup-${Date.now()}`,
+          createdAt: legacyParsed.createdAt || new Date().toISOString(),
+          presets: legacyParsed.presets,
+        },
+      ]
+      localStorage.setItem(PRESET_BACKUP_HISTORY_STORAGE_KEY, JSON.stringify(legacyHistory))
+      backupHistoryOptions.value = legacyHistory
+      selectedBackupId.value = legacyHistory[0].id
+      hasPresetBackup.value = true
+      return
+    }
+
+    hasPresetBackup.value = false
+    backupHistoryOptions.value = []
+    selectedBackupId.value = ''
   } catch {
     hasPresetBackup.value = false
+    backupHistoryOptions.value = []
+    selectedBackupId.value = ''
   }
 }
 
 function restorePresetBackup() {
   try {
-    const raw = localStorage.getItem(PRESET_BACKUP_STORAGE_KEY)
-    if (!raw) {
+    const history = backupHistoryOptions.value.length ? backupHistoryOptions.value : readBackupHistoryFromStorage()
+    if (!history.length) {
       notifications.showPopup('Backup tidak ditemukan', 'Belum ada backup preset untuk dipulihkan.', 'error')
       hasPresetBackup.value = false
       return
     }
 
-    const parsed = JSON.parse(raw)
-    const incoming = Array.isArray(parsed?.presets) ? parsed.presets : []
+    const selected = selectedBackupId.value
+      ? history.find((item) => item.id === selectedBackupId.value)
+      : history[0]
+    if (!selected) {
+      notifications.showPopup('Backup tidak ditemukan', 'Backup terpilih tidak ditemukan.', 'error')
+      return
+    }
+
+    const incoming = Array.isArray(selected?.presets) ? selected.presets : []
     if (!incoming.length) {
       notifications.showPopup('Backup kosong', 'Isi backup preset tidak valid.', 'error')
       return
     }
 
-    const normalized = incoming
-      .filter((item) => item && typeof item === 'object' && typeof item.id === 'string' && typeof item.name === 'string')
-      .map((item) => ({
-        id: item.id,
-        name: item.name,
-        payload: normalizePresetPayload(item.payload && typeof item.payload === 'object' ? item.payload : {}),
-        updatedAt: item.updatedAt || new Date().toISOString(),
-        isDefault: Boolean(item.isDefault),
-      }))
+    const normalized = normalizePresetList(incoming)
 
     presetOptions.value = normalized
     persistPresetsToStorage()
@@ -358,6 +409,15 @@ function restorePresetBackup() {
   } catch {
     notifications.showPopup('Gagal pulihkan backup', 'Data backup preset tidak valid.', 'error')
   }
+}
+
+function clearBackupHistory() {
+  localStorage.removeItem(PRESET_BACKUP_HISTORY_STORAGE_KEY)
+  localStorage.removeItem(PRESET_BACKUP_STORAGE_KEY)
+  backupHistoryOptions.value = []
+  selectedBackupId.value = ''
+  hasPresetBackup.value = false
+  notifications.showPopup('Riwayat backup dihapus', 'Semua backup preset telah dihapus.', 'success')
 }
 
 function showAutoApplyNotice(message) {
@@ -1010,7 +1070,14 @@ onMounted(async () => {
         <button class="rounded-lg border border-rose-200 px-2.5 py-1.5 text-xs font-semibold text-rose-700" :disabled="!selectedPresetId" @click="deleteSelectedPreset">Hapus</button>
         <button class="rounded-lg border border-indigo-200 px-2.5 py-1.5 text-xs font-semibold text-indigo-700" :disabled="!presetOptions.length" @click="exportPresetsToJson">Export Preset</button>
         <button class="rounded-lg border border-teal-200 px-2.5 py-1.5 text-xs font-semibold text-teal-700" @click="openPresetImportDialog">Import Preset</button>
+        <select v-model="selectedBackupId" class="min-w-40 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs" :disabled="!backupHistoryOptions.length">
+          <option value="">Pilih backup...</option>
+          <option v-for="backup in backupHistoryOptions" :key="backup.id" :value="backup.id">
+            {{ new Date(backup.createdAt).toLocaleString('id-ID') }} ({{ Array.isArray(backup.presets) ? backup.presets.length : 0 }})
+          </option>
+        </select>
         <button class="rounded-lg border border-fuchsia-200 px-2.5 py-1.5 text-xs font-semibold text-fuchsia-700" :disabled="!hasPresetBackup" @click="restorePresetBackup">Restore Backup</button>
+        <button class="rounded-lg border border-zinc-300 px-2.5 py-1.5 text-xs font-semibold text-zinc-700" :disabled="!backupHistoryOptions.length" @click="clearBackupHistory">Hapus Riwayat Backup</button>
         <input ref="presetImportInputRef" type="file" accept="application/json" class="hidden" @change="importPresetsFromJson" />
       </div>
 
