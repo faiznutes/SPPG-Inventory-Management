@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import PageHeader from '../components/common/PageHeader.vue'
 import BaseModal from '../components/common/BaseModal.vue'
@@ -273,6 +273,13 @@ async function processChecklist() {
 onMounted(async () => {
   await loadChecklist()
 })
+
+watch(
+  () => [authStore.user?.tenant?.id, authStore.user?.activeLocationId],
+  async () => {
+    await loadChecklist()
+  },
+)
 </script>
 
 <template>

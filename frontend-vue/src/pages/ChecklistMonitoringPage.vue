@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import { useNotificationsStore } from '../stores/notifications'
 import { useAuthStore } from '../stores/auth'
@@ -198,6 +198,13 @@ onMounted(async () => {
   toDate.value = `${yyyy}-${mm}-${dd}`
   await loadMonitoring()
 })
+
+watch(
+  () => [authStore.user?.tenant?.id, authStore.user?.activeLocationId],
+  async () => {
+    await loadMonitoring()
+  },
+)
 </script>
 
 <template>

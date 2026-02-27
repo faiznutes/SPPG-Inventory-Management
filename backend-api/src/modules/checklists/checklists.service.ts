@@ -17,6 +17,12 @@ const DEFAULT_TEMPLATE_ITEMS = [
 ]
 const ITEM_TITLE_DELIMITER = '::'
 
+function displayTemplateName(templateName: string, tenantCode?: string) {
+  if (!tenantCode) return templateName
+  const suffix = ` - ${tenantCode}`
+  return templateName.endsWith(suffix) ? templateName.slice(0, -suffix.length) : templateName
+}
+
 type ChecklistItemType = 'ASSET' | 'GAS' | 'CONSUMABLE'
 type ChecklistMonitoringPeriod = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'CUSTOM'
 type ChecklistMonitoringItemType = 'ALL' | ChecklistItemType
@@ -558,7 +564,7 @@ async function buildChecklistMonitoringData(
     })
 
   return {
-    templateName,
+    templateName: displayTemplateName(templateName, tenant?.code),
     tenantName: tenant?.name || env.APP_NAME,
     period,
     itemType,
@@ -703,7 +709,7 @@ export async function getTodayChecklist(userId: string, tenantId?: string, activ
 
   return {
     runId: run.id,
-    templateName: run.template.name,
+    templateName: displayTemplateName(run.template.name, tenant?.code),
     status: run.status,
     runDate: run.runDate,
     items: run.items
@@ -868,7 +874,7 @@ export async function sendChecklistExportToTelegram(
   const pdfBuffer = await renderChecklistPdfBuffer({
     tenantName: tenant?.name || env.APP_NAME,
     responsibleLine,
-    templateName: run.template.name,
+    templateName: displayTemplateName(run.template.name, tenant?.code),
     runDate: run.runDate,
     items: run.items
       .slice()
