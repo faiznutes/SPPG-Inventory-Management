@@ -201,6 +201,28 @@ function syncQuery() {
   })
 }
 
+async function copyShareLink() {
+  syncQuery()
+  const shareUrl = `${window.location.origin}${route.fullPath}`
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(shareUrl)
+    } else {
+      const input = document.createElement('input')
+      input.value = shareUrl
+      document.body.appendChild(input)
+      input.select()
+      document.execCommand('copy')
+      input.remove()
+    }
+
+    notifications.showPopup('Link tersalin', 'Link filter audit berhasil disalin.', 'success')
+  } catch {
+    notifications.showPopup('Gagal menyalin link', 'Salin manual URL pada browser.', 'error')
+  }
+}
+
 function restoreFilters() {
   const querySnapshot = {
     fromDate: typeof route.query.fromDate === 'string' ? route.query.fromDate : '',
@@ -421,6 +443,7 @@ onMounted(async () => {
 
       <div class="mt-2 flex flex-wrap justify-end gap-2">
         <p v-if="exportRangeWarning" class="mr-auto self-center text-xs font-semibold text-amber-700">{{ exportRangeWarning }}</p>
+        <button class="rounded-lg border border-indigo-200 px-3 py-2 text-sm font-semibold text-indigo-700" @click="copyShareLink">Copy Share Link</button>
         <button class="rounded-lg border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700" @click="exportCsv">Export CSV</button>
         <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" @click="resetFilters">Reset</button>
         <button class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white" @click="applyFilters">Terapkan Filter</button>
