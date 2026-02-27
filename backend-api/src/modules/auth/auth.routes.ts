@@ -60,7 +60,7 @@ authRouter.post('/logout', async (req, res, next) => {
 
 authRouter.get('/me', requireAuth, async (req, res, next) => {
   try {
-    const data = await me(req.user!.id)
+    const data = await me(req.user!.id, req.user!.tenantId)
     return res.json(data)
   } catch (error) {
     return next(error)
@@ -92,7 +92,7 @@ authRouter.post('/tenant/select', requireAuth, async (req, res, next) => {
 authRouter.post('/location/select', requireAuth, async (req, res, next) => {
   try {
     const body = selectLocationSchema.parse(req.body)
-    const data = await selectLocation(req.user!.id, body.locationId)
+    const data = await selectLocation(req.user!.id, body.locationId, req.user!.tenantId)
 
     res.cookie('refreshToken', data.refreshToken, getRefreshCookieOptions())
 

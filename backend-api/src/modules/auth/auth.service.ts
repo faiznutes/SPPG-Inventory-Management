@@ -25,6 +25,7 @@ const DEFAULT_TENANT = {
 }
 
 const INACTIVE_LOCATION_PREFIX = 'INACTIVE - '
+const ARCHIVE_CODE_PREFIX = 'archv-'
 
 type SessionTenantContext = {
   id: string
@@ -131,7 +132,41 @@ function isMissingTenantMembershipTable(error: unknown) {
   return Boolean((error as { code?: string })?.code === 'P2021')
 }
 
-async function listTenantMemberships(userId: string) {
+async function listTenantMemberships(userId: string, sessionRole = 'ADMIN') {
+  if (sessionRole === 'SUPER_ADMIN') {
+    try {
+      const tenants = await prisma.tenant.findMany({
+        where: {
+          isActive: true,
+          code: {
+            not: {
+              startsWith: ARCHIVE_CODE_PREFIX,
+            },
+          },
+        },
+        orderBy: [{ createdAt: 'asc' }],
+        select: {
+          id: true,
+          name: true,
+          code: true,
+        },
+      })
+
+      return tenants.map((tenant, index) => ({
+        id: tenant.id,
+        name: tenant.name,
+        code: tenant.code,
+        role: 'SUPER_ADMIN',
+        jabatan: 'Owner',
+        canView: true,
+        canEdit: true,
+        isDefault: index === 0,
+      }))
+    } catch {
+      return []
+    }
+  }
+
   try {
     const memberships = await prisma.tenantMembership.findMany({
       where: {
@@ -170,9 +205,10 @@ async function listTenantMemberships(userId: string) {
   }
 }
 
-async function getDefaultTenantContext(userId: string, fallbackRole = 'ADMIN') {
-  const memberships = await listTenantMemberships(userId)
-  return (memberships[0] || { ...DEFAULT_TENANT, role: fallbackRole }) as SessionTenantContext
+async function getDefaultTenantContext(userId: string, fallbackRole = 'ADMIN', preferredTenantId?: string) {
+  const memberships = await listTenantMemberships(userId, fallbackRole)
+  const preferred = preferredTenantId ? memberships.find((membership) => membership.id === preferredTenantId) : null
+  return (preferred || memberships[0] || { ...DEFAULT_TENANT, role: fallbackRole }) as SessionTenantContext
 }
 
 function getRefreshExpiryDate() {
@@ -222,7 +258,7 @@ export async function login(input: LoginInput) {
   const sessionIsSuperAdmin = isSessionSuperAdmin({ role: user.role, username: user.username })
   const tenant = await getDefaultTenantContext(user.id, sessionRole)
 
-  const memberships = await listTenantMemberships(user.id)
+  const memberships = await listTenantMemberships(user.id, sessionRole)
   const availableLocations = await listAvailableLocations(user.id, tenant as SessionTenantContext, sessionRole)
   const activeLocationId = availableLocations[0]?.id
 
@@ -300,7 +336,7 @@ export async function refresh(rawRefreshToken: string) {
 
   const sessionRole = resolveSessionRole({ role: tokenRecord.user.role, username: tokenRecord.user.username })
   const sessionIsSuperAdmin = isSessionSuperAdmin({ role: tokenRecord.user.role, username: tokenRecord.user.username })
-  const tenant = await getDefaultTenantContext(tokenRecord.user.id, sessionRole)
+  const tenant = await getDefaultTenantContext(tokenRecord.user.id, sessionRole, payload.tenantId)
   const availableLocations = await listAvailableLocations(tokenRecord.user.id, tenant as SessionTenantContext, sessionRole)
   const activeLocationId =
     payload.activeLocationId && availableLocations.some((location) => location.id === payload.activeLocationId)
@@ -349,7 +385,7 @@ export async function logout(rawRefreshToken: string) {
   })
 }
 
-export async function me(userId: string) {
+export async function me(userId: string, tenantId?: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -369,8 +405,8 @@ export async function me(userId: string) {
 
   const sessionRole = resolveSessionRole({ role: user.role, username: user.username })
   const sessionIsSuperAdmin = isSessionSuperAdmin({ role: user.role, username: user.username })
-  const tenant = await getDefaultTenantContext(user.id, sessionRole)
-  const memberships = await listTenantMemberships(user.id)
+  const tenant = await getDefaultTenantContext(user.id, sessionRole, tenantId)
+  const memberships = await listTenantMemberships(user.id, sessionRole)
   const availableTenants = memberships.length ? memberships : [{ ...DEFAULT_TENANT, role: sessionRole, isDefault: true }]
   const availableLocations = await listAvailableLocations(user.id, tenant as SessionTenantContext, sessionRole)
   const activeLocationId = availableLocations[0]?.id || null
@@ -390,8 +426,6 @@ export async function me(userId: string) {
 }
 
 export async function myTenants(userId: string) {
-  const tenants = await listTenantMemberships(userId)
-  if (tenants.length) return tenants
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -400,10 +434,95 @@ export async function myTenants(userId: string) {
     },
   })
   const sessionRole = user ? resolveSessionRole({ role: user.role, username: user.username }) : 'ADMIN'
+  const tenants = await listTenantMemberships(userId, sessionRole)
+  if (tenants.length) return tenants
   return [{ ...DEFAULT_TENANT, role: sessionRole, isDefault: true }]
 }
 
 export async function selectTenant(userId: string, tenantId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      username: true,
+      role: true,
+      isActive: true,
+    },
+  })
+
+  if (!user || !user.isActive) {
+    throw new ApiError(401, 'AUTH_INVALID', 'User tidak valid untuk mengganti tenant.')
+  }
+
+  const sessionRole = resolveSessionRole({ role: user.role, username: user.username })
+  const sessionIsSuperAdmin = isSessionSuperAdmin({ role: user.role, username: user.username })
+
+  if (sessionRole === 'SUPER_ADMIN') {
+    const tenant = await prisma.tenant.findFirst({
+      where: {
+        id: tenantId,
+        isActive: true,
+        code: {
+          not: {
+            startsWith: ARCHIVE_CODE_PREFIX,
+          },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+      },
+    })
+
+    if (!tenant) {
+      throw new ApiError(403, 'FORBIDDEN', 'Tenant ini tidak tersedia atau tidak aktif.')
+    }
+
+    const availableLocations = await listAvailableLocations(user.id, { ...tenant, role: 'SUPER_ADMIN' }, sessionRole)
+    const activeLocationId = availableLocations[0]?.id
+
+    const payload = {
+      sub: user.id,
+      role: sessionRole,
+      username: user.username,
+      tenantId: tenant.id,
+      activeLocationId,
+      isSuperAdmin: sessionIsSuperAdmin,
+    }
+
+    const accessToken = generateAccessToken(payload)
+    const refreshToken = generateRefreshToken(payload)
+
+    await prisma.refreshToken.create({
+      data: {
+        tokenHash: hashToken(refreshToken),
+        userId: user.id,
+        expiresAt: getRefreshExpiryDate(),
+      },
+    })
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        role: sessionRole,
+        tenant,
+        jabatan: 'Owner',
+        canView: true,
+        canEdit: true,
+        activeLocationId: activeLocationId || null,
+        availableLocations,
+        isSuperAdmin: sessionIsSuperAdmin,
+        availableTenants: await listTenantMemberships(user.id, sessionRole),
+      },
+    }
+  }
+
   let membership
   try {
     membership = await prisma.tenantMembership.findFirst({
@@ -430,23 +549,6 @@ export async function selectTenant(userId: string, tenantId: string) {
         throw new ApiError(403, 'FORBIDDEN', 'Tenant ini belum tersedia pada sistem saat ini.')
       }
 
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          name: true,
-          username: true,
-          role: true,
-          isActive: true,
-        },
-      })
-
-      if (!user || !user.isActive) {
-        throw new ApiError(401, 'AUTH_INVALID', 'User tidak valid untuk mengganti tenant.')
-      }
-
-      const sessionRole = resolveSessionRole({ role: user.role, username: user.username })
-
       const availableLocations = await listAvailableLocations(user.id, { ...DEFAULT_TENANT, role: sessionRole }, sessionRole)
       const activeLocationId = availableLocations[0]?.id
 
@@ -456,7 +558,7 @@ export async function selectTenant(userId: string, tenantId: string) {
         username: user.username,
         tenantId: DEFAULT_TENANT.id,
         activeLocationId,
-        isSuperAdmin: isSessionSuperAdmin({ role: user.role, username: user.username }),
+        isSuperAdmin: sessionIsSuperAdmin,
       }
 
       const accessToken = generateAccessToken(payload)
@@ -477,12 +579,12 @@ export async function selectTenant(userId: string, tenantId: string) {
           id: user.id,
           name: user.name,
           username: user.username,
-          role: resolveSessionRole({ role: user.role, username: user.username }),
+          role: sessionRole,
           tenant: DEFAULT_TENANT,
           activeLocationId: activeLocationId || null,
           availableLocations,
-          isSuperAdmin: isSessionSuperAdmin({ role: user.role, username: user.username }),
-          availableTenants: [{ ...DEFAULT_TENANT, role: resolveSessionRole({ role: user.role, username: user.username }), isDefault: true }],
+          isSuperAdmin: sessionIsSuperAdmin,
+          availableTenants: [{ ...DEFAULT_TENANT, role: sessionRole, isDefault: true }],
         },
       }
     }
@@ -521,23 +623,6 @@ export async function selectTenant(userId: string, tenantId: string) {
     }),
   ])
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      name: true,
-      username: true,
-      role: true,
-      isActive: true,
-    },
-  })
-
-  if (!user || !user.isActive) {
-    throw new ApiError(401, 'AUTH_INVALID', 'User tidak valid untuk mengganti tenant.')
-  }
-
-  const sessionRole = resolveSessionRole({ role: user.role, username: user.username })
-
   const availableLocations = await listAvailableLocations(
     user.id,
     { ...(membership.tenant as SessionTenantContext), role: membership.role },
@@ -551,7 +636,7 @@ export async function selectTenant(userId: string, tenantId: string) {
     username: user.username,
     tenantId: membership.tenant.id,
     activeLocationId,
-    isSuperAdmin: isSessionSuperAdmin({ role: user.role, username: user.username }),
+    isSuperAdmin: sessionIsSuperAdmin,
   }
 
   const accessToken = generateAccessToken(payload)
@@ -572,20 +657,20 @@ export async function selectTenant(userId: string, tenantId: string) {
       id: user.id,
       name: user.name,
       username: user.username,
-      role: resolveSessionRole({ role: user.role, username: user.username }),
+      role: sessionRole,
       tenant: membership.tenant,
       jabatan: membership.jabatan || null,
       canView: membership.canView,
       canEdit: membership.canEdit,
       activeLocationId: activeLocationId || null,
       availableLocations,
-      isSuperAdmin: isSessionSuperAdmin({ role: user.role, username: user.username }),
-      availableTenants: await listTenantMemberships(user.id),
+      isSuperAdmin: sessionIsSuperAdmin,
+      availableTenants: await listTenantMemberships(user.id, sessionRole),
     },
   }
 }
 
-export async function selectLocation(userId: string, locationId: string) {
+export async function selectLocation(userId: string, locationId: string, tenantId?: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -602,9 +687,9 @@ export async function selectLocation(userId: string, locationId: string) {
   }
 
   const sessionRole = resolveSessionRole({ role: user.role, username: user.username })
-  const tenant = await getDefaultTenantContext(user.id, sessionRole)
+  const tenant = await getDefaultTenantContext(user.id, sessionRole, tenantId)
   const sessionIsSuperAdmin = isSessionSuperAdmin({ role: user.role, username: user.username })
-  const availableTenants = await listTenantMemberships(user.id)
+  const availableTenants = await listTenantMemberships(user.id, sessionRole)
   const availableLocations = await listAvailableLocations(user.id, tenant as SessionTenantContext, sessionRole)
 
   if (!availableLocations.some((location) => location.id === locationId)) {
