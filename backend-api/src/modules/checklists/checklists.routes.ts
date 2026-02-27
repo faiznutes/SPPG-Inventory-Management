@@ -54,7 +54,7 @@ checklistsRouter.get('/today', async (req, res, next) => {
 checklistsRouter.post('/today/submit', async (req, res, next) => {
   try {
     const body = submitChecklistSchema.parse(req.body)
-    const data = await submitChecklist(req.user!.id, req.user!.tenantId, body)
+    const data = await submitChecklist(req.user!.id, req.user!.tenantId, req.user!.activeLocationId, body)
     return res.json(data)
   } catch (error) {
     return next(error)

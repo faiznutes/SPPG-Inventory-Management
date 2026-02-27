@@ -23,6 +23,10 @@ function displayTemplateName(templateName: string, tenantCode?: string) {
   return templateName.endsWith(suffix) ? templateName.slice(0, -suffix.length) : templateName
 }
 
+function expectedTemplateName(tenantCode?: string) {
+  return tenantCode ? `${DEFAULT_TEMPLATE_NAME} - ${tenantCode}` : DEFAULT_TEMPLATE_NAME
+}
+
 type ChecklistItemType = 'ASSET' | 'GAS' | 'CONSUMABLE'
 type ChecklistMonitoringPeriod = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'CUSTOM'
 type ChecklistMonitoringItemType = 'ALL' | ChecklistItemType
@@ -735,14 +739,41 @@ type SubmitChecklistInput = {
   }>
 }
 
-export async function submitChecklist(userId: string, tenantId: string | undefined, input: SubmitChecklistInput) {
+export async function submitChecklist(
+  userId: string,
+  tenantId: string | undefined,
+  activeLocationId: string | undefined,
+  input: SubmitChecklistInput,
+) {
+  const tenant = tenantId
+    ? await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { code: true },
+      })
+    : null
+
   const run = await prisma.checklistRun.findUnique({
     where: { id: input.runId },
-    include: { items: true },
+    include: {
+      items: true,
+      template: {
+        select: {
+          name: true,
+        },
+      },
+    },
   })
 
   if (!run) {
     throw new ApiError(404, 'CHECKLIST_RUN_NOT_FOUND', 'Checklist run tidak ditemukan.')
+  }
+
+  if (tenant?.code && run.template.name !== expectedTemplateName(tenant.code)) {
+    throw new ApiError(403, 'FORBIDDEN', 'Checklist run tidak tersedia untuk tenant aktif ini.')
+  }
+
+  if (activeLocationId && run.locationId !== activeLocationId) {
+    throw new ApiError(403, 'FORBIDDEN', 'Checklist run tidak tersedia untuk lokasi aktif ini.')
   }
 
   await prisma.$transaction(async (tx) => {
@@ -826,6 +857,8 @@ export async function sendChecklistExportToTelegram(
     }
   }
 
+  const templateScopeName = expectedTemplateName(tenant?.code)
+
   const run = runId
     ? await prisma.checklistRun.findUnique({
         where: { id: runId },
@@ -843,7 +876,7 @@ export async function sendChecklistExportToTelegram(
             : {}),
           runDate: toDateOnly(new Date()),
           template: {
-            name: tenant?.code ? `${DEFAULT_TEMPLATE_NAME} - ${tenant.code}` : DEFAULT_TEMPLATE_NAME,
+            name: templateScopeName,
           },
         },
         include: {
@@ -857,6 +890,14 @@ export async function sendChecklistExportToTelegram(
 
   if (!run) {
     throw new ApiError(404, 'CHECKLIST_RUN_NOT_FOUND', 'Checklist run tidak ditemukan untuk export Telegram.')
+  }
+
+  if (run.template.name !== templateScopeName) {
+    throw new ApiError(403, 'FORBIDDEN', 'Checklist run tidak tersedia untuk tenant aktif ini.')
+  }
+
+  if (activeLocationId && run.locationId !== activeLocationId) {
+    throw new ApiError(403, 'FORBIDDEN', 'Checklist run tidak tersedia untuk lokasi aktif ini.')
   }
 
   const [user] = await Promise.all([
