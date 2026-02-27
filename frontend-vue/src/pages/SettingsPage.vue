@@ -188,9 +188,20 @@ function handleTenantUserRoleChange() {
 
 function formatTenantUserLocationAccess(user) {
   if (user.role !== 'STAFF') return 'Semua lokasi tenant aktif'
-  const names = (user.locationAccessIds || [])
-    .map((locationId) => tenantLocationNameById.value.get(locationId))
-    .filter(Boolean)
+  const explicitAccess = Array.isArray(user.locationAccess)
+    ? user.locationAccess
+        .map((entry) => {
+          if (!entry?.name) return null
+          return entry.isActive === false ? `${entry.name} (Nonaktif)` : entry.name
+        })
+        .filter(Boolean)
+    : []
+
+  const names = explicitAccess.length
+    ? explicitAccess
+    : (user.locationAccessIds || [])
+        .map((locationId) => tenantLocationNameById.value.get(locationId))
+        .filter(Boolean)
   return names.length ? names.join(', ') : '-'
 }
 

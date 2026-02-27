@@ -623,6 +623,12 @@ export async function getTenantDetail(tenantId: string) {
         locationAccess: {
           select: {
             locationId: true,
+            location: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
       },
@@ -653,6 +659,16 @@ export async function getTenantDetail(tenantId: string) {
       canView: m.canView,
       canEdit: m.canEdit,
       locationAccessIds: m.locationAccess.map((item) => item.locationId),
+      locationAccess: m.locationAccess.map((item) => {
+        const rawName = item.location?.name || ''
+        const suffixName = stripTenantPrefix(tenant.code, rawName)
+        const isActive = rawName ? !isInactiveTenantLocationName(suffixName) : false
+        return {
+          id: item.locationId,
+          name: rawName ? toActiveTenantLocationName(suffixName) : '-',
+          isActive,
+        }
+      }),
       isActive: m.user.isActive,
       isDefault: m.isDefault,
     })),
