@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import PageHeader from '../components/common/PageHeader.vue'
 import { useNotificationsStore } from '../stores/notifications'
@@ -14,6 +14,7 @@ const stats = ref([])
 const lowStocks = ref([])
 
 const hasLowStock = computed(() => lowStocks.value.length > 0)
+const showTenantCode = computed(() => authStore.isSuperAdmin)
 
 function toNumber(value) {
   const n = Number(value)
@@ -34,7 +35,7 @@ async function loadDashboard() {
     lowStocks.value = lowStockRows.slice(0, 5)
 
     stats.value = [
-      { label: 'Item Terdaftar', value: String(summaryData.itemCount || 0), info: 'Aktif di seluruh lokasi' },
+      { label: 'Item Terdaftar', value: String(summaryData.itemCount || 0), info: 'Aktif di tenant/lokasi terpilih' },
       { label: 'Stok Menipis', value: String(summaryData.lowStockCount || 0), info: 'Perlu diprioritaskan' },
       { label: 'Checklist Belum Submit', value: String(summaryData.checklistPendingCount || 0), info: 'Checklist hari ini' },
       { label: 'PR Aktif', value: String(summaryData.activePrCount || 0), info: 'Menunggu proses' },
@@ -53,6 +54,13 @@ function goTo(path) {
 onMounted(async () => {
   await loadDashboard()
 })
+
+watch(
+  () => [authStore.user?.tenant?.id, authStore.user?.activeLocationId],
+  async () => {
+    await loadDashboard()
+  },
+)
 </script>
 
 <template>
@@ -81,7 +89,15 @@ onMounted(async () => {
             class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2"
           >
             <span>{{ row.itemName }} - {{ row.locationName }}</span>
-            <span class="font-bold text-amber-600">{{ row.qty }} {{ row.unit }}</span>
+            <span class="flex items-center gap-2">
+              <span
+                v-if="showTenantCode && row.tenantCode"
+                class="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-700"
+              >
+                {{ row.tenantCode }}
+              </span>
+              <span class="font-bold text-amber-600">{{ row.qty }} {{ row.unit }}</span>
+            </span>
           </li>
         </ul>
 
