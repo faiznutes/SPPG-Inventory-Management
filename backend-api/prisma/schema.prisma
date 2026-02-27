@@ -147,10 +147,24 @@ model TenantMembership {
   updatedAt  DateTime @updatedAt @map("updated_at")
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  locationAccess TenantMembershipLocation[]
 
   @@unique([userId, tenantId])
   @@index([tenantId])
   @@map("tenant_memberships")
+}
+
+model TenantMembershipLocation {
+  id                 String           @id @default(uuid())
+  tenantMembershipId String           @map("tenant_membership_id")
+  locationId         String           @map("location_id")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  tenantMembership   TenantMembership @relation(fields: [tenantMembershipId], references: [id], onDelete: Cascade)
+  location           Location         @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantMembershipId, locationId])
+  @@index([locationId])
+  @@map("tenant_membership_locations")
 }
 
 model RefreshToken {
@@ -172,6 +186,7 @@ model Location {
   description String?
   stocks      Stock[]
   assets      Asset[]
+  tenantMembershipAccess TenantMembershipLocation[]
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 

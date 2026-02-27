@@ -30,6 +30,7 @@ type SessionTenantContext = {
   id: string
   name: string
   code: string
+  role?: string
   jabatan?: string | null
   canView?: boolean
   canEdit?: boolean
@@ -48,7 +49,7 @@ function stripInactivePrefix(value: string) {
   return value.replace(new RegExp(`^${INACTIVE_LOCATION_PREFIX}`, 'i'), '')
 }
 
-async function listAvailableLocations(tenant: SessionTenantContext) {
+async function listAvailableLocations(userId: string, tenant: SessionTenantContext, sessionRole: string) {
   const where =
     tenant.id === DEFAULT_TENANT.id
       ? {}
@@ -58,7 +59,7 @@ async function listAvailableLocations(tenant: SessionTenantContext) {
           },
         }
 
-  const rows = await prisma.location.findMany({
+  let rows = await prisma.location.findMany({
     where,
     select: {
       id: true,
@@ -66,6 +67,51 @@ async function listAvailableLocations(tenant: SessionTenantContext) {
     },
     orderBy: { name: 'asc' },
   })
+
+  const membershipRole = tenant.role || sessionRole
+  if (membershipRole === 'STAFF') {
+    const membership = await prisma.tenantMembership.findFirst({
+      where: {
+        userId,
+        tenantId: tenant.id,
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    if (!membership) {
+      return []
+    }
+
+    let allowedLocationIds: string[] = []
+    try {
+      allowedLocationIds = (
+        await prisma.tenantMembershipLocation.findMany({
+          where: {
+            tenantMembershipId: membership.id,
+          },
+          select: {
+            locationId: true,
+          },
+        })
+      ).map((row) => row.locationId)
+    } catch {
+      return rows
+        .filter((row) => !isInactiveLocationName(row.name))
+        .map((row) => ({
+          id: row.id,
+          name: tenant.id === DEFAULT_TENANT.id ? stripInactivePrefix(row.name) : stripInactivePrefix(stripTenantPrefix(tenant.code, row.name)),
+        }))
+    }
+
+    if (!allowedLocationIds.length) {
+      return []
+    }
+
+    const allowSet = new Set(allowedLocationIds)
+    rows = rows.filter((row) => allowSet.has(row.id))
+  }
 
   return rows
     .filter((row) => !isInactiveLocationName(row.name))
@@ -129,9 +175,9 @@ async function listTenantMemberships(userId: string) {
   }
 }
 
-async function getDefaultTenantContext(userId: string) {
+async function getDefaultTenantContext(userId: string, fallbackRole = 'ADMIN') {
   const memberships = await listTenantMemberships(userId)
-  return (memberships[0] || DEFAULT_TENANT) as SessionTenantContext
+  return (memberships[0] || { ...DEFAULT_TENANT, role: fallbackRole }) as SessionTenantContext
 }
 
 function getRefreshExpiryDate() {
@@ -177,12 +223,12 @@ export async function login(input: LoginInput) {
     throw new ApiError(401, 'AUTH_INVALID', 'Username atau password tidak sesuai.')
   }
 
-  const tenant = await getDefaultTenantContext(user.id)
   const sessionRole = resolveSessionRole({ role: user.role, username: user.username })
   const sessionIsSuperAdmin = isSessionSuperAdmin({ role: user.role, username: user.username })
+  const tenant = await getDefaultTenantContext(user.id, sessionRole)
 
   const memberships = await listTenantMemberships(user.id)
-  const availableLocations = await listAvailableLocations(tenant as SessionTenantContext)
+  const availableLocations = await listAvailableLocations(user.id, tenant as SessionTenantContext, sessionRole)
   const activeLocationId = availableLocations[0]?.id
 
   const payload = {
@@ -257,10 +303,10 @@ export async function refresh(rawRefreshToken: string) {
     data: { revokedAt: new Date() },
   })
 
-  const tenant = await getDefaultTenantContext(tokenRecord.user.id)
   const sessionRole = resolveSessionRole({ role: tokenRecord.user.role, username: tokenRecord.user.username })
   const sessionIsSuperAdmin = isSessionSuperAdmin({ role: tokenRecord.user.role, username: tokenRecord.user.username })
-  const availableLocations = await listAvailableLocations(tenant as SessionTenantContext)
+  const tenant = await getDefaultTenantContext(tokenRecord.user.id, sessionRole)
+  const availableLocations = await listAvailableLocations(tokenRecord.user.id, tenant as SessionTenantContext, sessionRole)
   const activeLocationId =
     payload.activeLocationId && availableLocations.some((location) => location.id === payload.activeLocationId)
       ? payload.activeLocationId
@@ -326,12 +372,12 @@ export async function me(userId: string) {
     throw new ApiError(404, 'USER_NOT_FOUND', 'User tidak ditemukan.')
   }
 
-  const tenant = await getDefaultTenantContext(user.id)
   const sessionRole = resolveSessionRole({ role: user.role, username: user.username })
   const sessionIsSuperAdmin = isSessionSuperAdmin({ role: user.role, username: user.username })
+  const tenant = await getDefaultTenantContext(user.id, sessionRole)
   const memberships = await listTenantMemberships(user.id)
   const availableTenants = memberships.length ? memberships : [{ ...DEFAULT_TENANT, role: sessionRole, isDefault: true }]
-  const availableLocations = await listAvailableLocations(tenant as SessionTenantContext)
+  const availableLocations = await listAvailableLocations(user.id, tenant as SessionTenantContext, sessionRole)
   const activeLocationId = availableLocations[0]?.id || null
 
   return {
@@ -404,12 +450,14 @@ export async function selectTenant(userId: string, tenantId: string) {
         throw new ApiError(401, 'AUTH_INVALID', 'User tidak valid untuk mengganti tenant.')
       }
 
-      const availableLocations = await listAvailableLocations(DEFAULT_TENANT)
+      const sessionRole = resolveSessionRole({ role: user.role, username: user.username })
+
+      const availableLocations = await listAvailableLocations(user.id, { ...DEFAULT_TENANT, role: sessionRole }, sessionRole)
       const activeLocationId = availableLocations[0]?.id
 
       const payload = {
         sub: user.id,
-        role: resolveSessionRole({ role: user.role, username: user.username }),
+        role: sessionRole,
         username: user.username,
         tenantId: DEFAULT_TENANT.id,
         activeLocationId,
@@ -493,12 +541,18 @@ export async function selectTenant(userId: string, tenantId: string) {
     throw new ApiError(401, 'AUTH_INVALID', 'User tidak valid untuk mengganti tenant.')
   }
 
-  const availableLocations = await listAvailableLocations(membership.tenant as SessionTenantContext)
+  const sessionRole = resolveSessionRole({ role: user.role, username: user.username })
+
+  const availableLocations = await listAvailableLocations(
+    user.id,
+    { ...(membership.tenant as SessionTenantContext), role: membership.role },
+    sessionRole,
+  )
   const activeLocationId = availableLocations[0]?.id
 
   const payload = {
     sub: user.id,
-    role: resolveSessionRole({ role: user.role, username: user.username }),
+    role: sessionRole,
     username: user.username,
     tenantId: membership.tenant.id,
     activeLocationId,
@@ -552,11 +606,11 @@ export async function selectLocation(userId: string, locationId: string) {
     throw new ApiError(401, 'AUTH_INVALID', 'User tidak valid untuk mengganti lokasi.')
   }
 
-  const tenant = await getDefaultTenantContext(user.id)
   const sessionRole = resolveSessionRole({ role: user.role, username: user.username })
+  const tenant = await getDefaultTenantContext(user.id, sessionRole)
   const sessionIsSuperAdmin = isSessionSuperAdmin({ role: user.role, username: user.username })
   const availableTenants = await listTenantMemberships(user.id)
-  const availableLocations = await listAvailableLocations(tenant as SessionTenantContext)
+  const availableLocations = await listAvailableLocations(user.id, tenant as SessionTenantContext, sessionRole)
 
   if (!availableLocations.some((location) => location.id === locationId)) {
     throw new ApiError(403, 'FORBIDDEN', 'Lokasi tidak tersedia untuk tenant aktif ini.')

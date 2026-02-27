@@ -9,6 +9,7 @@ import {
   createTenantSchema,
   createTenantUserSchema,
   listTenantsQuerySchema,
+  setTenantUserLocationAccessSchema,
   updateTenantSchema,
   updateTenantStatusSchema,
   updateTenantTelegramSettingsSchema,
@@ -28,6 +29,7 @@ import {
   listTenants,
   reactivateTenant,
   restoreTenant,
+  setTenantUserLocationAccess,
   updateTenant,
   updateTenantStatus,
   updateTenantTelegramSettings,
@@ -169,6 +171,16 @@ tenantsRouter.patch('/:tenantId/users/:userId', async (req, res, next) => {
   try {
     const body = updateTenantUserSchema.parse(req.body)
     const data = await updateTenantUser(req.user!.id, req.params.tenantId, req.params.userId, body)
+    return res.json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+tenantsRouter.patch('/:tenantId/users/:userId/location-access', async (req, res, next) => {
+  try {
+    const body = setTenantUserLocationAccessSchema.parse(req.body)
+    const data = await setTenantUserLocationAccess(req.user!.id, req.params.tenantId, req.params.userId, body.locationIds)
     return res.json(data)
   } catch (error) {
     return next(error)

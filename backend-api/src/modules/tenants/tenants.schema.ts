@@ -34,6 +34,7 @@ export const createTenantUserSchema = z.object({
   jabatan: z.string().min(2),
   canView: z.boolean().default(true),
   canEdit: z.boolean().default(false),
+  locationIds: z.array(z.string().uuid()).optional(),
   password: z.string().min(6),
 })
 
@@ -45,7 +46,12 @@ export const updateTenantUserSchema = z.object({
   jabatan: z.string().min(2),
   canView: z.boolean(),
   canEdit: z.boolean(),
+  locationIds: z.array(z.string().uuid()).optional(),
   password: z.string().min(6).optional(),
+})
+
+export const setTenantUserLocationAccessSchema = z.object({
+  locationIds: z.array(z.string().uuid()),
 })
 
 export const bulkTenantUserActionSchema = z.object({

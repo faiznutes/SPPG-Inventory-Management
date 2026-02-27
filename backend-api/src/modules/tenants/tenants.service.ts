@@ -20,6 +20,7 @@ type CreateTenantUserInput = {
   jabatan: string
   canView: boolean
   canEdit: boolean
+  locationIds?: string[]
   password: string
 }
 
@@ -31,6 +32,7 @@ type UpdateTenantUserInput = {
   jabatan: string
   canView: boolean
   canEdit: boolean
+  locationIds?: string[]
   password?: string
 }
 
@@ -91,6 +93,47 @@ function toInactiveTenantLocationName(name: string) {
 
 function toActiveTenantLocationName(name: string) {
   return name.replace(new RegExp(`^${INACTIVE_LOCATION_PREFIX}`, 'i'), '')
+}
+
+async function resolveTenantLocationIds(tenantCode: string, locationIds: string[]) {
+  const uniqueIds = [...new Set(locationIds)]
+  if (!uniqueIds.length) return []
+
+  const rows = await prisma.location.findMany({
+    where: {
+      id: { in: uniqueIds },
+      name: {
+        startsWith: `${tenantCode}::`,
+      },
+    },
+    select: {
+      id: true,
+    },
+  })
+
+  if (rows.length !== uniqueIds.length) {
+    throw new ApiError(400, 'LOCATION_SCOPE_INVALID', 'Ada lokasi yang tidak termasuk tenant ini.')
+  }
+
+  return rows.map((row) => row.id)
+}
+
+async function resolveDefaultTenantLocationIds(tenantCode: string) {
+  const rows = await prisma.location.findMany({
+    where: {
+      name: {
+        startsWith: `${tenantCode}::`,
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+    },
+  })
+
+  return rows
+    .filter((row) => !isInactiveTenantLocationName(stripTenantPrefix(tenantCode, row.name)))
+    .map((row) => row.id)
 }
 
 function maskToken(token?: string | null) {
@@ -567,6 +610,11 @@ export async function getTenantDetail(tenantId: string) {
             isActive: true,
           },
         },
+        locationAccess: {
+          select: {
+            locationId: true,
+          },
+        },
       },
       orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
     }),
@@ -594,6 +642,7 @@ export async function getTenantDetail(tenantId: string) {
       jabatan: m.jabatan || '-',
       canView: m.canView,
       canEdit: m.canEdit,
+      locationAccessIds: m.locationAccess.map((item) => item.locationId),
       isActive: m.user.isActive,
       isDefault: m.isDefault,
     })),
@@ -622,6 +671,11 @@ export async function addTenantUser(actorUserId: string, tenantId: string, input
   if (existing) throw new ApiError(409, 'USER_EXISTS', 'Username atau email sudah digunakan.')
 
   const passwordHash = await bcrypt.hash(input.password, 10)
+  const scopedLocationIds = (input.locationIds && input.locationIds.length)
+    ? await resolveTenantLocationIds(tenant.code, input.locationIds)
+    : input.role === 'STAFF'
+      ? await resolveDefaultTenantLocationIds(tenant.code)
+      : []
 
   const created = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
@@ -634,7 +688,7 @@ export async function addTenantUser(actorUserId: string, tenantId: string, input
       },
     })
 
-    await tx.tenantMembership.create({
+    const membership = await tx.tenantMembership.create({
       data: {
         userId: user.id,
         tenantId,
@@ -645,6 +699,16 @@ export async function addTenantUser(actorUserId: string, tenantId: string, input
         isDefault: true,
       },
     })
+
+    if (input.role === 'STAFF' && scopedLocationIds.length) {
+      await tx.tenantMembershipLocation.createMany({
+        data: scopedLocationIds.map((locationId) => ({
+          tenantMembershipId: membership.id,
+          locationId,
+        })),
+        skipDuplicates: true,
+      })
+    }
 
     await tx.auditLog.create({
       data: {
@@ -660,6 +724,7 @@ export async function addTenantUser(actorUserId: string, tenantId: string, input
           jabatan: input.jabatan,
           canView: input.canView,
           canEdit: input.canEdit,
+          locationIds: scopedLocationIds,
         },
       },
     })
@@ -700,6 +765,12 @@ export async function updateTenantUser(
   })
   if (duplicate) throw new ApiError(409, 'USER_EXISTS', 'Username atau email sudah digunakan.')
 
+  const scopedLocationIds = (input.locationIds && input.locationIds.length)
+    ? await resolveTenantLocationIds(tenant.code, input.locationIds)
+    : input.role === 'STAFF'
+      ? await resolveDefaultTenantLocationIds(tenant.code)
+      : []
+
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: userId },
@@ -726,6 +797,22 @@ export async function updateTenantUser(
       },
     })
 
+    await tx.tenantMembershipLocation.deleteMany({
+      where: {
+        tenantMembershipId: membership.id,
+      },
+    })
+
+    if (input.role === 'STAFF' && scopedLocationIds.length) {
+      await tx.tenantMembershipLocation.createMany({
+        data: scopedLocationIds.map((locationId) => ({
+          tenantMembershipId: membership.id,
+          locationId,
+        })),
+        skipDuplicates: true,
+      })
+    }
+
     await tx.auditLog.create({
       data: {
         actorUserId,
@@ -740,6 +827,7 @@ export async function updateTenantUser(
           jabatan: input.jabatan,
           canView: input.canView,
           canEdit: input.canEdit,
+          locationIds: scopedLocationIds,
         },
       },
     })
@@ -748,6 +836,62 @@ export async function updateTenantUser(
   return {
     code: 'TENANT_USER_UPDATED',
     message: 'User tenant berhasil diperbarui.',
+  }
+}
+
+export async function setTenantUserLocationAccess(
+  actorUserId: string,
+  tenantId: string,
+  userId: string,
+  locationIds: string[],
+) {
+  const tenant = await getTenantOrThrow(tenantId)
+  ensureTenantActive(tenant)
+
+  const membership = await prisma.tenantMembership.findFirst({
+    where: { tenantId, userId },
+  })
+  if (!membership) throw new ApiError(404, 'TENANT_USER_NOT_FOUND', 'User tenant tidak ditemukan.')
+
+  const scopedLocationIds = await resolveTenantLocationIds(tenant.code, locationIds)
+
+  await prisma.$transaction(async (tx) => {
+    await tx.tenantMembershipLocation.deleteMany({
+      where: {
+        tenantMembershipId: membership.id,
+      },
+    })
+
+    if (scopedLocationIds.length) {
+      await tx.tenantMembershipLocation.createMany({
+        data: scopedLocationIds.map((locationId) => ({
+          tenantMembershipId: membership.id,
+          locationId,
+        })),
+        skipDuplicates: true,
+      })
+    }
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId,
+        tenantId,
+        entityType: 'tenant_user_location_access',
+        entityId: userId,
+        action: 'SET_LOCATION_ACCESS',
+        diffJson: {
+          tenantId,
+          userId,
+          locationIds: scopedLocationIds,
+        },
+      },
+    })
+  })
+
+  return {
+    code: 'TENANT_USER_LOCATION_ACCESS_UPDATED',
+    message: 'Akses lokasi user tenant berhasil diperbarui.',
+    locationIds: scopedLocationIds,
   }
 }
 
