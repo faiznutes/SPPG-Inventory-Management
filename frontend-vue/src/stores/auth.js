@@ -22,6 +22,7 @@ export const useAuthStore = defineStore('auth', {
     accessToken: '',
     user: null,
     availableTenants: [],
+    availableLocations: [],
     isHydrated: false,
     isLoading: false,
     errorMessage: '',
@@ -30,6 +31,11 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     isAuthenticated: (state) => Boolean(state.accessToken && state.user),
     tenantName: (state) => state.user?.tenant?.name || DEFAULT_TENANT_NAME,
+    locationName: (state) => {
+      const activeId = state.user?.activeLocationId
+      if (!activeId) return ''
+      return state.availableLocations.find((location) => location.id === activeId)?.name || ''
+    },
     operationalLabel: (state) => roleToLabel(state.user?.role),
     isSuperAdmin: (state) => state.user?.role === 'SUPER_ADMIN',
     canViewTenantData: (state) => state.user?.canView !== false,
@@ -46,6 +52,7 @@ export const useAuthStore = defineStore('auth', {
       this.accessToken = token || ''
       this.user = rawUser ? JSON.parse(rawUser) : null
       this.availableTenants = this.user?.availableTenants || []
+      this.availableLocations = this.user?.availableLocations || []
       this.isHydrated = true
     },
 
@@ -53,6 +60,7 @@ export const useAuthStore = defineStore('auth', {
       this.accessToken = accessToken
       this.user = user
       this.availableTenants = user?.availableTenants || []
+      this.availableLocations = user?.availableLocations || []
       localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
       localStorage.setItem(USER_KEY, JSON.stringify(user))
     },
@@ -61,6 +69,7 @@ export const useAuthStore = defineStore('auth', {
       this.accessToken = ''
       this.user = null
       this.availableTenants = []
+      this.availableLocations = []
       this.errorMessage = ''
       localStorage.removeItem(ACCESS_TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
@@ -90,6 +99,7 @@ export const useAuthStore = defineStore('auth', {
         const user = await api.me(this.accessToken)
         this.user = user
         this.availableTenants = user?.availableTenants || this.availableTenants
+        this.availableLocations = user?.availableLocations || []
         localStorage.setItem(USER_KEY, JSON.stringify(user))
         return true
       } catch {
@@ -118,13 +128,14 @@ export const useAuthStore = defineStore('auth', {
         const rows = await api.listMyTenants(this.accessToken)
         this.availableTenants = Array.isArray(rows) ? rows : []
         if (this.user) {
-          this.user = {
-            ...this.user,
-            availableTenants: this.availableTenants,
-          }
-          localStorage.setItem(USER_KEY, JSON.stringify(this.user))
+        this.user = {
+          ...this.user,
+          availableTenants: this.availableTenants,
         }
-        return this.availableTenants
+        this.availableLocations = this.user?.availableLocations || this.availableLocations
+        localStorage.setItem(USER_KEY, JSON.stringify(this.user))
+      }
+      return this.availableTenants
       } catch {
         return this.availableTenants
       }
@@ -139,6 +150,19 @@ export const useAuthStore = defineStore('auth', {
         return true
       } catch (error) {
         this.errorMessage = error instanceof Error ? error.message : 'Gagal mengganti tenant.'
+        return false
+      }
+    },
+
+    async switchLocation(locationId) {
+      if (!this.accessToken) return false
+
+      try {
+        const data = await api.selectLocation(this.accessToken, locationId)
+        this.setSession(data.accessToken, data.user)
+        return true
+      } catch (error) {
+        this.errorMessage = error instanceof Error ? error.message : 'Gagal mengganti lokasi.'
         return false
       }
     },

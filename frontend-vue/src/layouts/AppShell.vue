@@ -19,20 +19,27 @@ const currentRole = computed(() => authStore.user?.role || '')
 const canEdit = computed(() => authStore.canEditTenantData)
 const canView = computed(() => authStore.canViewTenantData)
 const selectedTenantId = ref('')
+const selectedLocationId = ref('')
 const canSwitchTenant = computed(() => authStore.isSuperAdmin && authStore.availableTenants.length > 1)
+const canSwitchLocation = computed(() => authStore.availableLocations.length > 1)
 
 const menus = [
   { name: 'Dashboard', path: '/dashboard', icon: 'dashboard' },
   { name: 'Stok', path: '/inventory/stocks', icon: 'inventory_2' },
   { name: 'Transaksi', path: '/inventory/transactions', icon: 'swap_horiz' },
   { name: 'Checklist', path: '/checklists/today', icon: 'checklist' },
-  { name: 'Monitoring Checklist', path: '/checklists/monitoring', icon: 'monitoring' },
+  {
+    name: 'Monitoring Checklist',
+    path: '/checklists/monitoring',
+    icon: 'monitoring',
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+  },
   { name: 'Permintaan Pembelian', path: '/purchase-requests', icon: 'description' },
   {
     name: 'Audit Log',
     path: '/audit-logs',
     icon: 'history',
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ['SUPER_ADMIN'],
   },
   {
     name: 'Kategori',
@@ -79,10 +86,32 @@ async function handleTenantSwitch() {
   router.replace({ path: route.fullPath })
 }
 
+async function handleLocationSwitch() {
+  if (!selectedLocationId.value || selectedLocationId.value === authStore.user?.activeLocationId) return
+
+  const ok = await authStore.switchLocation(selectedLocationId.value)
+  if (!ok) {
+    notifications.showPopup('Gagal ganti lokasi', authStore.errorMessage || 'Lokasi tidak bisa diganti.', 'error')
+    selectedLocationId.value = authStore.user?.activeLocationId || ''
+    return
+  }
+
+  notifications.showPopup('Lokasi aktif diperbarui', `Sekarang aktif di ${authStore.locationName || 'Lokasi terpilih'}.`, 'success')
+  router.replace({ path: route.fullPath })
+}
+
 watch(
   () => authStore.user?.tenant?.id,
   (tenantId) => {
     selectedTenantId.value = tenantId || ''
+  },
+  { immediate: true },
+)
+
+watch(
+  () => authStore.user?.activeLocationId,
+  (locationId) => {
+    selectedLocationId.value = locationId || ''
   },
   { immediate: true },
 )
@@ -145,7 +174,10 @@ onMounted(async () => {
             </button>
             <div>
               <p class="text-base font-bold text-slate-900 sm:text-lg">{{ pageTitle }}</p>
-              <p class="text-xs text-slate-500">Sistem {{ APP_NAME }} - {{ authStore.tenantName }}</p>
+              <p class="text-xs text-slate-500">
+                Sistem {{ APP_NAME }} - {{ authStore.tenantName }}
+                <span v-if="authStore.locationName"> | Lokasi: {{ authStore.locationName }}</span>
+              </p>
             </div>
           </div>
           <div class="flex items-center gap-2">
@@ -157,6 +189,16 @@ onMounted(async () => {
             >
               <option v-for="tenant in authStore.availableTenants" :key="tenant.id" :value="tenant.id">
                 {{ tenant.name }}
+              </option>
+            </select>
+            <select
+              v-if="canSwitchLocation"
+              v-model="selectedLocationId"
+              class="hidden rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-700 sm:block"
+              @change="handleLocationSwitch"
+            >
+              <option v-for="location in authStore.availableLocations" :key="location.id" :value="location.id">
+                {{ location.name }}
               </option>
             </select>
             <div class="hidden rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 sm:block">

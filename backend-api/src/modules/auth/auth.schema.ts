@@ -13,6 +13,10 @@ export const selectTenantSchema = z.object({
   tenantId: z.string().min(1),
 })
 
+export const selectLocationSchema = z.object({
+  locationId: z.string().uuid(),
+})
+
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(6),
   newPassword: z.string().min(8),

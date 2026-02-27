@@ -187,6 +187,12 @@ export const api = {
       headers: authHeader(accessToken),
       body: JSON.stringify({ tenantId }),
     }),
+  selectLocation: (accessToken, locationId) =>
+    request('/auth/location/select', {
+      method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify({ locationId }),
+    }),
   changePassword: (accessToken, body) =>
     request('/auth/change-password', {
       method: 'POST',

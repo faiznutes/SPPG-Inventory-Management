@@ -7,6 +7,7 @@ type JwtPayload = {
   role: string
   username: string
   tenantId?: string
+  activeLocationId?: string
   isSuperAdmin?: boolean
 }
 

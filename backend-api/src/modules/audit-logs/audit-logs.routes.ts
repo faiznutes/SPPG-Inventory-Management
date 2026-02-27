@@ -1,12 +1,14 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { requireAuth } from '../../middleware/auth.js'
+import { requireRole } from '../../middleware/role.js'
 import { listAuditLogsQuerySchema } from './audit-logs.schema.js'
 import { exportAuditLogsCsv, getAuditLogDetail, getAuditLogStats, listAuditLogs } from './audit-logs.service.js'
 
 const auditLogsRouter = Router()
 
 auditLogsRouter.use(requireAuth)
+auditLogsRouter.use(requireRole(['SUPER_ADMIN']))
 
 auditLogsRouter.get('/', async (req, res, next) => {
   try {

@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { requireAuth } from '../../middleware/auth.js'
+import { requireRole } from '../../middleware/role.js'
 import {
   checklistMonitoringQuerySchema,
   sendChecklistExportTelegramSchema,
@@ -18,7 +19,7 @@ const checklistsRouter = Router()
 
 checklistsRouter.use(requireAuth)
 
-checklistsRouter.get('/monitoring', async (req, res, next) => {
+checklistsRouter.get('/monitoring', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req, res, next) => {
   try {
     const query = checklistMonitoringQuerySchema.parse(req.query)
     const data = await getChecklistMonitoring(req.user!.id, req.user!.tenantId, query)
@@ -57,7 +58,7 @@ checklistsRouter.post('/today/export/send-telegram', async (req, res, next) => {
   }
 })
 
-checklistsRouter.post('/monitoring/export/send-telegram', async (req, res, next) => {
+checklistsRouter.post('/monitoring/export/send-telegram', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req, res, next) => {
   try {
     const body = sendChecklistMonitoringExportTelegramSchema.parse(req.body)
     const data = await sendChecklistMonitoringExportToTelegram(req.user!.id, req.user!.tenantId, {

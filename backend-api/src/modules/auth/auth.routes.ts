@@ -1,6 +1,6 @@
 import { Router } from 'express'
-import { changePasswordSchema, loginSchema, refreshSchema, selectTenantSchema } from './auth.schema.js'
-import { changePassword, ensureAdminSeed, login, logout, me, myTenants, refresh, selectTenant } from './auth.service.js'
+import { changePasswordSchema, loginSchema, refreshSchema, selectLocationSchema, selectTenantSchema } from './auth.schema.js'
+import { changePassword, ensureAdminSeed, login, logout, me, myTenants, refresh, selectLocation, selectTenant } from './auth.service.js'
 import { requireAuth } from '../../middleware/auth.js'
 import { env } from '../../config/env.js'
 
@@ -80,6 +80,19 @@ authRouter.post('/tenant/select', requireAuth, async (req, res, next) => {
   try {
     const body = selectTenantSchema.parse(req.body)
     const data = await selectTenant(req.user!.id, body.tenantId)
+
+    res.cookie('refreshToken', data.refreshToken, getRefreshCookieOptions())
+
+    return res.json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+authRouter.post('/location/select', requireAuth, async (req, res, next) => {
+  try {
+    const body = selectLocationSchema.parse(req.body)
+    const data = await selectLocation(req.user!.id, body.locationId)
 
     res.cookie('refreshToken', data.refreshToken, getRefreshCookieOptions())
 

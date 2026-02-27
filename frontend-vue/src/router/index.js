@@ -58,7 +58,10 @@ const routes = [
         path: 'checklists/monitoring',
         name: 'checklist-monitoring',
         component: ChecklistMonitoringPage,
-        meta: { title: 'Monitoring Checklist' },
+        meta: {
+          title: 'Monitoring Checklist',
+          allowedRoles: ['SUPER_ADMIN', 'ADMIN'],
+        },
       },
       {
         path: 'purchase-requests',
@@ -104,7 +107,7 @@ const routes = [
         component: AuditLogsPage,
         meta: {
           title: 'Audit Log',
-          allowedRoles: ['SUPER_ADMIN', 'ADMIN'],
+          allowedRoles: ['SUPER_ADMIN'],
         },
       },
     ],
