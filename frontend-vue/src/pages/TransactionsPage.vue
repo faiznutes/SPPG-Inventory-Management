@@ -87,6 +87,32 @@ const tenantCodeOptions = computed(() => {
   return Array.from(set).sort((a, b) => a.localeCompare(b))
 })
 
+const activeLocation = computed(() => {
+  const activeId = authStore.user?.activeLocationId
+  if (!activeId) return null
+  return locations.value.find((location) => location.id === activeId) || null
+})
+
+const fromLocationOptions = computed(() => {
+  if (action.value === 'Keluar' || action.value === 'Transfer') {
+    return activeLocation.value ? [activeLocation.value] : []
+  }
+  return locations.value
+})
+
+const toLocationOptions = computed(() => {
+  if (action.value === 'Masuk') {
+    return activeLocation.value ? [activeLocation.value] : []
+  }
+
+  if (action.value === 'Transfer') {
+    const activeId = activeLocation.value?.id
+    return activeId ? locations.value.filter((location) => location.id !== activeId) : locations.value
+  }
+
+  return locations.value
+})
+
 function formatTrxLocation(row) {
   if (row.kategoriTrx === 'Masuk') return row.toLocationName ? `Ke ${row.toLocationName}` : '-'
   if (row.kategoriTrx === 'Keluar') return row.fromLocationName ? `Dari ${row.fromLocationName}` : '-'
@@ -103,6 +129,18 @@ function openAction(type) {
   form.itemId = ''
   form.fromLocationId = ''
   form.toLocationId = ''
+
+  const activeId = authStore.user?.activeLocationId || ''
+  if (type === 'Masuk') {
+    form.toLocationId = activeId
+  }
+  if (type === 'Keluar') {
+    form.fromLocationId = activeId
+  }
+  if (type === 'Transfer') {
+    form.fromLocationId = activeId
+  }
+
   form.qty = ''
   form.reason = ''
   showActionModal.value = true
@@ -300,6 +338,11 @@ async function submitTransaction() {
       return
     }
 
+    if (action.value === 'Transfer' && !toLocationOptions.value.length) {
+      notifications.showPopup('Lokasi tujuan belum tersedia', 'Tidak ada lokasi tujuan lain di tenant ini untuk transfer.', 'error')
+      return
+    }
+
     if (!form.itemId) {
       notifications.showPopup('Item wajib dipilih', 'Pilih item terlebih dahulu sebelum menyimpan transaksi.', 'error')
       return
@@ -483,17 +526,27 @@ watch(
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label class="block" v-if="action !== 'Masuk'">
             <span class="mb-1 block text-sm font-semibold text-slate-700">Lokasi Asal</span>
-            <select v-model="form.fromLocationId" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" :required="action !== 'Masuk'">
+            <select
+              v-model="form.fromLocationId"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              :required="action !== 'Masuk'"
+              :disabled="action === 'Keluar' || action === 'Transfer'"
+            >
               <option value="" disabled>Pilih lokasi asal</option>
-              <option v-for="location in locations" :key="location.id" :value="location.id">{{ location.name }}</option>
+              <option v-for="location in fromLocationOptions" :key="location.id" :value="location.id">{{ location.name }}</option>
             </select>
           </label>
 
           <label class="block" v-if="action !== 'Keluar'">
             <span class="mb-1 block text-sm font-semibold text-slate-700">Lokasi Tujuan</span>
-            <select v-model="form.toLocationId" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" :required="action !== 'Keluar'">
+            <select
+              v-model="form.toLocationId"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              :required="action !== 'Keluar'"
+              :disabled="action === 'Masuk'"
+            >
               <option value="" disabled>Pilih lokasi tujuan</option>
-              <option v-for="location in locations" :key="location.id" :value="location.id">{{ location.name }}</option>
+              <option v-for="location in toLocationOptions" :key="location.id" :value="location.id">{{ location.name }}</option>
             </select>
           </label>
         </div>
