@@ -859,7 +859,11 @@ export async function setTenantUserLocationAccess(
   })
   if (!membership) throw new ApiError(404, 'TENANT_USER_NOT_FOUND', 'User tenant tidak ditemukan.')
 
-  const scopedLocationIds = await resolveTenantLocationIds(tenant.code, locationIds)
+  if (membership.role !== 'STAFF') {
+    throw new ApiError(400, 'TENANT_USER_ROLE_INVALID', 'Akses lokasi khusus untuk user STAFF.')
+  }
+
+  const scopedLocationIds = await resolveRequiredStaffLocationIds(tenant.code, locationIds)
 
   await prisma.$transaction(async (tx) => {
     await tx.tenantMembershipLocation.deleteMany({

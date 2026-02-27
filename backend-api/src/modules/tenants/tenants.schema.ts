@@ -71,7 +71,7 @@ export const updateTenantUserSchema = z
   })
 
 export const setTenantUserLocationAccessSchema = z.object({
-  locationIds: z.array(z.string().uuid()),
+  locationIds: z.array(z.string().uuid()).min(1),
 })
 
 export const bulkTenantUserActionSchema = z.object({
