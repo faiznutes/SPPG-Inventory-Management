@@ -19,6 +19,7 @@ const tenantOptions = ref([])
 const selectedLog = ref(null)
 const isLoadingDetail = ref(false)
 const isLoading = ref(false)
+const quickDays = ref(14)
 const pagination = reactive({
   page: 1,
   pageSize: 25,
@@ -199,6 +200,15 @@ async function applyQuickRange(days) {
   await applyFilters()
 }
 
+async function applyCustomRange() {
+  const days = Number(quickDays.value)
+  if (!Number.isInteger(days) || days < 1 || days > 365) {
+    notifications.showPopup('Rentang tidak valid', 'Isi rentang 1 sampai 365 hari.', 'error')
+    return
+  }
+  await applyQuickRange(days)
+}
+
 function buildExportQuery() {
   return {
     from: toIsoStart(filters.fromDate),
@@ -302,6 +312,16 @@ onMounted(async () => {
         <button class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700" @click="applyQuickRange(1)">Hari ini</button>
         <button class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700" @click="applyQuickRange(7)">7 hari</button>
         <button class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700" @click="applyQuickRange(30)">30 hari</button>
+        <div class="ml-2 flex items-center gap-1.5">
+          <input
+            v-model.number="quickDays"
+            type="number"
+            min="1"
+            max="365"
+            class="w-20 rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
+          />
+          <button class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700" @click="applyCustomRange">Last N hari</button>
+        </div>
       </div>
 
       <div class="mt-2 flex flex-wrap justify-end gap-2">
