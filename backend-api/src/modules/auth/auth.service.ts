@@ -97,12 +97,7 @@ async function listAvailableLocations(userId: string, tenant: SessionTenantConte
         })
       ).map((row) => row.locationId)
     } catch {
-      return rows
-        .filter((row) => !isInactiveLocationName(row.name))
-        .map((row) => ({
-          id: row.id,
-          name: tenant.id === DEFAULT_TENANT.id ? stripInactivePrefix(row.name) : stripInactivePrefix(stripTenantPrefix(tenant.code, row.name)),
-        }))
+      return []
     }
 
     if (!allowedLocationIds.length) {
