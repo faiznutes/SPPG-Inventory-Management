@@ -176,6 +176,7 @@ function exportCsv() {
     ['Penanggung Jawab', responsibleLine.value],
     ['Periode', periodLabel.value],
     ['Filter Kategori', activeTab.value],
+    ['Filter Kode Tenant', activeTenantCode.value === 'ALL' ? 'Semua' : activeTenantCode.value],
     ['Tanggal Export', today],
     [],
   ]
@@ -246,6 +247,7 @@ function exportPdfA4() {
         <p>Laporan: Transaksi Inventaris</p>
         <p>Periode: ${periodLabel.value}</p>
         <p>Filter Kategori: ${activeTab.value}</p>
+        <p>Filter Kode Tenant: ${activeTenantCode.value === 'ALL' ? 'Semua' : activeTenantCode.value}</p>
         <p>Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}</p>
         <table>
           <thead>

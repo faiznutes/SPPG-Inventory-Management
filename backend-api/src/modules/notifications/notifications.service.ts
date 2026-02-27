@@ -15,9 +15,10 @@ function toIso(date: Date) {
 }
 
 function displayLocationName(locationName: string, tenantCode?: string) {
-  if (!tenantCode) return locationName
+  const clean = locationName.replace(/^INACTIVE - /i, '')
+  if (!tenantCode) return clean
   const prefix = `${tenantCode}::`
-  return locationName.startsWith(prefix) ? locationName.slice(prefix.length) : locationName
+  return clean.startsWith(prefix) ? clean.slice(prefix.length) : clean
 }
 
 export async function listNotifications(tenantId?: string, activeLocationId?: string) {

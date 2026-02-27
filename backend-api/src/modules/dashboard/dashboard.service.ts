@@ -15,6 +15,10 @@ function displayLocationName(locationName: string, tenantCode?: string) {
   return locationName.startsWith(prefix) ? locationName.slice(prefix.length) : locationName
 }
 
+function isInactiveLocationName(name: string) {
+  return name.startsWith('INACTIVE - ') || name.includes('::INACTIVE - ')
+}
+
 export async function getDashboardSummary(tenantId?: string, activeLocationId?: string) {
   const today = toDateOnly(new Date())
   const suffix = tenantItemSuffix(tenantId)
@@ -70,6 +74,11 @@ export async function getDashboardSummary(tenantId?: string, activeLocationId?: 
             minStock: true,
           },
         },
+        location: {
+          select: {
+            name: true,
+          },
+        },
       },
     }),
     prisma.purchaseRequest.count({
@@ -113,7 +122,9 @@ export async function getDashboardSummary(tenantId?: string, activeLocationId?: 
     }),
   ])
 
-  const lowStockCount = stockRows.filter((row) => Number(row.qty) <= Number(row.item.minStock)).length
+  const lowStockCount = stockRows
+    .filter((row) => !isInactiveLocationName(row.location.name))
+    .filter((row) => Number(row.qty) <= Number(row.item.minStock)).length
 
   return {
     itemCount,
@@ -160,6 +171,7 @@ export async function getLowStockRows(tenantId?: string, activeLocationId?: stri
   })
 
   return rows
+    .filter((row) => !isInactiveLocationName(row.location.name))
     .filter((row) => Number(row.qty) <= Number(row.item.minStock))
     .sort((a, b) => Number(a.qty) - Number(b.qty))
     .slice(0, 20)
