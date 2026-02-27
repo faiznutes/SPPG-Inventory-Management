@@ -8,7 +8,7 @@ stocksRouter.use(requireAuth)
 
 stocksRouter.get('/', async (_req, res, next) => {
   try {
-    const data = await listStocks(_req.user?.tenantId)
+    const data = await listStocks(_req.user?.tenantId, _req.user?.activeLocationId)
     return res.json(data)
   } catch (error) {
     return next(error)

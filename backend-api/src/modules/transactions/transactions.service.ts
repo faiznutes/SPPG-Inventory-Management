@@ -50,6 +50,29 @@ async function ensureLocationActive(locationId: string) {
   }
 }
 
+function ensureActiveLocationContext(
+  input: CreateTransactionInput,
+  activeLocationId: string | undefined,
+) {
+  if (!activeLocationId) return
+
+  if (input.trxType === TransactionType.IN && input.toLocationId !== activeLocationId) {
+    throw new ApiError(403, 'FORBIDDEN', 'Transaksi IN harus menggunakan lokasi aktif.')
+  }
+
+  if (input.trxType === TransactionType.OUT && input.fromLocationId !== activeLocationId) {
+    throw new ApiError(403, 'FORBIDDEN', 'Transaksi OUT harus menggunakan lokasi aktif.')
+  }
+
+  if (input.trxType === TransactionType.ADJUST && input.fromLocationId !== activeLocationId) {
+    throw new ApiError(403, 'FORBIDDEN', 'Penyesuaian stok harus menggunakan lokasi aktif.')
+  }
+
+  if (input.trxType === TransactionType.TRANSFER && input.fromLocationId !== activeLocationId) {
+    throw new ApiError(403, 'FORBIDDEN', 'Transfer harus berasal dari lokasi aktif.')
+  }
+}
+
 async function getOrCreateStock(tx: PrismaNamespace.TransactionClient, itemId: string, locationId: string) {
   const existing = await tx.stock.findUnique({
     where: {
@@ -108,7 +131,7 @@ function validatePayload(input: CreateTransactionInput) {
   }
 }
 
-export async function listTransactions(query: ListTransactionsQuery = {}, tenantId?: string) {
+export async function listTransactions(query: ListTransactionsQuery = {}, tenantId?: string, activeLocationId?: string) {
   const suffix = tenantItemSuffix(tenantId)
   const tenantItems = await prisma.item.findMany({
     where: suffix
@@ -133,6 +156,11 @@ export async function listTransactions(query: ListTransactionsQuery = {}, tenant
       itemId: {
         in: tenantItemIds,
       },
+      ...(activeLocationId
+        ? {
+            OR: [{ fromLocationId: activeLocationId }, { toLocationId: activeLocationId }],
+          }
+        : {}),
       ...(query.trxType
         ? {
             trxType: query.trxType,
@@ -225,8 +253,14 @@ function endOfDay(date: Date) {
   return next
 }
 
-export async function createTransaction(input: CreateTransactionInput, actorUserId: string, tenantId?: string) {
+export async function createTransaction(
+  input: CreateTransactionInput,
+  actorUserId: string,
+  tenantId?: string,
+  activeLocationId?: string,
+) {
   validatePayload(input)
+  ensureActiveLocationContext(input, activeLocationId)
 
   if (!tenantId) {
     throw new ApiError(400, 'TENANT_CONTEXT_REQUIRED', 'Tenant aktif tidak ditemukan pada sesi pengguna.')
@@ -263,7 +297,11 @@ export async function createTransaction(input: CreateTransactionInput, actorUser
       const currentQty = Number(stock.qty)
 
       if (currentQty < input.qty) {
-        throw new ApiError(400, 'STOCK_INSUFFICIENT', 'Stok tidak mencukupi untuk transaksi OUT.')
+        throw new ApiError(
+          400,
+          'STOCK_INSUFFICIENT',
+          `Stok tidak mencukupi untuk transaksi OUT. Tersedia ${currentQty}, diminta ${input.qty}.`,
+        )
       }
 
       await tx.stock.update({
@@ -278,7 +316,11 @@ export async function createTransaction(input: CreateTransactionInput, actorUser
 
       const sourceQty = Number(source.qty)
       if (sourceQty < input.qty) {
-        throw new ApiError(400, 'STOCK_INSUFFICIENT', 'Stok asal tidak cukup untuk transfer.')
+        throw new ApiError(
+          400,
+          'STOCK_INSUFFICIENT',
+          `Stok asal tidak cukup untuk transfer. Tersedia ${sourceQty}, diminta ${input.qty}.`,
+        )
       }
 
       await tx.stock.update({
@@ -351,7 +393,12 @@ export async function createTransaction(input: CreateTransactionInput, actorUser
   }
 }
 
-export async function createBulkAdjustTransactions(input: BulkAdjustInput, actorUserId: string, tenantId?: string) {
+export async function createBulkAdjustTransactions(
+  input: BulkAdjustInput,
+  actorUserId: string,
+  tenantId?: string,
+  activeLocationId?: string,
+) {
   if (!tenantId) {
     throw new ApiError(400, 'TENANT_CONTEXT_REQUIRED', 'Tenant aktif tidak ditemukan pada sesi pengguna.')
   }
@@ -368,6 +415,11 @@ export async function createBulkAdjustTransactions(input: BulkAdjustInput, actor
 
   const itemIds = [...new Set(uniqueAdjustments.map((row) => row.itemId))]
   const locationIds = [...new Set(uniqueAdjustments.map((row) => row.locationId))]
+
+  if (activeLocationId && locationIds.some((locationId) => locationId !== activeLocationId)) {
+    throw new ApiError(403, 'FORBIDDEN', 'Bulk penyesuaian hanya boleh untuk lokasi aktif.')
+  }
+
   const items = await prisma.item.findMany({
     where: {
       id: { in: itemIds },

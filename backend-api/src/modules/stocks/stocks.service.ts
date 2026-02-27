@@ -11,10 +11,28 @@ function isInactiveLocationName(name: string) {
   return name.startsWith('INACTIVE - ') || name.includes('::INACTIVE - ')
 }
 
-export async function listStocks(tenantId?: string) {
+function displayLocationName(locationName: string, tenantCode?: string) {
+  if (!tenantCode) return locationName
+  const prefix = `${tenantCode}::`
+  return locationName.startsWith(prefix) ? locationName.slice(prefix.length) : locationName
+}
+
+export async function listStocks(tenantId?: string, activeLocationId?: string) {
   const suffix = tenantItemSuffix(tenantId)
+  const tenant = tenantId
+    ? await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { code: true },
+      })
+    : null
+
   const rows = await prisma.stock.findMany({
     where: {
+      ...(activeLocationId
+        ? {
+            locationId: activeLocationId,
+          }
+        : {}),
       item: {
         isActive: true,
         ...(suffix
@@ -47,7 +65,7 @@ export async function listStocks(tenantId?: string) {
       unit: row.item.unit,
       minStock,
       locationId: row.locationId,
-      locationName: row.location.name,
+      locationName: displayLocationName(row.location.name, tenant?.code),
       qty,
       status: stockStatus(qty, minStock),
       updatedAt: row.updatedAt,
