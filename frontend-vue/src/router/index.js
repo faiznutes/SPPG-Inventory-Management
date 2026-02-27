@@ -81,7 +81,7 @@ const routes = [
         component: SettingsPage,
         meta: {
           title: 'Pengaturan',
-          allowedRoles: ['SUPER_ADMIN', 'ADMIN'],
+          allowedRoles: ['SUPER_ADMIN'],
           requiresEdit: true,
         },
       },

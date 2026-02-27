@@ -52,7 +52,7 @@ const menus = [
     name: 'Pengaturan',
     path: '/settings',
     icon: 'settings',
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    roles: ['SUPER_ADMIN'],
     requiresEdit: true,
   },
 ]
