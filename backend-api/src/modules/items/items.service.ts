@@ -116,7 +116,22 @@ export async function createItem(input: CreateItemInput, actorUserId: string, te
         },
       })
 
-      const locations = await tx.location.findMany({ select: { id: true } })
+      const tenant = await tx.tenant.findUnique({
+        where: { id: tenantId },
+        select: { code: true },
+      })
+      if (!tenant) {
+        throw new ApiError(400, 'TENANT_CONTEXT_REQUIRED', 'Tenant aktif tidak ditemukan pada sesi pengguna.')
+      }
+
+      const locations = await tx.location.findMany({
+        where: {
+          name: {
+            startsWith: `${tenant.code}::`,
+          },
+        },
+        select: { id: true },
+      })
       if (locations.length) {
         await tx.stock.createMany({
           data: locations.map((location) => ({

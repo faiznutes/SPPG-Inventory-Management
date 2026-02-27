@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { prisma } from '../../lib/prisma.js'
 import { ApiError } from '../../utils/api-error.js'
+import { tenantItemSuffix } from '../../utils/item-scope.js'
 
 type CreateTenantInput = {
   name: string
@@ -1016,7 +1017,14 @@ export async function addTenantLocation(actorUserId: string, tenantId: string, i
         },
       })
 
-      const items = await tx.item.findMany({ select: { id: true } })
+      const items = await tx.item.findMany({
+        where: {
+          name: {
+            endsWith: tenantItemSuffix(tenant.id),
+          },
+        },
+        select: { id: true },
+      })
       if (items.length) {
         await tx.stock.createMany({
           data: items.map((item) => ({
