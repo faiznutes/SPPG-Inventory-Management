@@ -77,6 +77,21 @@ const entityTypeOptions = [
 
 const canFilterTenant = computed(() => authStore.user?.role === 'SUPER_ADMIN')
 const totalPages = computed(() => Math.max(1, Math.ceil((pagination.total || 0) / pagination.pageSize)))
+const activeFilterEntries = computed(() => {
+  const entries = []
+  if (filters.fromDate) entries.push({ key: 'fromDate', label: `Dari: ${filters.fromDate}` })
+  if (filters.toDate) entries.push({ key: 'toDate', label: `Sampai: ${filters.toDate}` })
+  if (filters.tenantId && canFilterTenant.value) {
+    const tenantName = tenantOptions.value.find((item) => item.id === filters.tenantId)?.name || filters.tenantId
+    entries.push({ key: 'tenantId', label: `Tenant: ${tenantName}` })
+  }
+  if (filters.entityType) entries.push({ key: 'entityType', label: `Entity: ${filters.entityType}` })
+  if (filters.entityId) entries.push({ key: 'entityId', label: `Entity ID: ${filters.entityId}` })
+  if (filters.action) entries.push({ key: 'action', label: `Action: ${filters.action}` })
+  if (filters.actorUserId) entries.push({ key: 'actorUserId', label: `Actor: ${filters.actorUserId}` })
+  return entries
+})
+const activeFilterCount = computed(() => activeFilterEntries.value.length)
 const exportRangeWarning = computed(() => {
   if (!filters.fromDate || !filters.toDate) return ''
   const from = new Date(`${filters.fromDate}T00:00:00.000Z`)
@@ -232,6 +247,15 @@ function openShareLinkInNewTab() {
 async function resetToDefaultRange() {
   quickDays.value = 7
   await applyQuickRange(7)
+}
+
+async function clearSingleFilter(key) {
+  if (!(key in filters)) return
+  filters[key] = ''
+  pagination.page = 1
+  persistFilters()
+  syncQuery()
+  await Promise.all([loadData(), loadStats()])
 }
 
 function restoreFilters() {
@@ -460,6 +484,19 @@ onMounted(async () => {
         <button class="rounded-lg border border-sky-200 px-3 py-2 text-sm font-semibold text-sky-700" @click="resetToDefaultRange">Reset Default 7 Hari</button>
         <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" @click="resetFilters">Reset</button>
         <button class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white" @click="applyFilters">Terapkan Filter</button>
+      </div>
+
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        <span class="text-xs font-semibold text-slate-500">Filter aktif: {{ activeFilterCount }}</span>
+        <span v-if="activeFilterCount === 0" class="text-xs text-slate-400">Belum ada filter aktif</span>
+        <span
+          v-for="entry in activeFilterEntries"
+          :key="`active-${entry.key}`"
+          class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700"
+        >
+          {{ entry.label }}
+          <button class="rounded-full bg-slate-200 px-1 text-[10px] leading-none text-slate-700" @click="clearSingleFilter(entry.key)">x</button>
+        </span>
       </div>
     </section>
 
