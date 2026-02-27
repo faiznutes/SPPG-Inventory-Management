@@ -525,6 +525,33 @@ async function importPresetsFromJson(event) {
       return
     }
 
+    const existingNames = new Set(presetOptions.value.map((item) => item.name.toLowerCase()))
+    const overwriteCount = normalized.filter((item) => existingNames.has(item.name.toLowerCase())).length
+    const newCount = normalized.length - overwriteCount
+    const incomingDefaultCount = normalized.filter((item) => item.isDefault).length
+    const previewNames = normalized.slice(0, 5).map((item) => `- ${item.name}`).join('\n')
+    const previewText = [
+      `File: ${file.name}`,
+      `Total preset terdeteksi: ${normalized.length}`,
+      `Preset baru: ${newCount}`,
+      `Preset overwrite: ${overwriteCount}`,
+      `Preset default di file: ${incomingDefaultCount}`,
+      '',
+      'Contoh preset:',
+      previewNames || '- (kosong)',
+      normalized.length > 5 ? `...dan ${normalized.length - 5} preset lainnya` : '',
+      '',
+      'Lanjutkan import?',
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    const shouldContinue = window.confirm(previewText)
+    if (!shouldContinue) {
+      notifications.showPopup('Import dibatalkan', 'Preset tidak diubah.', 'info')
+      return
+    }
+
     const byName = new Map(presetOptions.value.map((item) => [item.name.toLowerCase(), item]))
     for (const item of normalized) {
       byName.set(item.name.toLowerCase(), item)
