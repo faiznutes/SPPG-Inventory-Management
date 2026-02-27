@@ -132,7 +132,7 @@ function isMissingTenantMembershipTable(error: unknown) {
   return Boolean((error as { code?: string })?.code === 'P2021')
 }
 
-async function listTenantMemberships(userId: string, sessionRole = 'ADMIN') {
+async function listTenantMemberships(userId: string, sessionRole = 'ADMIN', preferredTenantId?: string) {
   if (sessionRole === 'SUPER_ADMIN') {
     try {
       const tenants = await prisma.tenant.findMany({
@@ -160,7 +160,7 @@ async function listTenantMemberships(userId: string, sessionRole = 'ADMIN') {
         jabatan: 'Owner',
         canView: true,
         canEdit: true,
-        isDefault: index === 0,
+        isDefault: preferredTenantId ? tenant.id === preferredTenantId : index === 0,
       }))
     } catch {
       return []
@@ -206,7 +206,7 @@ async function listTenantMemberships(userId: string, sessionRole = 'ADMIN') {
 }
 
 async function getDefaultTenantContext(userId: string, fallbackRole = 'ADMIN', preferredTenantId?: string) {
-  const memberships = await listTenantMemberships(userId, fallbackRole)
+  const memberships = await listTenantMemberships(userId, fallbackRole, preferredTenantId)
   const preferred = preferredTenantId ? memberships.find((membership) => membership.id === preferredTenantId) : null
   return (preferred || memberships[0] || { ...DEFAULT_TENANT, role: fallbackRole }) as SessionTenantContext
 }
@@ -258,7 +258,7 @@ export async function login(input: LoginInput) {
   const sessionIsSuperAdmin = isSessionSuperAdmin({ role: user.role, username: user.username })
   const tenant = await getDefaultTenantContext(user.id, sessionRole)
 
-  const memberships = await listTenantMemberships(user.id, sessionRole)
+  const memberships = await listTenantMemberships(user.id, sessionRole, tenant.id)
   const availableLocations = await listAvailableLocations(user.id, tenant as SessionTenantContext, sessionRole)
   const activeLocationId = availableLocations[0]?.id
 
@@ -406,7 +406,7 @@ export async function me(userId: string, tenantId?: string) {
   const sessionRole = resolveSessionRole({ role: user.role, username: user.username })
   const sessionIsSuperAdmin = isSessionSuperAdmin({ role: user.role, username: user.username })
   const tenant = await getDefaultTenantContext(user.id, sessionRole, tenantId)
-  const memberships = await listTenantMemberships(user.id, sessionRole)
+  const memberships = await listTenantMemberships(user.id, sessionRole, tenant.id)
   const availableTenants = memberships.length ? memberships : [{ ...DEFAULT_TENANT, role: sessionRole, isDefault: true }]
   const availableLocations = await listAvailableLocations(user.id, tenant as SessionTenantContext, sessionRole)
   const activeLocationId = availableLocations[0]?.id || null
@@ -518,7 +518,7 @@ export async function selectTenant(userId: string, tenantId: string) {
         activeLocationId: activeLocationId || null,
         availableLocations,
         isSuperAdmin: sessionIsSuperAdmin,
-        availableTenants: await listTenantMemberships(user.id, sessionRole),
+        availableTenants: await listTenantMemberships(user.id, sessionRole, tenant.id),
       },
     }
   }
@@ -665,7 +665,7 @@ export async function selectTenant(userId: string, tenantId: string) {
       activeLocationId: activeLocationId || null,
       availableLocations,
       isSuperAdmin: sessionIsSuperAdmin,
-      availableTenants: await listTenantMemberships(user.id, sessionRole),
+      availableTenants: await listTenantMemberships(user.id, sessionRole, membership.tenant.id),
     },
   }
 }
@@ -689,7 +689,7 @@ export async function selectLocation(userId: string, locationId: string, tenantI
   const sessionRole = resolveSessionRole({ role: user.role, username: user.username })
   const tenant = await getDefaultTenantContext(user.id, sessionRole, tenantId)
   const sessionIsSuperAdmin = isSessionSuperAdmin({ role: user.role, username: user.username })
-  const availableTenants = await listTenantMemberships(user.id, sessionRole)
+  const availableTenants = await listTenantMemberships(user.id, sessionRole, tenant.id)
   const availableLocations = await listAvailableLocations(user.id, tenant as SessionTenantContext, sessionRole)
 
   if (!availableLocations.some((location) => location.id === locationId)) {
