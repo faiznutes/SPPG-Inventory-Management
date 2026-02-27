@@ -29,6 +29,12 @@ const menus = [
   { name: 'Monitoring Checklist', path: '/checklists/monitoring', icon: 'monitoring' },
   { name: 'Permintaan Pembelian', path: '/purchase-requests', icon: 'description' },
   {
+    name: 'Audit Log',
+    path: '/audit-logs',
+    icon: 'history',
+    roles: ['SUPER_ADMIN', 'ADMIN'],
+  },
+  {
     name: 'Kategori',
     path: '/master/categories',
     icon: 'category',

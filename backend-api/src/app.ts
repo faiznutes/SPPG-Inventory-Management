@@ -15,6 +15,7 @@ import { purchaseRequestsRouter } from './modules/purchase-requests/purchase-req
 import { notificationsRouter } from './modules/notifications/notifications.routes.js'
 import { dashboardRouter } from './modules/dashboard/dashboard.routes.js'
 import { tenantsRouter } from './modules/tenants/tenants.routes.js'
+import { auditLogsRouter } from './modules/audit-logs/audit-logs.routes.js'
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js'
 import { env } from './config/env.js'
 
@@ -77,6 +78,7 @@ app.use('/api/v1/purchase-requests', purchaseRequestsRouter)
 app.use('/api/v1/notifications', notificationsRouter)
 app.use('/api/v1/dashboard', dashboardRouter)
 app.use('/api/v1/tenants', tenantsRouter)
+app.use('/api/v1/audit-logs', auditLogsRouter)
 
 app.use(notFoundHandler)
 app.use(errorHandler)

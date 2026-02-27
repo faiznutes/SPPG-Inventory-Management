@@ -340,8 +340,8 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  listItems: (accessToken) =>
-    request('/items', {
+  listItems: (accessToken, query = {}) =>
+    request(withQuery('/items', query), {
       headers: authHeader(accessToken),
     }),
 
@@ -447,6 +447,16 @@ export const api = {
 
   listNotifications: (accessToken) =>
     request('/notifications', {
+      headers: authHeader(accessToken),
+    }),
+
+  listAuditLogs: (accessToken, query = {}) =>
+    request(withQuery('/audit-logs', query), {
+      headers: authHeader(accessToken),
+    }),
+
+  getAuditLogDetail: (accessToken, id) =>
+    request(`/audit-logs/${id}`, {
       headers: authHeader(accessToken),
     }),
 

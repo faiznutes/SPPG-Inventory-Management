@@ -41,7 +41,7 @@ const bulkItemForm = reactive({
   type: '',
 })
 
-const canCreateProduct = computed(() => authStore.canEditTenantData && ['SUPER_ADMIN', 'ADMIN'].includes(authStore.user?.role || ''))
+const canCreateProduct = computed(() => authStore.canEditTenantData && ['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(authStore.user?.role || ''))
 
 const selectedCategoryLabel = computed(() => {
   if (!createItemForm.categoryId) return 'Tanpa kategori'
@@ -146,7 +146,7 @@ function clearStockSelection() {
 
 function openBulkAdjustModal() {
   if (!selectedStockIds.value.length) {
-    notifications.showPopup('Belum ada pilihan', 'Pilih minimal 1 baris stok untuk bulk penyesuaian.', 'error')
+    notifications.showPopup('Belum ada pilihan', 'Pilih minimal 1 baris stok untuk penyesuaian terpilih.', 'error')
     return
   }
 
@@ -162,7 +162,7 @@ async function submitBulkAdjustStock() {
   try {
     const reason = bulkAdjustForm.reason.trim()
     if (!reason) {
-      notifications.showPopup('Alasan wajib', 'Isi alasan untuk bulk penyesuaian stok.', 'error')
+      notifications.showPopup('Alasan wajib', 'Isi alasan untuk penyesuaian stok terpilih.', 'error')
       return
     }
 
@@ -186,10 +186,10 @@ async function submitBulkAdjustStock() {
 
     showBulkAdjustModal.value = false
     clearStockSelection()
-    notifications.showPopup('Bulk penyesuaian berhasil', 'Perubahan stok massal berhasil diproses.', 'success')
+    notifications.showPopup('Penyesuaian terpilih berhasil', 'Perubahan stok terpilih berhasil diproses.', 'success')
     await loadData()
   } catch (error) {
-    notifications.showPopup('Bulk penyesuaian gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+    notifications.showPopup('Penyesuaian terpilih gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
 }
 
@@ -203,7 +203,7 @@ function resetBulkItemForm() {
 
 function openBulkItemModal() {
   if (!canCreateProduct.value) {
-    notifications.showPopup('Akses ditolak', 'Role kamu belum memiliki akses aksi bulk produk.', 'error')
+    notifications.showPopup('Akses ditolak', 'Role kamu belum memiliki akses aksi pilih produk.', 'error')
     return
   }
 
@@ -225,7 +225,7 @@ function toggleBulkItemSelection(itemId) {
 async function submitBulkItemAction() {
   try {
     if (!selectedItemIds.value.length) {
-      notifications.showPopup('Belum ada item', 'Pilih minimal satu item untuk aksi bulk.', 'error')
+      notifications.showPopup('Belum ada item', 'Pilih minimal satu item untuk aksi pilihan.', 'error')
       return
     }
 
@@ -239,7 +239,7 @@ async function submitBulkItemAction() {
       if (bulkItemForm.type) payload.type = bulkItemForm.type
 
       if (!Object.keys(payload).length) {
-        notifications.showPopup('Field update kosong', 'Isi minimal satu field untuk bulk update item.', 'error')
+        notifications.showPopup('Field update kosong', 'Isi minimal satu field untuk update item terpilih.', 'error')
         return
       }
     }
@@ -251,10 +251,10 @@ async function submitBulkItemAction() {
     })
 
     showBulkItemModal.value = false
-    notifications.showPopup('Bulk item selesai', result.message || 'Aksi bulk item berhasil diproses.', 'success')
+    notifications.showPopup('Aksi pilihan selesai', result.message || 'Aksi item terpilih berhasil diproses.', 'success')
     await loadData()
   } catch (error) {
-    notifications.showPopup('Bulk item gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+    notifications.showPopup('Aksi pilihan gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
 }
 
@@ -407,7 +407,7 @@ onMounted(async () => {
           class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
           @click="openBulkAdjustModal"
         >
-          Bulk Penyesuaian ({{ selectedStockIds.length }})
+          Penyesuaian Pilihan ({{ selectedStockIds.length }})
         </button>
         <button
           v-if="selectedStockIds.length"
@@ -421,7 +421,7 @@ onMounted(async () => {
           class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
           @click="openBulkItemModal"
         >
-          Bulk Produk
+          Pilih Produk
         </button>
         <button
           v-if="canCreateProduct"
@@ -543,16 +543,16 @@ onMounted(async () => {
       </form>
     </BaseModal>
 
-    <BaseModal :show="showBulkAdjustModal" title="Bulk Penyesuaian Stok" max-width-class="max-w-3xl" @close="showBulkAdjustModal = false">
+    <BaseModal :show="showBulkAdjustModal" title="Penyesuaian Stok Terpilih" max-width-class="max-w-3xl" @close="showBulkAdjustModal = false">
       <form class="space-y-3" @submit.prevent="submitBulkAdjustStock">
         <p class="text-sm text-slate-600">Isi perubahan qty untuk beberapa baris stok sekaligus. Nilai positif menambah, negatif mengurangi.</p>
 
         <label class="block">
-          <span class="mb-1 block text-sm font-semibold text-slate-700">Alasan Bulk</span>
+          <span class="mb-1 block text-sm font-semibold text-slate-700">Alasan Penyesuaian</span>
           <textarea
             v-model="bulkAdjustForm.reason"
             class="min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            placeholder="Contoh: Stock opname akhir minggu"
+            placeholder="Contoh: Stock opname akhir minggu (item terpilih)"
             required
           />
         </label>
@@ -579,7 +579,7 @@ onMounted(async () => {
           <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="showBulkAdjustModal = false">
             Batal
           </button>
-          <button type="submit" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white">Terapkan Bulk</button>
+          <button type="submit" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white">Terapkan Pilihan</button>
         </div>
       </form>
     </BaseModal>
@@ -670,17 +670,17 @@ onMounted(async () => {
       </div>
     </BaseModal>
 
-    <BaseModal :show="showBulkItemModal" title="Bulk Aksi Produk" max-width-class="max-w-2xl" @close="showBulkItemModal = false">
+    <BaseModal :show="showBulkItemModal" title="Aksi Produk Terpilih" max-width-class="max-w-2xl" @close="showBulkItemModal = false">
       <form class="space-y-3" @submit.prevent="submitBulkItemAction">
-        <p class="text-sm text-slate-600">Pilih item produk lalu terapkan aksi bulk.</p>
+        <p class="text-sm text-slate-600">Pilih item produk lalu terapkan aksi pilihan.</p>
 
         <label class="block">
-          <span class="mb-1 block text-sm font-semibold text-slate-700">Aksi Bulk</span>
+          <span class="mb-1 block text-sm font-semibold text-slate-700">Aksi Pilihan</span>
           <select v-model="bulkAction" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
             <option value="DEACTIVATE">Nonaktifkan Item</option>
             <option value="ACTIVATE">Aktifkan Item</option>
             <option value="DELETE">Hapus (Soft Delete)</option>
-            <option value="UPDATE">Bulk Edit Field</option>
+            <option value="UPDATE">Ubah Field Terpilih</option>
           </select>
         </label>
 
@@ -743,7 +743,7 @@ onMounted(async () => {
           <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="showBulkItemModal = false">
             Batal
           </button>
-          <button type="submit" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white">Terapkan Bulk</button>
+          <button type="submit" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white">Terapkan Pilihan</button>
         </div>
       </form>
     </BaseModal>

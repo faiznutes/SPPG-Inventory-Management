@@ -1,6 +1,7 @@
 import { Prisma } from '../../lib/prisma-client.js'
 import { prisma } from '../../lib/prisma.js'
 import { ApiError } from '../../utils/api-error.js'
+import { fromTenantScopedItemName, tenantItemSuffix, toTenantScopedItemName } from '../../utils/item-scope.js'
 
 type CreateItemInput = {
   name: string
@@ -22,8 +23,27 @@ type BulkItemUpdatePayload = {
   type?: 'CONSUMABLE' | 'ASSET' | 'GAS'
 }
 
-export async function listItems() {
+export async function listItems(tenantId: string | undefined, isSuperAdmin: boolean, includeInactive: boolean) {
+  if (includeInactive && !isSuperAdmin) {
+    throw new ApiError(403, 'FORBIDDEN', 'Hanya super admin yang dapat melihat item nonaktif.')
+  }
+
+  const suffix = tenantItemSuffix(tenantId)
   const items = await prisma.item.findMany({
+    where: {
+      ...(suffix
+        ? {
+            name: {
+              endsWith: suffix,
+            },
+          }
+        : {}),
+      ...(includeInactive
+        ? {}
+        : {
+            isActive: true,
+          }),
+    },
     include: {
       category: true,
     },
@@ -32,7 +52,7 @@ export async function listItems() {
 
   return items.map((item) => ({
     id: item.id,
-    name: item.name,
+    name: fromTenantScopedItemName(item.name),
     sku: item.sku,
     type: item.type,
     unit: item.unit,
@@ -48,13 +68,31 @@ export async function listItems() {
   }))
 }
 
-export async function createItem(input: CreateItemInput, actorUserId: string) {
+export async function createItem(input: CreateItemInput, actorUserId: string, tenantId?: string) {
+  if (!tenantId) {
+    throw new ApiError(400, 'TENANT_CONTEXT_REQUIRED', 'Tenant aktif tidak ditemukan pada sesi pengguna.')
+  }
+
   const name = input.name.trim()
+  const scopedName = toTenantScopedItemName(name, tenantId)
   const unit = input.unit.trim()
   const sku = input.sku?.trim() || undefined
 
   if (name.length < 2) {
     throw new ApiError(400, 'ITEM_NAME_INVALID', 'Nama item minimal 2 karakter.')
+  }
+
+  const duplicateName = await prisma.item.findFirst({
+    where: {
+      name: scopedName,
+    },
+    select: {
+      id: true,
+    },
+  })
+
+  if (duplicateName) {
+    throw new ApiError(409, 'ITEM_EXISTS', 'Nama item sudah ada pada tenant ini.')
   }
 
   if (!unit) {
@@ -65,7 +103,7 @@ export async function createItem(input: CreateItemInput, actorUserId: string) {
     const item = await prisma.$transaction(async (tx) => {
       const created = await tx.item.create({
         data: {
-          name,
+          name: scopedName,
           sku,
           categoryId: input.categoryId,
           type: input.type,
@@ -93,6 +131,7 @@ export async function createItem(input: CreateItemInput, actorUserId: string) {
       await tx.auditLog.create({
         data: {
           actorUserId,
+          tenantId,
           entityType: 'items',
           entityId: created.id,
           action: 'CREATE',
@@ -110,7 +149,7 @@ export async function createItem(input: CreateItemInput, actorUserId: string) {
 
     return {
       id: item.id,
-      name: item.name,
+      name: fromTenantScopedItemName(item.name),
       sku: item.sku,
       type: item.type,
       unit: item.unit,
@@ -141,22 +180,32 @@ export async function createItem(input: CreateItemInput, actorUserId: string) {
 
 export async function bulkItemAction(
   actorUserId: string,
+  tenantId: string | undefined,
   ids: string[],
   action: BulkItemAction,
   payload?: BulkItemUpdatePayload,
 ) {
+  if (!tenantId) {
+    throw new ApiError(400, 'TENANT_CONTEXT_REQUIRED', 'Tenant aktif tidak ditemukan pada sesi pengguna.')
+  }
+
   const uniqueIds = [...new Set(ids)]
   if (!uniqueIds.length) {
-    throw new ApiError(400, 'BULK_ITEMS_EMPTY', 'Pilih minimal satu item untuk aksi bulk.')
+    throw new ApiError(400, 'BULK_ITEMS_EMPTY', 'Pilih minimal satu item untuk aksi pilihan.')
   }
 
   const items = await prisma.item.findMany({
-    where: { id: { in: uniqueIds } },
+    where: {
+      id: { in: uniqueIds },
+      name: {
+        endsWith: tenantItemSuffix(tenantId),
+      },
+    },
     select: { id: true, name: true, isActive: true },
   })
 
   if (!items.length) {
-    throw new ApiError(404, 'ITEMS_NOT_FOUND', 'Item tidak ditemukan untuk aksi bulk.')
+    throw new ApiError(404, 'ITEMS_NOT_FOUND', 'Item tidak ditemukan untuk aksi pilihan.')
   }
 
   const foundIds = new Set(items.map((item) => item.id))
@@ -165,13 +214,27 @@ export async function bulkItemAction(
   await prisma.$transaction(async (tx) => {
     if (action === 'ACTIVATE') {
       await tx.item.updateMany({
-        where: { id: { in: uniqueIds } },
+        where: { id: { in: items.map((item) => item.id) } },
         data: { isActive: true },
       })
-    } else if (action === 'DEACTIVATE' || action === 'DELETE') {
+    } else if (action === 'DEACTIVATE') {
       await tx.item.updateMany({
-        where: { id: { in: uniqueIds } },
+        where: { id: { in: items.map((item) => item.id) } },
         data: { isActive: false },
+      })
+    } else if (action === 'DELETE') {
+      const targetIds = items.map((item) => item.id)
+      await tx.asset.deleteMany({
+        where: { itemId: { in: targetIds } },
+      })
+      await tx.stock.deleteMany({
+        where: { itemId: { in: targetIds } },
+      })
+      await tx.inventoryTransaction.deleteMany({
+        where: { itemId: { in: targetIds } },
+      })
+      await tx.item.deleteMany({
+        where: { id: { in: targetIds } },
       })
     } else {
       const data: {
@@ -189,7 +252,7 @@ export async function bulkItemAction(
       if (payload?.type !== undefined) data.type = payload.type
 
       await tx.item.updateMany({
-        where: { id: { in: uniqueIds } },
+        where: { id: { in: items.map((item) => item.id) } },
         data,
       })
     }
@@ -197,6 +260,7 @@ export async function bulkItemAction(
     await tx.auditLog.create({
       data: {
         actorUserId,
+        tenantId,
         entityType: 'items',
         entityId: 'bulk',
         action: `BULK_${action}`,
@@ -211,7 +275,7 @@ export async function bulkItemAction(
 
   return {
     code: 'ITEM_BULK_ACTION_COMPLETED',
-    message: `Aksi bulk item selesai. Diproses: ${items.length}, tidak ditemukan: ${missingIds.length}.`,
+    message: `Aksi item terpilih selesai. Diproses: ${items.length}, tidak ditemukan: ${missingIds.length}.`,
     action,
     affectedCount: items.length,
     missingIds,

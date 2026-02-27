@@ -7,6 +7,7 @@ import PDFDocument from 'pdfkit'
 import { prisma } from '../../lib/prisma.js'
 import { env } from '../../config/env.js'
 import { ApiError } from '../../utils/api-error.js'
+import { fromTenantScopedItemName, tenantItemSuffix } from '../../utils/item-scope.js'
 
 const DEFAULT_TEMPLATE_NAME = 'Checklist Harian Operasional'
 const DEFAULT_TEMPLATE_ITEMS = [
@@ -402,6 +403,8 @@ async function buildChecklistMonitoringData(tenantId: string | undefined, query:
 
   const templateName = tenant?.code ? `${DEFAULT_TEMPLATE_NAME} - ${tenant.code}` : DEFAULT_TEMPLATE_NAME
 
+  const suffix = tenantItemSuffix(tenantId)
+
   const [runs, activeItems] = await Promise.all([
     prisma.checklistRun.findMany({
       where: {
@@ -423,6 +426,13 @@ async function buildChecklistMonitoringData(tenantId: string | undefined, query:
     prisma.item.findMany({
       where: {
         isActive: true,
+        ...(suffix
+          ? {
+              name: {
+                endsWith: suffix,
+              },
+            }
+          : {}),
       },
       select: {
         name: true,
@@ -435,7 +445,7 @@ async function buildChecklistMonitoringData(tenantId: string | undefined, query:
   ])
 
   const expectedTitles = (activeItems.length
-    ? activeItems.map((item) => encodeChecklistTitle(item.type, item.name))
+    ? activeItems.map((item) => encodeChecklistTitle(item.type, fromTenantScopedItemName(item.name)))
     : DEFAULT_TEMPLATE_ITEMS.map((item) => encodeChecklistTitle(item.itemType, item.title))
   ).sort((a, b) => a.localeCompare(b))
 
@@ -545,6 +555,7 @@ export async function getChecklistMonitoring(userId: string, tenantId: string | 
   await prisma.auditLog.create({
     data: {
       actorUserId: userId,
+      tenantId,
       entityType: 'checklist_monitoring',
       entityId: tenantId || 'global',
       action: 'VIEW',
@@ -573,6 +584,13 @@ export async function getTodayChecklist(userId: string, tenantId?: string) {
   const tenantItems = await prisma.item.findMany({
     where: {
       isActive: true,
+      ...(tenantItemSuffix(tenantId)
+        ? {
+            name: {
+              endsWith: tenantItemSuffix(tenantId),
+            },
+          }
+        : {}),
     },
     orderBy: { name: 'asc' },
     select: {
@@ -582,7 +600,7 @@ export async function getTodayChecklist(userId: string, tenantId?: string) {
   })
 
   const expectedTitles = (tenantItems.length
-    ? tenantItems.map((item) => encodeChecklistTitle(item.type, item.name))
+    ? tenantItems.map((item) => encodeChecklistTitle(item.type, fromTenantScopedItemName(item.name)))
     : DEFAULT_TEMPLATE_ITEMS.map((item) => encodeChecklistTitle(item.itemType, item.title))
   ).sort((a, b) => a.localeCompare(b))
 
@@ -676,7 +694,7 @@ type SubmitChecklistInput = {
   }>
 }
 
-export async function submitChecklist(userId: string, input: SubmitChecklistInput) {
+export async function submitChecklist(userId: string, tenantId: string | undefined, input: SubmitChecklistInput) {
   const run = await prisma.checklistRun.findUnique({
     where: { id: input.runId },
     include: { items: true },
@@ -720,6 +738,7 @@ export async function submitChecklist(userId: string, input: SubmitChecklistInpu
     await tx.auditLog.create({
       data: {
         actorUserId: userId,
+        tenantId,
         entityType: 'checklist_runs',
         entityId: input.runId,
         action: 'SUBMIT',
@@ -829,6 +848,7 @@ export async function sendChecklistExportToTelegram(userId: string, tenantId: st
   await prisma.auditLog.create({
     data: {
       actorUserId: userId,
+      tenantId,
       entityType: 'checklist_exports',
       entityId: run.id,
       action: 'SEND_TELEGRAM',
@@ -900,6 +920,7 @@ export async function sendChecklistMonitoringExportToTelegram(
   await prisma.auditLog.create({
     data: {
       actorUserId: userId,
+      tenantId,
       entityType: 'checklist_monitoring_exports',
       entityId: tenantId,
       action: 'SEND_TELEGRAM',

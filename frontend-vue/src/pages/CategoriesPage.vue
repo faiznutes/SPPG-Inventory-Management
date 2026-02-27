@@ -72,11 +72,11 @@ async function toggleCategoryStatus(row) {
 
 async function applyBulkAction() {
   if (!selectedIds.value.length) {
-    notifications.showPopup('Belum ada pilihan', 'Pilih minimal 1 kategori untuk aksi bulk.', 'error')
+    notifications.showPopup('Belum ada pilihan', 'Pilih minimal 1 kategori untuk aksi pilihan.', 'error')
     return
   }
 
-  const ok = window.confirm(`Terapkan aksi bulk ${bulkAction.value} untuk ${selectedIds.value.length} kategori?`)
+  const ok = window.confirm(`Terapkan aksi pilihan ${bulkAction.value} untuk ${selectedIds.value.length} kategori?`)
   if (!ok) return
 
   try {
@@ -88,14 +88,14 @@ async function applyBulkAction() {
 
     if (result.failedCount > 0) {
       const firstFailure = result.failures?.[0]?.message || 'Sebagian kategori gagal diproses.'
-      notifications.showPopup('Bulk selesai sebagian', `${result.message} ${firstFailure}`, 'error')
+      notifications.showPopup('Aksi pilihan selesai sebagian', `${result.message} ${firstFailure}`, 'error')
     } else {
-      notifications.showPopup('Bulk berhasil', result.message, 'success')
+      notifications.showPopup('Aksi pilihan berhasil', result.message, 'success')
     }
     clearSelection()
     await loadCategories()
   } catch (error) {
-    notifications.showPopup('Bulk kategori gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+    notifications.showPopup('Aksi kategori terpilih gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
 }
 
@@ -208,17 +208,17 @@ onMounted(async () => {
           v-model="bulkAction"
           class="rounded-lg border border-slate-200 px-2 py-2 text-sm font-semibold text-slate-700"
         >
-          <option value="DEACTIVATE">Bulk Nonaktifkan</option>
-          <option value="ACTIVATE">Bulk Aktifkan</option>
-          <option value="DELETE">Bulk Hapus</option>
-          <option value="UPDATE">Bulk Ubah Tipe</option>
+          <option value="DEACTIVATE">Nonaktifkan Terpilih</option>
+          <option value="ACTIVATE">Aktifkan Terpilih</option>
+          <option value="DELETE">Hapus Terpilih</option>
+          <option value="UPDATE">Ubah Tipe Terpilih</option>
         </select>
         <button
           v-if="canManageCategories && selectedIds.length"
           class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
           @click="applyBulkAction"
         >
-          Terapkan Bulk ({{ selectedIds.length }})
+          Terapkan Pilihan ({{ selectedIds.length }})
         </button>
         <button
           v-if="canManageCategories && selectedIds.length"

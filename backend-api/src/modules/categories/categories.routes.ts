@@ -34,7 +34,7 @@ categoriesRouter.get('/', async (req, res, next) => {
 categoriesRouter.post('/', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req, res, next) => {
   try {
     const body = createCategorySchema.parse(req.body)
-    const data = await createCategory(req.user!.id, body)
+    const data = await createCategory(req.user!.id, req.user!.tenantId, body)
     return res.status(201).json(data)
   } catch (error) {
     return next(error)
@@ -44,7 +44,7 @@ categoriesRouter.post('/', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req, re
 categoriesRouter.patch('/:id', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req, res, next) => {
   try {
     const body = updateCategorySchema.parse(req.body)
-    const data = await updateCategory(req.user!.id, String(req.params.id), body)
+    const data = await updateCategory(req.user!.id, req.user!.tenantId, String(req.params.id), body)
     return res.json(data)
   } catch (error) {
     return next(error)
@@ -53,7 +53,7 @@ categoriesRouter.patch('/:id', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req
 
 categoriesRouter.delete('/:id', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req, res, next) => {
   try {
-    const data = await deleteCategory(req.user!.id, String(req.params.id))
+    const data = await deleteCategory(req.user!.id, req.user!.tenantId, String(req.params.id))
     return res.json(data)
   } catch (error) {
     return next(error)
@@ -63,7 +63,7 @@ categoriesRouter.delete('/:id', requireRole(['SUPER_ADMIN', 'ADMIN']), async (re
 categoriesRouter.patch('/:id/status', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req, res, next) => {
   try {
     const body = updateCategoryStatusSchema.parse(req.body)
-    const data = await updateCategoryStatus(req.user!.id, String(req.params.id), body.isActive)
+    const data = await updateCategoryStatus(req.user!.id, req.user!.tenantId, String(req.params.id), body.isActive)
     return res.json(data)
   } catch (error) {
     return next(error)
@@ -73,7 +73,7 @@ categoriesRouter.patch('/:id/status', requireRole(['SUPER_ADMIN', 'ADMIN']), asy
 categoriesRouter.post('/bulk/action', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req, res, next) => {
   try {
     const body = bulkCategoryActionSchema.parse(req.body)
-    const data = await bulkCategoryAction(req.user!.id, body.ids, body.action, body.payload)
+    const data = await bulkCategoryAction(req.user!.id, req.user!.tenantId, body.ids, body.action, body.payload)
     return res.json(data)
   } catch (error) {
     return next(error)

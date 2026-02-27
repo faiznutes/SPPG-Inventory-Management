@@ -50,7 +50,7 @@ purchaseRequestsRouter.get('/:id', async (req, res, next) => {
 purchaseRequestsRouter.post('/bulk/status', async (req, res, next) => {
   try {
     const body = bulkUpdatePurchaseRequestStatusSchema.parse(req.body)
-    const data = await bulkUpdatePurchaseRequestStatus(body.ids, req.user!.id, body.status, body.notes)
+    const data = await bulkUpdatePurchaseRequestStatus(body.ids, req.user!.id, req.user!.tenantId, body.status, body.notes)
     return res.json(data)
   } catch (error) {
     return next(error)
@@ -60,7 +60,7 @@ purchaseRequestsRouter.post('/bulk/status', async (req, res, next) => {
 purchaseRequestsRouter.post('/:id/status', async (req, res, next) => {
   try {
     const body = updatePurchaseRequestStatusSchema.parse(req.body)
-    const data = await updatePurchaseRequestStatus(req.params.id, req.user!.id, body.status, body.notes)
+    const data = await updatePurchaseRequestStatus(req.params.id, req.user!.id, req.user!.tenantId, body.status, body.notes)
     return res.json(data)
   } catch (error) {
     return next(error)

@@ -10,7 +10,7 @@ transactionsRouter.use(requireAuth)
 transactionsRouter.get('/', async (req, res, next) => {
   try {
     const query = listTransactionsQuerySchema.parse(req.query)
-    const data = await listTransactions(query)
+    const data = await listTransactions(query, req.user?.tenantId)
     return res.json(data)
   } catch (error) {
     return next(error)
@@ -20,7 +20,7 @@ transactionsRouter.get('/', async (req, res, next) => {
 transactionsRouter.post('/', async (req, res, next) => {
   try {
     const body = createTransactionSchema.parse(req.body)
-    const data = await createTransaction(body, req.user!.id)
+    const data = await createTransaction(body, req.user!.id, req.user?.tenantId)
     return res.status(201).json(data)
   } catch (error) {
     return next(error)
@@ -30,7 +30,7 @@ transactionsRouter.post('/', async (req, res, next) => {
 transactionsRouter.post('/bulk/adjust', async (req, res, next) => {
   try {
     const body = bulkAdjustTransactionSchema.parse(req.body)
-    const data = await createBulkAdjustTransactions(body, req.user!.id)
+    const data = await createBulkAdjustTransactions(body, req.user!.id, req.user?.tenantId)
     return res.status(201).json(data)
   } catch (error) {
     return next(error)

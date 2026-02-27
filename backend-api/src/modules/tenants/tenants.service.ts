@@ -183,6 +183,7 @@ export async function deleteTenant(actorUserId: string, tenantId: string) {
     await tx.auditLog.create({
       data: {
         actorUserId,
+        tenantId,
         entityType: 'tenants',
         entityId: tenantId,
         action: 'ARCHIVE',
@@ -246,6 +247,7 @@ export async function reactivateTenant(actorUserId: string, tenantId: string) {
     await tx.auditLog.create({
       data: {
         actorUserId,
+        tenantId,
         entityType: 'tenants',
         entityId: tenantId,
         action: 'RESTORE',
@@ -318,6 +320,7 @@ export async function restoreTenant(actorUserId: string, tenantId: string) {
     await tx.auditLog.create({
       data: {
         actorUserId,
+        tenantId,
         entityType: 'tenants',
         entityId: tenantId,
         action: 'RESTORE_ARCHIVE',
@@ -373,6 +376,7 @@ export async function updateTenantStatus(actorUserId: string, tenantId: string, 
     await tx.auditLog.create({
       data: {
         actorUserId,
+        tenantId,
         entityType: 'tenants',
         entityId: tenantId,
         action: isActive ? 'ACTIVATE' : 'DEACTIVATE',
@@ -417,7 +421,7 @@ export async function bulkTenantAction(actorUserId: string, ids: string[], actio
 
   return {
     code: 'TENANT_BULK_ACTION_COMPLETED',
-    message: `Bulk action selesai. Berhasil: ${successIds.length}, Gagal: ${failures.length}.`,
+    message: `Aksi tenant terpilih selesai. Berhasil: ${successIds.length}, Gagal: ${failures.length}.`,
     action,
     total: ids.length,
     successCount: successIds.length,
@@ -445,6 +449,7 @@ export async function createTenant(actorUserId: string, input: CreateTenantInput
     await prisma.auditLog.create({
       data: {
         actorUserId,
+        tenantId: tenant.id,
         entityType: 'tenants',
         entityId: tenant.id,
         action: 'CREATE',
@@ -512,6 +517,7 @@ export async function updateTenant(actorUserId: string, tenantId: string, input:
       await tx.auditLog.create({
         data: {
           actorUserId,
+          tenantId,
           entityType: 'tenants',
           entityId: tenantId,
           action: 'UPDATE',
@@ -643,6 +649,7 @@ export async function addTenantUser(actorUserId: string, tenantId: string, input
     await tx.auditLog.create({
       data: {
         actorUserId,
+        tenantId,
         entityType: 'tenant_users',
         entityId: user.id,
         action: 'CREATE',
@@ -722,6 +729,7 @@ export async function updateTenantUser(
     await tx.auditLog.create({
       data: {
         actorUserId,
+        tenantId,
         entityType: 'tenant_users',
         entityId: userId,
         action: 'UPDATE',
@@ -767,7 +775,7 @@ export async function bulkTenantUserAction(
   const missingIds = uniqueUserIds.filter((id) => !foundIds.has(id))
 
   if (!memberships.length) {
-    throw new ApiError(404, 'TENANT_USERS_NOT_FOUND', 'User tenant tidak ditemukan untuk aksi bulk.')
+    throw new ApiError(404, 'TENANT_USERS_NOT_FOUND', 'User tenant tidak ditemukan untuk aksi pilihan.')
   }
 
   const targetUserIds = memberships.map((m) => m.userId)
@@ -802,6 +810,7 @@ export async function bulkTenantUserAction(
     await tx.auditLog.create({
       data: {
         actorUserId,
+        tenantId,
         entityType: 'tenant_users',
         entityId: 'bulk',
         action: `BULK_${action}`,
@@ -816,7 +825,7 @@ export async function bulkTenantUserAction(
 
   return {
     code: 'TENANT_USERS_BULK_ACTION_COMPLETED',
-    message: `Bulk user tenant selesai. Berhasil: ${targetUserIds.length}, tidak ditemukan: ${missingIds.length}.`,
+    message: `Aksi user tenant terpilih selesai. Berhasil: ${targetUserIds.length}, tidak ditemukan: ${missingIds.length}.`,
     action,
     affectedCount: targetUserIds.length,
     missingIds,
@@ -852,6 +861,7 @@ export async function addTenantLocation(actorUserId: string, tenantId: string, i
       await tx.auditLog.create({
         data: {
           actorUserId,
+          tenantId,
           entityType: 'tenant_locations',
           entityId: created.id,
           action: 'CREATE',
@@ -908,6 +918,7 @@ export async function updateTenantLocation(
     await prisma.auditLog.create({
       data: {
         actorUserId,
+        tenantId,
         entityType: 'tenant_locations',
         entityId: updated.id,
         action: 'UPDATE',
@@ -954,7 +965,7 @@ export async function bulkTenantLocationAction(
   })
 
   if (!locations.length) {
-    throw new ApiError(404, 'TENANT_LOCATIONS_NOT_FOUND', 'Lokasi tenant tidak ditemukan untuk aksi bulk.')
+    throw new ApiError(404, 'TENANT_LOCATIONS_NOT_FOUND', 'Lokasi tenant tidak ditemukan untuk aksi pilihan.')
   }
 
   const foundIds = new Set(locations.map((loc) => loc.id))
@@ -977,6 +988,7 @@ export async function bulkTenantLocationAction(
     await tx.auditLog.create({
       data: {
         actorUserId,
+        tenantId,
         entityType: 'tenant_locations',
         entityId: 'bulk',
         action: `BULK_${action}`,
@@ -991,7 +1003,7 @@ export async function bulkTenantLocationAction(
 
   return {
     code: 'TENANT_LOCATIONS_BULK_ACTION_COMPLETED',
-    message: `Bulk lokasi tenant selesai. Berhasil: ${locations.length}, tidak ditemukan: ${missingIds.length}.`,
+    message: `Aksi lokasi tenant terpilih selesai. Berhasil: ${locations.length}, tidak ditemukan: ${missingIds.length}.`,
     action,
     affectedCount: locations.length,
     missingIds,
@@ -1055,6 +1067,7 @@ export async function updateTenantTelegramSettings(
   await prisma.auditLog.create({
     data: {
       actorUserId,
+      tenantId,
       entityType: 'tenant_telegram_settings',
       entityId: saved.id,
       action: 'UPDATE',

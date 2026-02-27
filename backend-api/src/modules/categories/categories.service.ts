@@ -75,7 +75,7 @@ export async function listCategories(query: ListCategoriesQuery = {}) {
   }))
 }
 
-export async function createCategory(actorUserId: string, input: CreateCategoryInput) {
+export async function createCategory(actorUserId: string, tenantId: string | undefined, input: CreateCategoryInput) {
   try {
     const normalizedName = normalizedCategoryName(input.name, input.type)
 
@@ -88,6 +88,7 @@ export async function createCategory(actorUserId: string, input: CreateCategoryI
     await prisma.auditLog.create({
       data: {
         actorUserId,
+        tenantId,
         entityType: 'categories',
         entityId: category.id,
         action: 'CREATE',
@@ -109,7 +110,7 @@ export async function createCategory(actorUserId: string, input: CreateCategoryI
   }
 }
 
-export async function updateCategory(actorUserId: string, categoryId: string, input: UpdateCategoryInput) {
+export async function updateCategory(actorUserId: string, tenantId: string | undefined, categoryId: string, input: UpdateCategoryInput) {
   try {
     const existing = await prisma.category.findUnique({ where: { id: categoryId } })
     if (!existing) {
@@ -128,6 +129,7 @@ export async function updateCategory(actorUserId: string, categoryId: string, in
     await prisma.auditLog.create({
       data: {
         actorUserId,
+        tenantId,
         entityType: 'categories',
         entityId: category.id,
         action: 'UPDATE',
@@ -152,7 +154,7 @@ export async function updateCategory(actorUserId: string, categoryId: string, in
   }
 }
 
-export async function updateCategoryStatus(actorUserId: string, categoryId: string, isActive: boolean) {
+export async function updateCategoryStatus(actorUserId: string, tenantId: string | undefined, categoryId: string, isActive: boolean) {
   try {
     const existing = await prisma.category.findUnique({ where: { id: categoryId } })
     if (!existing) {
@@ -169,6 +171,7 @@ export async function updateCategoryStatus(actorUserId: string, categoryId: stri
     await prisma.auditLog.create({
       data: {
         actorUserId,
+        tenantId,
         entityType: 'categories',
         entityId: updated.id,
         action: isActive ? 'ACTIVATE' : 'DEACTIVATE',
@@ -188,7 +191,7 @@ export async function updateCategoryStatus(actorUserId: string, categoryId: stri
   }
 }
 
-export async function deleteCategory(actorUserId: string, categoryId: string) {
+export async function deleteCategory(actorUserId: string, tenantId: string | undefined, categoryId: string) {
   const usageCount = await prisma.item.count({
     where: { categoryId },
   })
@@ -205,6 +208,7 @@ export async function deleteCategory(actorUserId: string, categoryId: string) {
     await prisma.auditLog.create({
       data: {
         actorUserId,
+        tenantId,
         entityType: 'categories',
         entityId: deleted.id,
         action: 'DELETE',
@@ -225,13 +229,14 @@ export async function deleteCategory(actorUserId: string, categoryId: string) {
 
 export async function bulkCategoryAction(
   actorUserId: string,
+  tenantId: string | undefined,
   ids: string[],
   action: BulkCategoryAction,
   payload?: BulkCategoryPayload,
 ) {
   const uniqueIds = [...new Set(ids)]
   if (!uniqueIds.length) {
-    throw new ApiError(400, 'BULK_CATEGORIES_EMPTY', 'Pilih minimal satu kategori untuk aksi bulk.')
+    throw new ApiError(400, 'BULK_CATEGORIES_EMPTY', 'Pilih minimal satu kategori untuk aksi pilihan.')
   }
 
   const successIds: string[] = []
@@ -240,17 +245,17 @@ export async function bulkCategoryAction(
   for (const categoryId of uniqueIds) {
     try {
       if (action === 'ACTIVATE') {
-        await updateCategoryStatus(actorUserId, categoryId, true)
+        await updateCategoryStatus(actorUserId, tenantId, categoryId, true)
       } else if (action === 'DEACTIVATE') {
-        await updateCategoryStatus(actorUserId, categoryId, false)
+        await updateCategoryStatus(actorUserId, tenantId, categoryId, false)
       } else if (action === 'DELETE') {
-        await deleteCategory(actorUserId, categoryId)
+        await deleteCategory(actorUserId, tenantId, categoryId)
       } else {
         const current = await prisma.category.findUnique({ where: { id: categoryId } })
         if (!current) throw new ApiError(404, 'CATEGORY_NOT_FOUND', 'Kategori tidak ditemukan.')
         const nextType = payload?.type || detectCategoryType(current.name)
         const nextName = payload?.name || displayCategoryName(current.name)
-        await updateCategory(actorUserId, categoryId, {
+        await updateCategory(actorUserId, tenantId, categoryId, {
           name: nextName,
           type: nextType,
         })
@@ -266,7 +271,7 @@ export async function bulkCategoryAction(
 
   return {
     code: 'CATEGORY_BULK_ACTION_COMPLETED',
-    message: `Bulk kategori selesai. Berhasil: ${successIds.length}, Gagal: ${failures.length}.`,
+    message: `Aksi kategori terpilih selesai. Berhasil: ${successIds.length}, Gagal: ${failures.length}.`,
     action,
     total: uniqueIds.length,
     successCount: successIds.length,

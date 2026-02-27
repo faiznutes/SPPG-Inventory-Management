@@ -240,6 +240,7 @@ export async function getPurchaseRequestDetail(id: string) {
 export async function updatePurchaseRequestStatus(
   id: string,
   userId: string,
+  tenantId: string | undefined,
   status: PurchaseRequestStatusType,
   notes?: string,
 ) {
@@ -249,7 +250,7 @@ export async function updatePurchaseRequestStatus(
   }
 
   await prisma.$transaction(async (tx) => {
-    await applyStatusUpdate(tx, existing.id, existing.approvedBy, userId, status, notes)
+    await applyStatusUpdate(tx, existing.id, existing.approvedBy, userId, tenantId, status, notes)
   })
 
   return {
@@ -263,6 +264,7 @@ async function applyStatusUpdate(
   id: string,
   currentApprovedBy: string | null,
   userId: string,
+  tenantId: string | undefined,
   status: PurchaseRequestStatusType,
   notes?: string,
 ) {
@@ -289,6 +291,7 @@ async function applyStatusUpdate(
   await tx.auditLog.create({
     data: {
       actorUserId: userId,
+      tenantId,
       entityType: 'purchase_requests',
       entityId: id,
       action: 'STATUS_UPDATE',
@@ -303,6 +306,7 @@ async function applyStatusUpdate(
 export async function bulkUpdatePurchaseRequestStatus(
   ids: string[],
   userId: string,
+  tenantId: string | undefined,
   status: PurchaseRequestStatusType,
   notes?: string,
 ) {
@@ -324,7 +328,7 @@ export async function bulkUpdatePurchaseRequestStatus(
 
   await prisma.$transaction(async (tx) => {
     for (const row of existing) {
-      await applyStatusUpdate(tx, row.id, row.approvedBy, userId, status, notes)
+      await applyStatusUpdate(tx, row.id, row.approvedBy, userId, tenantId, status, notes)
     }
   })
 

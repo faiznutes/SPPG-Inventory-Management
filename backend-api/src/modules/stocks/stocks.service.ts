@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma.js'
+import { fromTenantScopedItemName, tenantItemSuffix } from '../../utils/item-scope.js'
 
 function stockStatus(qty: number, minStock: number) {
   if (qty <= 0) return 'Habis'
@@ -10,8 +11,21 @@ function isInactiveLocationName(name: string) {
   return name.startsWith('INACTIVE - ') || name.includes('::INACTIVE - ')
 }
 
-export async function listStocks() {
+export async function listStocks(tenantId?: string) {
+  const suffix = tenantItemSuffix(tenantId)
   const rows = await prisma.stock.findMany({
+    where: {
+      item: {
+        isActive: true,
+        ...(suffix
+          ? {
+              name: {
+                endsWith: suffix,
+              },
+            }
+          : {}),
+      },
+    },
     include: {
       item: true,
       location: true,
@@ -28,7 +42,7 @@ export async function listStocks() {
     return {
       id: row.id,
       itemId: row.itemId,
-      itemName: row.item.name,
+      itemName: fromTenantScopedItemName(row.item.name),
       itemType: row.item.type,
       unit: row.item.unit,
       minStock,

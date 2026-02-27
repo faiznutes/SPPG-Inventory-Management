@@ -265,7 +265,7 @@ function toggleRowSelection(id) {
 
 function openBulkModal() {
   if (!selectedIds.value.length) {
-    notifications.showPopup('Belum ada pilihan', 'Pilih minimal 1 PR untuk aksi bulk.', 'error')
+    notifications.showPopup('Belum ada pilihan', 'Pilih minimal 1 PR untuk aksi pilihan.', 'error')
     return
   }
   bulkStatus.value = 'SUBMITTED'
@@ -281,11 +281,11 @@ async function submitBulkStatus() {
       notes: bulkNotes.value || undefined,
     })
     showBulkModal.value = false
-    notifications.showPopup('Bulk berhasil', 'Status PR terpilih berhasil diperbarui.', 'success')
+    notifications.showPopup('Aksi pilihan berhasil', 'Status PR terpilih berhasil diperbarui.', 'success')
     selectedIds.value = []
     await loadRows()
   } catch (error) {
-    notifications.showPopup('Bulk gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+    notifications.showPopup('Aksi pilihan gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
 }
 
@@ -317,7 +317,7 @@ onMounted(async () => {
           Buat PR Baru
         </button>
         <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="openBulkModal">
-          Bulk Status
+          Pilih Status
         </button>
       </template>
     </PageHeader>
@@ -453,7 +453,7 @@ onMounted(async () => {
       </form>
     </BaseModal>
 
-    <BaseModal :show="showBulkModal" title="Bulk Status PR" @close="showBulkModal = false">
+    <BaseModal :show="showBulkModal" title="Status PR Terpilih" @close="showBulkModal = false">
       <form class="space-y-3" @submit.prevent="submitBulkStatus">
         <p class="text-sm text-slate-600">Dipilih: <span class="font-bold">{{ selectedIds.length }}</span> PR</p>
         <label class="block">
@@ -468,11 +468,11 @@ onMounted(async () => {
         </label>
         <label class="block">
           <span class="mb-1 block text-sm font-semibold text-slate-700">Catatan</span>
-          <textarea v-model="bulkNotes" class="min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Catatan bulk opsional" />
+          <textarea v-model="bulkNotes" class="min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Catatan pilihan opsional" />
         </label>
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="showBulkModal = false">Batal</button>
-          <button type="submit" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white">Terapkan Bulk</button>
+          <button type="submit" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white">Terapkan Pilihan</button>
         </div>
       </form>
     </BaseModal>

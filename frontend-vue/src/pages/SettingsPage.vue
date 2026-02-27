@@ -260,11 +260,11 @@ function clearTenantSelection() {
 async function applyBulkTenantAction(action, label) {
   if (activeTab.value !== 'Tenant') return
   if (!selectedTenantIds.value.length) {
-    notifications.showPopup('Belum ada pilihan', 'Pilih minimal 1 tenant untuk aksi bulk.', 'error')
+    notifications.showPopup('Belum ada pilihan', 'Pilih minimal 1 tenant untuk aksi pilihan.', 'error')
     return
   }
 
-  const ok = window.confirm(`Terapkan aksi bulk "${label}" untuk ${selectedTenantIds.value.length} tenant?`)
+  const ok = window.confirm(`Terapkan aksi pilihan "${label}" untuk ${selectedTenantIds.value.length} tenant?`)
   if (!ok) return
 
   try {
@@ -275,15 +275,15 @@ async function applyBulkTenantAction(action, label) {
 
     if (result.failedCount > 0) {
       const firstFailure = result.failures?.[0]?.message || 'Sebagian tenant gagal diproses.'
-      notifications.showPopup('Bulk selesai sebagian', `${result.message} ${firstFailure}`, 'error')
+      notifications.showPopup('Aksi pilihan selesai sebagian', `${result.message} ${firstFailure}`, 'error')
     } else {
-      notifications.showPopup('Bulk berhasil', result.message, 'success')
+      notifications.showPopup('Aksi pilihan berhasil', result.message, 'success')
     }
 
     clearTenantSelection()
     await loadData()
   } catch (error) {
-    notifications.showPopup('Bulk tenant gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+    notifications.showPopup('Aksi tenant terpilih gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
 }
 
@@ -654,7 +654,7 @@ function clearTenantLocationSelection() {
 async function applyBulkTenantUserAction() {
   if (!selectedTenant.value) return
   if (!selectedTenantUserIds.value.length) {
-    notifications.showPopup('Belum ada user dipilih', 'Pilih minimal 1 user tenant untuk aksi bulk.', 'error')
+    notifications.showPopup('Belum ada user dipilih', 'Pilih minimal 1 user tenant untuk aksi pilihan.', 'error')
     return
   }
 
@@ -666,18 +666,18 @@ async function applyBulkTenantUserAction() {
       userIds: selectedTenantUserIds.value,
       action: tenantUserBulkAction.value,
     })
-    notifications.showPopup('Bulk user tenant selesai', result.message || 'Aksi bulk user tenant berhasil diproses.', 'success')
+    notifications.showPopup('Aksi user tenant selesai', result.message || 'Aksi user tenant terpilih berhasil diproses.', 'success')
     clearTenantUserSelection()
     await openTenantDetail({ id: selectedTenant.value.id })
   } catch (error) {
-    notifications.showPopup('Bulk user tenant gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+    notifications.showPopup('Aksi user tenant gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
 }
 
 async function applyBulkTenantLocationAction() {
   if (!selectedTenant.value) return
   if (!selectedTenantLocationIds.value.length) {
-    notifications.showPopup('Belum ada lokasi dipilih', 'Pilih minimal 1 lokasi tenant untuk aksi bulk.', 'error')
+    notifications.showPopup('Belum ada lokasi dipilih', 'Pilih minimal 1 lokasi tenant untuk aksi pilihan.', 'error')
     return
   }
 
@@ -689,11 +689,11 @@ async function applyBulkTenantLocationAction() {
       locationIds: selectedTenantLocationIds.value,
       action: tenantLocationBulkAction.value,
     })
-    notifications.showPopup('Bulk lokasi tenant selesai', result.message || 'Aksi bulk lokasi tenant berhasil diproses.', 'success')
+    notifications.showPopup('Aksi lokasi tenant selesai', result.message || 'Aksi lokasi tenant terpilih berhasil diproses.', 'success')
     clearTenantLocationSelection()
     await openTenantDetail({ id: selectedTenant.value.id })
   } catch (error) {
-    notifications.showPopup('Bulk lokasi tenant gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+    notifications.showPopup('Aksi lokasi tenant gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   }
 }
 
@@ -797,28 +797,28 @@ onMounted(async () => {
           class="rounded-lg border border-amber-200 px-3 py-2 text-sm font-bold text-amber-700"
           @click="applyBulkTenantAction('DEACTIVATE', 'Nonaktifkan')"
         >
-          Bulk Nonaktifkan ({{ selectedTenantIds.length }})
+          Nonaktifkan Pilihan ({{ selectedTenantIds.length }})
         </button>
         <button
           v-if="activeTab === 'Tenant' && selectedTenantIds.length"
           class="rounded-lg border border-emerald-200 px-3 py-2 text-sm font-bold text-emerald-700"
           @click="applyBulkTenantAction('ACTIVATE', 'Aktifkan')"
         >
-          Bulk Aktifkan
+          Aktifkan Pilihan
         </button>
         <button
           v-if="activeTab === 'Tenant' && selectedTenantIds.length"
           class="rounded-lg border border-rose-200 px-3 py-2 text-sm font-bold text-rose-700"
           @click="applyBulkTenantAction('ARCHIVE', 'Arsipkan')"
         >
-          Bulk Arsipkan
+          Arsipkan Pilihan
         </button>
         <button
           v-if="activeTab === 'Tenant' && selectedTenantIds.length"
           class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700"
           @click="applyBulkTenantAction('RESTORE', 'Restore')"
         >
-          Bulk Restore
+          Restore Pilihan
         </button>
         <button
           v-if="activeTab === 'Tenant' && selectedTenantIds.length"
@@ -1136,18 +1136,18 @@ onMounted(async () => {
           </div>
           <div class="mt-2 flex flex-wrap items-center justify-end gap-2">
             <select v-model="tenantUserBulkAction" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-semibold text-slate-700">
-              <option value="ACCESS_NONE">Bulk Tidak Bisa Akses</option>
-              <option value="ACCESS_VIEW">Bulk Lihat Saja</option>
-              <option value="ACCESS_EDIT">Bulk Bisa Edit</option>
-              <option value="DEACTIVATE">Bulk Nonaktifkan Akun</option>
-              <option value="ACTIVATE">Bulk Aktifkan Akun</option>
+              <option value="ACCESS_NONE">Tidak Bisa Akses (Terpilih)</option>
+              <option value="ACCESS_VIEW">Lihat Saja (Terpilih)</option>
+              <option value="ACCESS_EDIT">Bisa Edit (Terpilih)</option>
+              <option value="DEACTIVATE">Nonaktifkan Akun Terpilih</option>
+              <option value="ACTIVATE">Aktifkan Akun Terpilih</option>
             </select>
             <button
               class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700"
               :disabled="!selectedTenantUserIds.length"
               @click="applyBulkTenantUserAction"
             >
-              Terapkan Bulk ({{ selectedTenantUserIds.length }})
+              Terapkan Pilihan ({{ selectedTenantUserIds.length }})
             </button>
             <button
               v-if="selectedTenantUserIds.length"
@@ -1226,15 +1226,15 @@ onMounted(async () => {
           </div>
           <div class="mt-2 flex flex-wrap items-center justify-end gap-2">
             <select v-model="tenantLocationBulkAction" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-semibold text-slate-700">
-              <option value="DEACTIVATE">Bulk Nonaktifkan Lokasi</option>
-              <option value="ACTIVATE">Bulk Aktifkan Lokasi</option>
+              <option value="DEACTIVATE">Nonaktifkan Lokasi Terpilih</option>
+              <option value="ACTIVATE">Aktifkan Lokasi Terpilih</option>
             </select>
             <button
               class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700"
               :disabled="!selectedTenantLocationIds.length"
               @click="applyBulkTenantLocationAction"
             >
-              Terapkan Bulk ({{ selectedTenantLocationIds.length }})
+              Terapkan Pilihan ({{ selectedTenantLocationIds.length }})
             </button>
             <button
               v-if="selectedTenantLocationIds.length"

@@ -2,6 +2,7 @@ import { Prisma, TransactionType } from '../../lib/prisma-client.js'
 import type { Prisma as PrismaNamespace, TransactionType as TransactionTypeType } from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
 import { ApiError } from '../../utils/api-error.js'
+import { isItemOwnedByTenant, tenantItemSuffix } from '../../utils/item-scope.js'
 
 type CreateTransactionInput = {
   trxType: TransactionTypeType
@@ -107,10 +108,31 @@ function validatePayload(input: CreateTransactionInput) {
   }
 }
 
-export async function listTransactions(query: ListTransactionsQuery = {}) {
+export async function listTransactions(query: ListTransactionsQuery = {}, tenantId?: string) {
+  const suffix = tenantItemSuffix(tenantId)
+  const tenantItems = await prisma.item.findMany({
+    where: suffix
+      ? {
+          name: {
+            endsWith: suffix,
+          },
+        }
+      : {},
+    select: {
+      id: true,
+    },
+  })
+  const tenantItemIds = tenantItems.map((item) => item.id)
+  if (!tenantItemIds.length) {
+    return []
+  }
+
   const range = resolveRange(query)
   const rows = await prisma.inventoryTransaction.findMany({
     where: {
+      itemId: {
+        in: tenantItemIds,
+      },
       ...(query.trxType
         ? {
             trxType: query.trxType,
@@ -203,12 +225,24 @@ function endOfDay(date: Date) {
   return next
 }
 
-export async function createTransaction(input: CreateTransactionInput, actorUserId: string) {
+export async function createTransaction(input: CreateTransactionInput, actorUserId: string, tenantId?: string) {
   validatePayload(input)
+
+  if (!tenantId) {
+    throw new ApiError(400, 'TENANT_CONTEXT_REQUIRED', 'Tenant aktif tidak ditemukan pada sesi pengguna.')
+  }
 
   const item = await prisma.item.findUnique({ where: { id: input.itemId } })
   if (!item) {
     throw new ApiError(404, 'ITEM_NOT_FOUND', 'Item tidak ditemukan.')
+  }
+
+  if (!isItemOwnedByTenant(item.name, tenantId)) {
+    throw new ApiError(403, 'FORBIDDEN', 'Item tidak tersedia pada tenant aktif.')
+  }
+
+  if (!item.isActive) {
+    throw new ApiError(400, 'ITEM_INACTIVE', 'Item nonaktif tidak dapat dipakai transaksi.')
   }
 
   if (input.fromLocationId) await ensureLocationActive(input.fromLocationId)
@@ -287,6 +321,7 @@ export async function createTransaction(input: CreateTransactionInput, actorUser
     await tx.auditLog.create({
       data: {
         actorUserId,
+        tenantId,
         entityType: 'inventory_transactions',
         entityId: transaction.id,
         action: 'CREATE',
@@ -316,10 +351,14 @@ export async function createTransaction(input: CreateTransactionInput, actorUser
   }
 }
 
-export async function createBulkAdjustTransactions(input: BulkAdjustInput, actorUserId: string) {
+export async function createBulkAdjustTransactions(input: BulkAdjustInput, actorUserId: string, tenantId?: string) {
+  if (!tenantId) {
+    throw new ApiError(400, 'TENANT_CONTEXT_REQUIRED', 'Tenant aktif tidak ditemukan pada sesi pengguna.')
+  }
+
   const reason = input.reason.trim()
   if (!reason) {
-    throw new ApiError(400, 'REASON_REQUIRED', 'Alasan bulk penyesuaian wajib diisi.')
+    throw new ApiError(400, 'REASON_REQUIRED', 'Alasan penyesuaian terpilih wajib diisi.')
   }
 
   const uniqueAdjustments = input.adjustments.filter((row) => Number.isFinite(row.qty) && row.qty !== 0)
@@ -332,6 +371,10 @@ export async function createBulkAdjustTransactions(input: BulkAdjustInput, actor
   const items = await prisma.item.findMany({
     where: {
       id: { in: itemIds },
+      name: {
+        endsWith: tenantItemSuffix(tenantId),
+      },
+      isActive: true,
     },
     select: { id: true },
   })
@@ -339,7 +382,7 @@ export async function createBulkAdjustTransactions(input: BulkAdjustInput, actor
   const itemSet = new Set(items.map((item) => item.id))
   const missingItem = uniqueAdjustments.find((row) => !itemSet.has(row.itemId))
   if (missingItem) {
-    throw new ApiError(404, 'ITEM_NOT_FOUND', 'Ada item bulk penyesuaian yang tidak ditemukan.')
+    throw new ApiError(404, 'ITEM_NOT_FOUND', 'Ada item penyesuaian terpilih yang tidak ditemukan.')
   }
 
   for (const locationId of locationIds) {
@@ -383,6 +426,7 @@ export async function createBulkAdjustTransactions(input: BulkAdjustInput, actor
     await tx.auditLog.create({
       data: {
         actorUserId,
+        tenantId,
         entityType: 'inventory_transactions',
         entityId: 'bulk_adjust',
         action: 'BULK_ADJUST',
@@ -399,7 +443,7 @@ export async function createBulkAdjustTransactions(input: BulkAdjustInput, actor
 
   return {
     code: 'BULK_ADJUST_COMPLETED',
-    message: `Bulk penyesuaian stok berhasil diproses untuk ${created.length} baris.`,
+    message: `Penyesuaian stok terpilih berhasil diproses untuk ${created.length} baris.`,
     count: created.length,
     transactions: created,
   }

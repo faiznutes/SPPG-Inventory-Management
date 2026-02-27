@@ -13,6 +13,7 @@ import PurchaseRequestDetailPage from '../pages/PurchaseRequestDetailPage.vue'
 import SettingsPage from '../pages/SettingsPage.vue'
 import NotificationsPage from '../pages/NotificationsPage.vue'
 import CategoriesPage from '../pages/CategoriesPage.vue'
+import AuditLogsPage from '../pages/AuditLogsPage.vue'
 
 const routes = [
   {
@@ -96,6 +97,15 @@ const routes = [
         name: 'notifications',
         component: NotificationsPage,
         meta: { title: 'Notifikasi' },
+      },
+      {
+        path: 'audit-logs',
+        name: 'audit-logs',
+        component: AuditLogsPage,
+        meta: {
+          title: 'Audit Log',
+          allowedRoles: ['SUPER_ADMIN', 'ADMIN'],
+        },
       },
     ],
   },

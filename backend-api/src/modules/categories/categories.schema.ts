@@ -38,7 +38,7 @@ export const bulkCategoryActionSchema = z
       if (!value.payload || (!value.payload.name && !value.payload.type)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'Untuk bulk update kategori, isi minimal nama atau tipe.',
+          message: 'Untuk update kategori terpilih, isi minimal nama atau tipe.',
           path: ['payload'],
         })
       }

@@ -258,11 +258,17 @@ model InventoryTransaction {
 model AuditLog {
   id          String   @id @default(uuid())
   actorUserId String   @map("actor_user_id")
+  tenantId    String?  @map("tenant_id")
   entityType  String   @map("entity_type")
   entityId    String   @map("entity_id")
   action      String
   diffJson    Json?    @map("diff_json")
   createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([tenantId, entityType, createdAt(sort: Desc)])
+  @@index([tenantId, actorUserId, createdAt(sort: Desc)])
+  @@index([entityType, entityId, createdAt(sort: Desc)])
 
   @@map("audit_logs")
 }

@@ -1,6 +1,10 @@
 import { ItemType } from '../../lib/prisma-client.js'
 import { z } from 'zod'
 
+export const listItemsQuerySchema = z.object({
+  includeInactive: z.enum(['true', 'false']).optional(),
+})
+
 export const createItemSchema = z.object({
   name: z.string().min(2),
   sku: z.string().optional(),
@@ -30,7 +34,7 @@ export const bulkItemActionSchema = z
       if (!value.payload) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'Payload update wajib diisi untuk bulk update item.',
+          message: 'Payload update wajib diisi untuk update item terpilih.',
           path: ['payload'],
         })
         return
