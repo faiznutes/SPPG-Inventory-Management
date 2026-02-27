@@ -223,6 +223,17 @@ async function copyShareLink() {
   }
 }
 
+function openShareLinkInNewTab() {
+  syncQuery()
+  const shareUrl = `${window.location.origin}${route.fullPath}`
+  window.open(shareUrl, '_blank', 'noopener,noreferrer')
+}
+
+async function resetToDefaultRange() {
+  quickDays.value = 7
+  await applyQuickRange(7)
+}
+
 function restoreFilters() {
   const querySnapshot = {
     fromDate: typeof route.query.fromDate === 'string' ? route.query.fromDate : '',
@@ -443,8 +454,10 @@ onMounted(async () => {
 
       <div class="mt-2 flex flex-wrap justify-end gap-2">
         <p v-if="exportRangeWarning" class="mr-auto self-center text-xs font-semibold text-amber-700">{{ exportRangeWarning }}</p>
+        <button class="rounded-lg border border-violet-200 px-3 py-2 text-sm font-semibold text-violet-700" @click="openShareLinkInNewTab">Open Share Link</button>
         <button class="rounded-lg border border-indigo-200 px-3 py-2 text-sm font-semibold text-indigo-700" @click="copyShareLink">Copy Share Link</button>
         <button class="rounded-lg border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700" @click="exportCsv">Export CSV</button>
+        <button class="rounded-lg border border-sky-200 px-3 py-2 text-sm font-semibold text-sky-700" @click="resetToDefaultRange">Reset Default 7 Hari</button>
         <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" @click="resetFilters">Reset</button>
         <button class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white" @click="applyFilters">Terapkan Filter</button>
       </div>
