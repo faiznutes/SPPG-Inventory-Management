@@ -27,6 +27,8 @@ const isLoading = ref(false)
 const quickDays = ref(14)
 const lastAppliedFilterSignature = ref('')
 const suppressAutoApply = ref(false)
+const isActorDebouncing = ref(false)
+const isEntityDebouncing = ref(false)
 
 let actorDebounceTimer = null
 let entityDebounceTimer = null
@@ -389,6 +391,27 @@ async function applyCustomRange() {
   await applyQuickRange(days)
 }
 
+async function forceApplyNow() {
+  if (actorDebounceTimer) {
+    clearTimeout(actorDebounceTimer)
+    actorDebounceTimer = null
+  }
+  if (entityDebounceTimer) {
+    clearTimeout(entityDebounceTimer)
+    entityDebounceTimer = null
+  }
+  isActorDebouncing.value = false
+  isEntityDebouncing.value = false
+
+  if (!hasPendingFilterChanges.value || isLoading.value) return
+  await applyFilters()
+}
+
+function onFilterInputEnter(event) {
+  event.preventDefault()
+  forceApplyNow()
+}
+
 function buildExportQuery() {
   return {
     from: toIsoStart(filters.fromDate),
@@ -443,7 +466,9 @@ watch(
   () => {
     if (suppressAutoApply.value) return
     if (actorDebounceTimer) clearTimeout(actorDebounceTimer)
+    isActorDebouncing.value = true
     actorDebounceTimer = setTimeout(() => {
+      isActorDebouncing.value = false
       if (hasPendingFilterChanges.value) {
         applyFilters()
       }
@@ -456,7 +481,9 @@ watch(
   () => {
     if (suppressAutoApply.value) return
     if (entityDebounceTimer) clearTimeout(entityDebounceTimer)
+    isEntityDebouncing.value = true
     entityDebounceTimer = setTimeout(() => {
+      isEntityDebouncing.value = false
       if (hasPendingFilterChanges.value) {
         applyFilters()
       }
@@ -467,6 +494,8 @@ watch(
 onBeforeUnmount(() => {
   if (actorDebounceTimer) clearTimeout(actorDebounceTimer)
   if (entityDebounceTimer) clearTimeout(entityDebounceTimer)
+  isActorDebouncing.value = false
+  isEntityDebouncing.value = false
 })
 
 onMounted(async () => {
@@ -508,7 +537,13 @@ onMounted(async () => {
         </label>
         <label class="block">
           <span class="mb-1 block text-xs font-semibold text-slate-600">Entity ID</span>
-          <input v-model="filters.entityId" placeholder="UUID / key entity" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          <input
+            v-model="filters.entityId"
+            placeholder="UUID / key entity"
+            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            @keydown.enter="onFilterInputEnter"
+          />
+          <span v-if="isEntityDebouncing" class="mt-1 block text-[11px] font-semibold text-slate-500">Menunggu input selesai...</span>
         </label>
         <label class="block">
           <span class="mb-1 block text-xs font-semibold text-slate-600">Action</span>
@@ -518,7 +553,13 @@ onMounted(async () => {
         </label>
         <label class="block">
           <span class="mb-1 block text-xs font-semibold text-slate-600">Actor User ID</span>
-          <input v-model="filters.actorUserId" placeholder="UUID user" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          <input
+            v-model="filters.actorUserId"
+            placeholder="UUID user"
+            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            @keydown.enter="onFilterInputEnter"
+          />
+          <span v-if="isActorDebouncing" class="mt-1 block text-[11px] font-semibold text-slate-500">Menunggu input selesai...</span>
         </label>
       </div>
 
