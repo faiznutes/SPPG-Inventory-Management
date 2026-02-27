@@ -492,6 +492,11 @@ export const api = {
       headers: authHeader(accessToken),
     }),
 
+  getAuditLogStats: (accessToken, query = {}) =>
+    request(withQuery('/audit-logs/stats', query), {
+      headers: authHeader(accessToken),
+    }),
+
   exportAuditLogsCsv: (accessToken, query = {}) =>
     requestBlob(withQuery('/audit-logs/export', query), {
       headers: authHeader(accessToken),

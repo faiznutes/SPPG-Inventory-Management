@@ -371,6 +371,53 @@ export async function exportAuditLogsCsv(query: ListAuditLogsQuery, user: Sessio
   return lines.join('\n')
 }
 
+export async function getAuditLogStats(query: ListAuditLogsQuery, user: SessionUser) {
+  const tenantId = resolveTenantFilter(user, query)
+  const where = toAuditLogWhere(query, tenantId)
+
+  const [total, byAction, byEntityType] = await Promise.all([
+    prisma.auditLog.count({ where }),
+    prisma.auditLog.groupBy({
+      by: ['action'],
+      where,
+      _count: {
+        _all: true,
+      },
+      orderBy: {
+        _count: {
+          action: 'desc',
+        },
+      },
+      take: 8,
+    }),
+    prisma.auditLog.groupBy({
+      by: ['entityType'],
+      where,
+      _count: {
+        _all: true,
+      },
+      orderBy: {
+        _count: {
+          entityType: 'desc',
+        },
+      },
+      take: 8,
+    }),
+  ])
+
+  return {
+    total,
+    byAction: byAction.map((row) => ({
+      key: row.action,
+      count: row._count._all,
+    })),
+    byEntityType: byEntityType.map((row) => ({
+      key: row.entityType,
+      count: row._count._all,
+    })),
+  }
+}
+
 export async function getAuditLogDetail(id: string, user: SessionUser) {
   const tenantId = resolveTenantFilter(user, {
     page: 1,
