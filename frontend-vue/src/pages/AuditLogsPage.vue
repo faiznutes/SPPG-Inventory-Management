@@ -29,6 +29,7 @@ const quickDays = ref(14)
 const presetName = ref('')
 const selectedPresetId = ref('')
 const presetOptions = ref([])
+const presetImportInputRef = ref(null)
 const autoApplyNotice = ref('')
 const lastAppliedFilterSignature = ref('')
 const suppressAutoApply = ref(false)
@@ -439,6 +440,112 @@ function deleteSelectedPreset() {
   }
 }
 
+function renameSelectedPreset() {
+  if (!selectedPresetId.value) return
+  const name = presetName.value.trim()
+  if (!name) {
+    notifications.showPopup('Nama preset kosong', 'Isi nama baru preset terlebih dahulu.', 'error')
+    return
+  }
+
+  const found = presetOptions.value.find((item) => item.id === selectedPresetId.value)
+  if (!found) return
+
+  const duplicate = presetOptions.value.find(
+    (item) => item.id !== selectedPresetId.value && item.name.toLowerCase() === name.toLowerCase(),
+  )
+  if (duplicate) {
+    notifications.showPopup('Nama sudah dipakai', 'Gunakan nama preset lain.', 'error')
+    return
+  }
+
+  found.name = name
+  found.updatedAt = new Date().toISOString()
+  persistPresetsToStorage()
+  presetName.value = ''
+  notifications.showPopup('Preset diubah', `Nama preset menjadi "${name}".`, 'success')
+}
+
+function exportPresetsToJson() {
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    presets: presetOptions.value,
+  }
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `audit-presets-${new Date().toISOString().slice(0, 10)}.json`
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
+  notifications.showPopup('Preset diexport', 'File preset JSON berhasil diunduh.', 'success')
+}
+
+function openPresetImportDialog() {
+  if (!presetImportInputRef.value) return
+  presetImportInputRef.value.value = ''
+  presetImportInputRef.value.click()
+}
+
+async function importPresetsFromJson(event) {
+  const input = event.target
+  const file = input?.files?.[0]
+  if (!file) return
+
+  try {
+    const text = await file.text()
+    const parsed = JSON.parse(text)
+    const incoming = Array.isArray(parsed?.presets)
+      ? parsed.presets
+      : Array.isArray(parsed)
+        ? parsed
+        : []
+
+    if (!incoming.length) {
+      notifications.showPopup('Import gagal', 'Preset tidak ditemukan pada file.', 'error')
+      return
+    }
+
+    const normalized = incoming
+      .filter((item) => item && typeof item === 'object' && typeof item.name === 'string')
+      .map((item, index) => ({
+        id: typeof item.id === 'string' ? item.id : `import-${Date.now()}-${index}`,
+        name: item.name,
+        payload: item.payload && typeof item.payload === 'object' ? item.payload : {},
+        updatedAt: item.updatedAt || new Date().toISOString(),
+        isDefault: Boolean(item.isDefault),
+      }))
+
+    if (!normalized.length) {
+      notifications.showPopup('Import gagal', 'Struktur preset tidak valid.', 'error')
+      return
+    }
+
+    const byName = new Map(presetOptions.value.map((item) => [item.name.toLowerCase(), item]))
+    for (const item of normalized) {
+      byName.set(item.name.toLowerCase(), item)
+    }
+
+    const merged = [...byName.values()]
+    const defaultIndex = merged.findIndex((item) => item.isDefault)
+    if (defaultIndex >= 0) {
+      merged.forEach((item, index) => {
+        if (index !== defaultIndex) item.isDefault = false
+      })
+    }
+
+    presetOptions.value = merged
+    persistPresetsToStorage()
+    notifications.showPopup('Import berhasil', `${normalized.length} preset diproses.`, 'success')
+  } catch {
+    notifications.showPopup('Import gagal', 'File JSON tidak valid.', 'error')
+  }
+}
+
 function restoreFilters() {
   const querySnapshot = {
     fromDate: typeof route.query.fromDate === 'string' ? route.query.fromDate : '',
@@ -647,6 +754,17 @@ watch(
   },
 )
 
+watch(
+  () => selectedPresetId.value,
+  (nextId) => {
+    if (!nextId) return
+    const found = presetOptions.value.find((item) => item.id === nextId)
+    if (found) {
+      presetName.value = found.name
+    }
+  },
+)
+
 onBeforeUnmount(() => {
   if (actorDebounceTimer) clearTimeout(actorDebounceTimer)
   if (entityDebounceTimer) clearTimeout(entityDebounceTimer)
@@ -760,6 +878,7 @@ onMounted(async () => {
           class="w-40 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs"
         />
         <button class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700" @click="saveCurrentPreset">Simpan Preset</button>
+        <button class="rounded-lg border border-lime-200 px-2.5 py-1.5 text-xs font-semibold text-lime-700" :disabled="!selectedPresetId" @click="renameSelectedPreset">Rename</button>
         <select v-model="selectedPresetId" class="min-w-40 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs">
           <option value="">Pilih preset...</option>
           <option v-for="preset in presetOptions" :key="preset.id" :value="preset.id">{{ preset.isDefault ? `★ ${preset.name}` : preset.name }}</option>
@@ -768,6 +887,9 @@ onMounted(async () => {
         <button class="rounded-lg border border-amber-200 px-2.5 py-1.5 text-xs font-semibold text-amber-700" :disabled="!selectedPresetId" @click="setSelectedPresetAsDefault">Jadikan Default</button>
         <button class="rounded-lg border border-orange-200 px-2.5 py-1.5 text-xs font-semibold text-orange-700" :disabled="!presetOptions.some((item) => item.isDefault)" @click="clearDefaultPreset">Lepas Default</button>
         <button class="rounded-lg border border-rose-200 px-2.5 py-1.5 text-xs font-semibold text-rose-700" :disabled="!selectedPresetId" @click="deleteSelectedPreset">Hapus</button>
+        <button class="rounded-lg border border-indigo-200 px-2.5 py-1.5 text-xs font-semibold text-indigo-700" :disabled="!presetOptions.length" @click="exportPresetsToJson">Export Preset</button>
+        <button class="rounded-lg border border-teal-200 px-2.5 py-1.5 text-xs font-semibold text-teal-700" @click="openPresetImportDialog">Import Preset</button>
+        <input ref="presetImportInputRef" type="file" accept="application/json" class="hidden" @change="importPresetsFromJson" />
       </div>
 
       <div class="mt-2 flex flex-wrap justify-end gap-2">
