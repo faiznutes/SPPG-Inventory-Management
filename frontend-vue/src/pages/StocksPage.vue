@@ -42,6 +42,7 @@ const bulkItemForm = reactive({
 })
 
 const canCreateProduct = computed(() => authStore.canEditTenantData && ['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(authStore.user?.role || ''))
+const sessionLocations = computed(() => authStore.availableLocations || [])
 
 const selectedCategoryLabel = computed(() => {
   if (!createItemForm.categoryId) return 'Tanpa kategori'
@@ -281,10 +282,9 @@ async function loadData() {
 
   isLoading.value = true
   try {
-    const [stocksData, itemsData, locationsData, categoriesData] = await Promise.all([
+    const [stocksData, itemsData, categoriesData] = await Promise.all([
       api.listStocks(authStore.accessToken),
       api.listItems(authStore.accessToken),
-      api.listLocations(authStore.accessToken),
       api.listCategories(authStore.accessToken),
     ])
 
@@ -301,7 +301,10 @@ async function loadData() {
     }))
 
     items.value = itemsData
-    locations.value = locationsData
+    locations.value = sessionLocations.value.map((location) => ({
+      id: location.id,
+      name: location.name,
+    }))
     categories.value = categoriesData
   } catch (error) {
     notifications.showPopup('Gagal memuat stok', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')

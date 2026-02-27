@@ -35,6 +35,45 @@ function isInactiveLocationName(name: string) {
   return name.startsWith('INACTIVE - ') || name.includes('::INACTIVE - ')
 }
 
+async function resolveTenantLocationSet(tenantId?: string) {
+  if (!tenantId) {
+    throw new ApiError(400, 'TENANT_CONTEXT_REQUIRED', 'Tenant aktif tidak ditemukan pada sesi pengguna.')
+  }
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: {
+      code: true,
+      isActive: true,
+    },
+  })
+
+  if (!tenant || !tenant.isActive) {
+    throw new ApiError(403, 'FORBIDDEN', 'Tenant tidak aktif atau tidak ditemukan.')
+  }
+
+  const rows = await prisma.location.findMany({
+    where: {
+      name: {
+        startsWith: `${tenant.code}::`,
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+    },
+  })
+
+  return new Set(rows.filter((row) => !isInactiveLocationName(row.name)).map((row) => row.id))
+}
+
+function ensureLocationInTenant(locationId: string | undefined, tenantLocationIds: Set<string>) {
+  if (!locationId) return
+  if (!tenantLocationIds.has(locationId)) {
+    throw new ApiError(403, 'FORBIDDEN', 'Lokasi tidak tersedia untuk tenant aktif ini.')
+  }
+}
+
 async function ensureLocationActive(locationId: string) {
   const location = await prisma.location.findUnique({
     where: { id: locationId },
@@ -279,6 +318,10 @@ export async function createTransaction(
     throw new ApiError(400, 'ITEM_INACTIVE', 'Item nonaktif tidak dapat dipakai transaksi.')
   }
 
+  const tenantLocationIds = await resolveTenantLocationSet(tenantId)
+  ensureLocationInTenant(input.fromLocationId, tenantLocationIds)
+  ensureLocationInTenant(input.toLocationId, tenantLocationIds)
+
   if (input.fromLocationId) await ensureLocationActive(input.fromLocationId)
   if (input.toLocationId) await ensureLocationActive(input.toLocationId)
 
@@ -415,6 +458,11 @@ export async function createBulkAdjustTransactions(
 
   const itemIds = [...new Set(uniqueAdjustments.map((row) => row.itemId))]
   const locationIds = [...new Set(uniqueAdjustments.map((row) => row.locationId))]
+
+  const tenantLocationIds = await resolveTenantLocationSet(tenantId)
+  for (const locationId of locationIds) {
+    ensureLocationInTenant(locationId, tenantLocationIds)
+  }
 
   if (activeLocationId && locationIds.some((locationId) => locationId !== activeLocationId)) {
     throw new ApiError(403, 'FORBIDDEN', 'Bulk penyesuaian hanya boleh untuk lokasi aktif.')

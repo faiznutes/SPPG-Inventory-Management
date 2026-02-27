@@ -8,9 +8,9 @@ const locationsRouter = Router()
 
 locationsRouter.use(requireAuth)
 
-locationsRouter.get('/', async (_req, res, next) => {
+locationsRouter.get('/', async (req, res, next) => {
   try {
-    const data = await listLocations()
+    const data = await listLocations(req.user!.id, req.user?.tenantId, req.user?.role)
     return res.json(data)
   } catch (error) {
     return next(error)
@@ -20,7 +20,7 @@ locationsRouter.get('/', async (_req, res, next) => {
 locationsRouter.post('/', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req, res, next) => {
   try {
     const body = createLocationSchema.parse(req.body)
-    const data = await createLocation(body)
+    const data = await createLocation(body, req.user?.tenantId)
     return res.status(201).json(data)
   } catch (error) {
     return next(error)

@@ -64,6 +64,7 @@ const dayNameMap = {
 }
 
 const tenantName = computed(() => authStore.user?.tenant?.name || authStore.tenantName || APP_NAME)
+const sessionLocations = computed(() => authStore.availableLocations || [])
 const responsibleLine = computed(() => {
   const name = authStore.user?.name || authStore.user?.username || '-'
   const jabatan = authStore.user?.jabatan || authStore.operationalLabel || 'Staff'
@@ -93,13 +94,12 @@ async function loadData() {
   isLoading.value = true
   try {
     const trxType = trxTypeQueryMap[activeTab.value]
-    const [transactionsData, itemsData, locationsData] = await Promise.all([
+    const [transactionsData, itemsData] = await Promise.all([
       api.listTransactions(authStore.accessToken, {
         period: activePeriod.value,
         trxType,
       }),
       api.listItems(authStore.accessToken),
-      api.listLocations(authStore.accessToken),
     ])
 
     const itemNameMap = Object.fromEntries(itemsData.map((item) => [item.id, item.name]))
@@ -118,7 +118,11 @@ async function loadData() {
     }))
 
     items.value = itemsData
-    locations.value = locationsData
+    locations.value = sessionLocations.value.map((location) => ({
+      id: location.id,
+      name: location.name,
+      tenantCode: authStore.user?.tenant?.code || '',
+    }))
   } catch (error) {
     notifications.showPopup('Gagal memuat transaksi', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
   } finally {
