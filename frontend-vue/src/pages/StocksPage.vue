@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import BaseModal from '../components/common/BaseModal.vue'
 import { useNotificationsStore } from '../stores/notifications'
@@ -417,6 +417,13 @@ async function submitAdjustStock() {
 onMounted(async () => {
   await loadData()
 })
+
+watch(
+  () => [authStore.user?.tenant?.id, authStore.user?.activeLocationId],
+  async () => {
+    await loadData()
+  },
+)
 </script>
 
 <template>
