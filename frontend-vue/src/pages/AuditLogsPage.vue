@@ -14,6 +14,7 @@ const router = useRouter()
 
 const FILTER_STORAGE_KEY = 'audit_logs_filters_v1'
 const PRESET_STORAGE_KEY = 'audit_logs_presets_v1'
+const PRESET_BACKUP_STORAGE_KEY = 'audit_logs_presets_backup_v1'
 const MAX_PRESET_IMPORT_BYTES = 1_000_000
 const MAX_PRESET_IMPORT_COUNT = 300
 
@@ -32,6 +33,7 @@ const presetName = ref('')
 const selectedPresetId = ref('')
 const presetOptions = ref([])
 const presetImportInputRef = ref(null)
+const hasPresetBackup = ref(false)
 const autoApplyNotice = ref('')
 const lastAppliedFilterSignature = ref('')
 const suppressAutoApply = ref(false)
@@ -306,6 +308,58 @@ function persistPresetsToStorage() {
   localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presetOptions.value))
 }
 
+function backupPresetsToStorage() {
+  const payload = {
+    createdAt: new Date().toISOString(),
+    presets: presetOptions.value,
+  }
+  localStorage.setItem(PRESET_BACKUP_STORAGE_KEY, JSON.stringify(payload))
+  hasPresetBackup.value = true
+}
+
+function loadPresetBackupState() {
+  try {
+    const raw = localStorage.getItem(PRESET_BACKUP_STORAGE_KEY)
+    hasPresetBackup.value = Boolean(raw)
+  } catch {
+    hasPresetBackup.value = false
+  }
+}
+
+function restorePresetBackup() {
+  try {
+    const raw = localStorage.getItem(PRESET_BACKUP_STORAGE_KEY)
+    if (!raw) {
+      notifications.showPopup('Backup tidak ditemukan', 'Belum ada backup preset untuk dipulihkan.', 'error')
+      hasPresetBackup.value = false
+      return
+    }
+
+    const parsed = JSON.parse(raw)
+    const incoming = Array.isArray(parsed?.presets) ? parsed.presets : []
+    if (!incoming.length) {
+      notifications.showPopup('Backup kosong', 'Isi backup preset tidak valid.', 'error')
+      return
+    }
+
+    const normalized = incoming
+      .filter((item) => item && typeof item === 'object' && typeof item.id === 'string' && typeof item.name === 'string')
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        payload: normalizePresetPayload(item.payload && typeof item.payload === 'object' ? item.payload : {}),
+        updatedAt: item.updatedAt || new Date().toISOString(),
+        isDefault: Boolean(item.isDefault),
+      }))
+
+    presetOptions.value = normalized
+    persistPresetsToStorage()
+    notifications.showPopup('Backup dipulihkan', `${normalized.length} preset berhasil dipulihkan.`, 'success')
+  } catch {
+    notifications.showPopup('Gagal pulihkan backup', 'Data backup preset tidak valid.', 'error')
+  }
+}
+
 function showAutoApplyNotice(message) {
   autoApplyNotice.value = message
   if (autoApplyNoticeTimer) clearTimeout(autoApplyNoticeTimer)
@@ -550,6 +604,8 @@ async function importPresetsFromJson(event) {
         isDefault: Boolean(item.isDefault),
       }))
 
+    const invalidCount = incoming.length - normalized.length
+
     if (!normalized.length) {
       notifications.showPopup('Import gagal', 'Struktur preset tidak valid.', 'error')
       return
@@ -565,6 +621,7 @@ async function importPresetsFromJson(event) {
       `Total preset terdeteksi: ${normalized.length}`,
       `Preset baru: ${newCount}`,
       `Preset overwrite: ${overwriteCount}`,
+      `Preset invalid/di-skip: ${invalidCount}`,
       `Preset default di file: ${incomingDefaultCount}`,
       '',
       'Contoh preset:',
@@ -582,6 +639,8 @@ async function importPresetsFromJson(event) {
       return
     }
 
+    backupPresetsToStorage()
+
     const byName = new Map(presetOptions.value.map((item) => [item.name.toLowerCase(), item]))
     for (const item of normalized) {
       byName.set(item.name.toLowerCase(), item)
@@ -597,7 +656,11 @@ async function importPresetsFromJson(event) {
 
     presetOptions.value = merged
     persistPresetsToStorage()
-    notifications.showPopup('Import berhasil', `${normalized.length} preset diproses.`, 'success')
+    notifications.showPopup(
+      'Import berhasil',
+      `${normalized.length} diproses (${newCount} baru, ${overwriteCount} overwrite, ${invalidCount} di-skip).`,
+      'success',
+    )
   } catch {
     notifications.showPopup('Import gagal', 'File JSON tidak valid.', 'error')
   }
@@ -832,6 +895,7 @@ onBeforeUnmount(() => {
 
 onMounted(async () => {
   loadPresetsFromStorage()
+  loadPresetBackupState()
   const hasQuery = hasQueryFilters()
   restoreFilters()
 
@@ -946,6 +1010,7 @@ onMounted(async () => {
         <button class="rounded-lg border border-rose-200 px-2.5 py-1.5 text-xs font-semibold text-rose-700" :disabled="!selectedPresetId" @click="deleteSelectedPreset">Hapus</button>
         <button class="rounded-lg border border-indigo-200 px-2.5 py-1.5 text-xs font-semibold text-indigo-700" :disabled="!presetOptions.length" @click="exportPresetsToJson">Export Preset</button>
         <button class="rounded-lg border border-teal-200 px-2.5 py-1.5 text-xs font-semibold text-teal-700" @click="openPresetImportDialog">Import Preset</button>
+        <button class="rounded-lg border border-fuchsia-200 px-2.5 py-1.5 text-xs font-semibold text-fuchsia-700" :disabled="!hasPresetBackup" @click="restorePresetBackup">Restore Backup</button>
         <input ref="presetImportInputRef" type="file" accept="application/json" class="hidden" @change="importPresetsFromJson" />
       </div>
 
