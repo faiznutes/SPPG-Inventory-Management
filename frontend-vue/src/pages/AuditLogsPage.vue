@@ -118,6 +118,39 @@ async function goToPage(nextPage) {
   await loadData()
 }
 
+function buildExportQuery() {
+  return {
+    from: toIsoStart(filters.fromDate),
+    to: toIsoEnd(filters.toDate),
+    tenantId: canFilterTenant.value ? filters.tenantId : undefined,
+    actorUserId: filters.actorUserId || undefined,
+    entityType: filters.entityType.trim() || undefined,
+    entityId: filters.entityId.trim() || undefined,
+    action: filters.action.trim() || undefined,
+    sort: 'createdAt:desc',
+  }
+}
+
+async function exportCsv() {
+  if (!authStore.accessToken) return
+
+  try {
+    const blob = await api.exportAuditLogsCsv(authStore.accessToken, buildExportQuery())
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    const stamp = new Date().toISOString().slice(0, 10)
+    anchor.href = url
+    anchor.download = `audit-logs-${stamp}.csv`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+    notifications.showPopup('Export berhasil', 'File CSV audit log berhasil diunduh.', 'success')
+  } catch (error) {
+    notifications.showPopup('Export gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+  }
+}
+
 async function openDetail(row) {
   if (!authStore.accessToken || !row?.id) return
   isLoadingDetail.value = true
@@ -176,6 +209,7 @@ onMounted(async () => {
       </div>
 
       <div class="mt-3 flex flex-wrap justify-end gap-2">
+        <button class="rounded-lg border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700" @click="exportCsv">Export CSV</button>
         <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" @click="resetFilters">Reset</button>
         <button class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white" @click="applyFilters">Terapkan Filter</button>
       </div>

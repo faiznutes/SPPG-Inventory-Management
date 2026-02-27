@@ -95,6 +95,38 @@ async function request(path, options = {}) {
   return payload
 }
 
+async function requestBlob(path, options = {}) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: 'include',
+    ...options,
+  })
+
+  if (response.status === 401 && !options._retry && !shouldSkipRefresh(path)) {
+    try {
+      const refreshedAccessToken = await refreshAccessToken()
+      return requestBlob(path, {
+        ...options,
+        _retry: true,
+        headers: {
+          ...(options.headers || {}),
+          Authorization: `Bearer ${refreshedAccessToken}`,
+        },
+      })
+    } catch {
+      clearStoredSession()
+      redirectToLogin()
+      throw new Error('Sesi berakhir. Silakan login ulang.')
+    }
+  }
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}))
+    throw new Error(extractErrorMessage(payload))
+  }
+
+  return response.blob()
+}
+
 function extractErrorMessage(payload) {
   if (payload?.code === 'VALIDATION_ERROR' && payload?.details?.fieldErrors) {
     const entries = Object.entries(payload.details.fieldErrors).filter(([, messages]) => Array.isArray(messages) && messages.length)
@@ -457,6 +489,11 @@ export const api = {
 
   getAuditLogDetail: (accessToken, id) =>
     request(`/audit-logs/${id}`, {
+      headers: authHeader(accessToken),
+    }),
+
+  exportAuditLogsCsv: (accessToken, query = {}) =>
+    requestBlob(withQuery('/audit-logs/export', query), {
       headers: authHeader(accessToken),
     }),
 
