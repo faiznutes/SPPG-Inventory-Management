@@ -83,6 +83,9 @@ async function handleTenantSwitch() {
   }
 
   notifications.showPopup('Tenant aktif diperbarui', `Sekarang aktif di ${authStore.tenantName}.`, 'success')
+  if (authStore.accessToken) {
+    await notifications.loadFromApi(authStore.accessToken)
+  }
   router.replace({ path: route.fullPath })
 }
 
@@ -97,6 +100,9 @@ async function handleLocationSwitch() {
   }
 
   notifications.showPopup('Lokasi aktif diperbarui', `Sekarang aktif di ${authStore.locationName || 'Lokasi terpilih'}.`, 'success')
+  if (authStore.accessToken) {
+    await notifications.loadFromApi(authStore.accessToken)
+  }
   router.replace({ path: route.fullPath })
 }
 

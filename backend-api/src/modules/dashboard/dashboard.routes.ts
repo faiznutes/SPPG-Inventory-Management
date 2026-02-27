@@ -8,7 +8,7 @@ dashboardRouter.use(requireAuth)
 
 dashboardRouter.get('/summary', async (_req, res, next) => {
   try {
-    const data = await getDashboardSummary()
+    const data = await getDashboardSummary(_req.user?.tenantId, _req.user?.activeLocationId)
     return res.json(data)
   } catch (error) {
     return next(error)
@@ -17,7 +17,7 @@ dashboardRouter.get('/summary', async (_req, res, next) => {
 
 dashboardRouter.get('/low-stock', async (_req, res, next) => {
   try {
-    const data = await getLowStockRows()
+    const data = await getLowStockRows(_req.user?.tenantId, _req.user?.activeLocationId)
     return res.json(data)
   } catch (error) {
     return next(error)

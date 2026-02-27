@@ -8,7 +8,7 @@ notificationsRouter.use(requireAuth)
 
 notificationsRouter.get('/', async (_req, res, next) => {
   try {
-    const data = await listNotifications()
+    const data = await listNotifications(_req.user?.tenantId, _req.user?.activeLocationId)
     return res.json(data)
   } catch (error) {
     return next(error)

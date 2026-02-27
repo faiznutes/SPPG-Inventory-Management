@@ -1,5 +1,6 @@
 import { ChecklistRunStatus, PurchaseRequestStatus } from '../../lib/prisma-client.js'
 import { prisma } from '../../lib/prisma.js'
+import { fromTenantScopedItemName, tenantItemSuffix } from '../../utils/item-scope.js'
 
 type NotificationItem = {
   id: string
@@ -13,9 +14,48 @@ function toIso(date: Date) {
   return date.toISOString()
 }
 
-export async function listNotifications() {
+function displayLocationName(locationName: string, tenantCode?: string) {
+  if (!tenantCode) return locationName
+  const prefix = `${tenantCode}::`
+  return locationName.startsWith(prefix) ? locationName.slice(prefix.length) : locationName
+}
+
+export async function listNotifications(tenantId?: string, activeLocationId?: string) {
+  const suffix = tenantItemSuffix(tenantId)
+  const tenant = tenantId
+    ? await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { id: true, code: true },
+      })
+    : null
+
+  const tenantMembershipUserIds = tenantId
+    ? (
+        await prisma.tenantMembership.findMany({
+          where: { tenantId },
+          select: { userId: true },
+        })
+      ).map((row) => row.userId)
+    : []
+
   const [stockRows, checklistRuns, purchaseRequests] = await Promise.all([
     prisma.stock.findMany({
+      where: {
+        ...(activeLocationId
+          ? {
+              locationId: activeLocationId,
+            }
+          : {}),
+        ...(suffix
+          ? {
+              item: {
+                name: {
+                  endsWith: suffix,
+                },
+              },
+            }
+          : {}),
+      },
       include: {
         item: true,
         location: true,
@@ -26,6 +66,18 @@ export async function listNotifications() {
     prisma.checklistRun.findMany({
       where: {
         status: ChecklistRunStatus.SUBMITTED,
+        ...(activeLocationId
+          ? {
+              locationId: activeLocationId,
+            }
+          : {}),
+        ...(tenant?.code
+          ? {
+              template: {
+                name: `${'Checklist Harian Operasional'} - ${tenant.code}`,
+              },
+            }
+          : {}),
       },
       include: {
         template: true,
@@ -35,6 +87,13 @@ export async function listNotifications() {
     }),
     prisma.purchaseRequest.findMany({
       where: {
+        ...(tenantMembershipUserIds.length
+          ? {
+              requestedBy: {
+                in: tenantMembershipUserIds,
+              },
+            }
+          : {}),
         status: {
           in: [
             PurchaseRequestStatus.SUBMITTED,
@@ -64,7 +123,7 @@ export async function listNotifications() {
     .map((row) => ({
       id: `stock-${row.id}`,
       title: Number(row.qty) <= 0 ? 'Stok habis' : 'Stok menipis',
-      message: `${row.item.name} di ${row.location.name} tersisa ${Number(row.qty)} ${row.item.unit}.`,
+      message: `${fromTenantScopedItemName(row.item.name)} di ${displayLocationName(row.location.name, tenant?.code)} tersisa ${Number(row.qty)} ${row.item.unit}.`,
       time: toIso(row.updatedAt),
       type: 'warning',
     }))

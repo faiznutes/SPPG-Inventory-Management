@@ -1,5 +1,6 @@
 import { ChecklistRunStatus, PurchaseRequestStatus } from '../../lib/prisma-client.js'
 import { prisma } from '../../lib/prisma.js'
+import { fromTenantScopedItemName, tenantItemSuffix } from '../../utils/item-scope.js'
 
 function toDateOnly(date: Date) {
   const yyyy = date.getFullYear()
@@ -8,14 +9,61 @@ function toDateOnly(date: Date) {
   return new Date(`${yyyy}-${mm}-${dd}T00:00:00.000Z`)
 }
 
-export async function getDashboardSummary() {
+function displayLocationName(locationName: string, tenantCode?: string) {
+  if (!tenantCode) return locationName
+  const prefix = `${tenantCode}::`
+  return locationName.startsWith(prefix) ? locationName.slice(prefix.length) : locationName
+}
+
+export async function getDashboardSummary(tenantId?: string, activeLocationId?: string) {
   const today = toDateOnly(new Date())
+  const suffix = tenantItemSuffix(tenantId)
+  const tenant = tenantId
+    ? await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { id: true, code: true },
+      })
+    : null
+
+  const tenantMembershipUserIds = tenantId
+    ? (
+        await prisma.tenantMembership.findMany({
+          where: { tenantId },
+          select: { userId: true },
+        })
+      ).map((row) => row.userId)
+    : []
 
   const [itemCount, stockRows, activePrCount, checklistDraftCount] = await Promise.all([
     prisma.item.count({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(suffix
+          ? {
+              name: {
+                endsWith: suffix,
+              },
+            }
+          : {}),
+      },
     }),
     prisma.stock.findMany({
+      where: {
+        ...(activeLocationId
+          ? {
+              locationId: activeLocationId,
+            }
+          : {}),
+        ...(suffix
+          ? {
+              item: {
+                name: {
+                  endsWith: suffix,
+                },
+              },
+            }
+          : {}),
+      },
       include: {
         item: {
           select: {
@@ -26,6 +74,13 @@ export async function getDashboardSummary() {
     }),
     prisma.purchaseRequest.count({
       where: {
+        ...(tenantMembershipUserIds.length
+          ? {
+              requestedBy: {
+                in: tenantMembershipUserIds,
+              },
+            }
+          : {}),
         status: {
           in: [
             PurchaseRequestStatus.SUBMITTED,
@@ -38,6 +93,18 @@ export async function getDashboardSummary() {
     }),
     prisma.checklistRun.count({
       where: {
+        ...(tenant?.code
+          ? {
+              template: {
+                name: `${'Checklist Harian Operasional'} - ${tenant.code}`,
+              },
+            }
+          : {}),
+        ...(activeLocationId
+          ? {
+              locationId: activeLocationId,
+            }
+          : {}),
         runDate: today,
         status: {
           in: [ChecklistRunStatus.DRAFT],
@@ -56,8 +123,32 @@ export async function getDashboardSummary() {
   }
 }
 
-export async function getLowStockRows() {
+export async function getLowStockRows(tenantId?: string, activeLocationId?: string) {
+  const suffix = tenantItemSuffix(tenantId)
+  const tenant = tenantId
+    ? await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { id: true, code: true },
+      })
+    : null
+
   const rows = await prisma.stock.findMany({
+    where: {
+      ...(activeLocationId
+        ? {
+            locationId: activeLocationId,
+          }
+        : {}),
+      ...(suffix
+        ? {
+            item: {
+              name: {
+                endsWith: suffix,
+              },
+            },
+          }
+        : {}),
+    },
     include: {
       item: true,
       location: true,
@@ -75,9 +166,9 @@ export async function getLowStockRows() {
     .map((row) => ({
       id: row.id,
       itemId: row.itemId,
-      itemName: row.item.name,
+      itemName: fromTenantScopedItemName(row.item.name),
       locationId: row.locationId,
-      locationName: row.location.name,
+      locationName: displayLocationName(row.location.name, tenant?.code),
       qty: Number(row.qty),
       minStock: Number(row.item.minStock),
       unit: row.item.unit,
