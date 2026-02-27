@@ -23,6 +23,29 @@ type BulkItemUpdatePayload = {
   type?: 'CONSUMABLE' | 'ASSET' | 'GAS'
 }
 
+function displayCategoryName(name: string) {
+  return fromTenantScopedItemName(name).replace(/^INACTIVE - /i, '').replace(/^(CONSUMABLE|GAS|ASSET)\s-\s/i, '')
+}
+
+async function ensureCategoryInTenant(categoryId: string | undefined | null, tenantId: string) {
+  if (!categoryId) return
+  const category = await prisma.category.findUnique({
+    where: { id: categoryId },
+    select: {
+      id: true,
+      name: true,
+    },
+  })
+
+  if (!category) {
+    throw new ApiError(400, 'CATEGORY_NOT_FOUND', 'Kategori tidak ditemukan atau tidak valid.')
+  }
+
+  if (!category.name.endsWith(tenantItemSuffix(tenantId))) {
+    throw new ApiError(403, 'FORBIDDEN', 'Kategori tidak tersedia untuk tenant aktif ini.')
+  }
+}
+
 export async function listItems(tenantId: string | undefined, isSuperAdmin: boolean, includeInactive: boolean) {
   if (includeInactive && !isSuperAdmin) {
     throw new ApiError(403, 'FORBIDDEN', 'Hanya super admin yang dapat melihat item nonaktif.')
@@ -61,7 +84,7 @@ export async function listItems(tenantId: string | undefined, isSuperAdmin: bool
     category: item.category
       ? {
           id: item.category.id,
-          name: item.category.name,
+          name: displayCategoryName(item.category.name),
         }
       : null,
     isActive: item.isActive,
@@ -98,6 +121,8 @@ export async function createItem(input: CreateItemInput, actorUserId: string, te
   if (!unit) {
     throw new ApiError(400, 'ITEM_UNIT_INVALID', 'Satuan item wajib diisi.')
   }
+
+  await ensureCategoryInTenant(input.categoryId, tenantId)
 
   try {
     const item = await prisma.$transaction(async (tx) => {
@@ -173,7 +198,7 @@ export async function createItem(input: CreateItemInput, actorUserId: string, te
       category: item.category
         ? {
             id: item.category.id,
-            name: item.category.name,
+            name: displayCategoryName(item.category.name),
           }
         : null,
       isActive: item.isActive,
@@ -226,7 +251,7 @@ export async function bulkItemAction(
   const foundIds = new Set(items.map((item) => item.id))
   const missingIds = uniqueIds.filter((id) => !foundIds.has(id))
 
-  await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
     if (action === 'ACTIVATE') {
       await tx.item.updateMany({
         where: { id: { in: items.map((item) => item.id) } },
@@ -265,6 +290,10 @@ export async function bulkItemAction(
       if (payload?.reorderQty !== undefined) data.reorderQty = payload.reorderQty
       if (payload?.unit !== undefined) data.unit = payload.unit.trim()
       if (payload?.type !== undefined) data.type = payload.type
+
+      if (payload?.categoryId !== undefined) {
+        await ensureCategoryInTenant(payload.categoryId, tenantId)
+      }
 
       await tx.item.updateMany({
         where: { id: { in: items.map((item) => item.id) } },

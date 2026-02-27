@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js'
 import { ApiError } from '../../utils/api-error.js'
+import { fromTenantScopedItemName, tenantItemSuffix, toTenantScopedItemName } from '../../utils/item-scope.js'
 
 type CreateCategoryInput = {
   name: string
@@ -25,16 +26,70 @@ type BulkCategoryPayload = {
 const INACTIVE_PREFIX = 'INACTIVE - '
 
 function detectCategoryType(name: string): 'CONSUMABLE' | 'GAS' | 'ASSET' {
-  const clean = name.replace(new RegExp(`^${INACTIVE_PREFIX}`, 'i'), '')
+  const clean = stripTenantCategorySuffix(name).replace(new RegExp(`^${INACTIVE_PREFIX}`, 'i'), '')
   return clean.toUpperCase().includes('GAS') ? 'GAS' : clean.toUpperCase().includes('ASSET') ? 'ASSET' : 'CONSUMABLE'
 }
 
 function displayCategoryName(name: string) {
-  return name.replace(new RegExp(`^${INACTIVE_PREFIX}`, 'i'), '').replace(/^(CONSUMABLE|GAS|ASSET)\s-\s/i, '')
+  return stripTenantCategorySuffix(name).replace(new RegExp(`^${INACTIVE_PREFIX}`, 'i'), '').replace(/^(CONSUMABLE|GAS|ASSET)\s-\s/i, '')
 }
 
 function normalizedCategoryName(name: string, type: 'CONSUMABLE' | 'GAS' | 'ASSET') {
   return `${type} - ${name.trim()}`
+}
+
+function scopedCategoryName(name: string, tenantId: string) {
+  return toTenantScopedItemName(name, tenantId)
+}
+
+function stripTenantCategorySuffix(name: string) {
+  return fromTenantScopedItemName(name)
+}
+
+function ensureTenantId(tenantId?: string) {
+  if (!tenantId) {
+    throw new ApiError(400, 'TENANT_CONTEXT_REQUIRED', 'Tenant aktif tidak ditemukan pada sesi pengguna.')
+  }
+  return tenantId
+}
+
+async function ensureTenantCategoriesSeeded(tenantId: string) {
+  const suffix = tenantItemSuffix(tenantId)
+  const scopedCount = await prisma.category.count({
+    where: {
+      name: {
+        endsWith: suffix,
+      },
+    },
+  })
+
+  if (scopedCount > 0) return
+
+  const globalRows = await prisma.category.findMany({
+    where: {
+      name: {
+        not: {
+          contains: '_tenant_',
+        },
+      },
+    },
+    select: {
+      name: true,
+    },
+    orderBy: {
+      createdAt: 'asc',
+    },
+  })
+
+  const seeds = [...new Set(globalRows.map((row) => row.name.trim()).filter(Boolean))]
+  if (!seeds.length) return
+
+  await prisma.category.createMany({
+    data: seeds.map((name) => ({
+      name: scopedCategoryName(name, tenantId),
+    })),
+    skipDuplicates: true,
+  })
 }
 
 function isInactiveCategoryName(name: string) {
@@ -49,9 +104,15 @@ function toActiveCategoryName(name: string) {
   return name.replace(new RegExp(`^${INACTIVE_PREFIX}`, 'i'), '')
 }
 
-export async function listCategories(query: ListCategoriesQuery = {}) {
+export async function listCategories(query: ListCategoriesQuery = {}, tenantId?: string) {
+  const requiredTenantId = ensureTenantId(tenantId)
+  await ensureTenantCategoriesSeeded(requiredTenantId)
+  const suffix = tenantItemSuffix(requiredTenantId)
   const categories = await prisma.category.findMany({
     where: {
+      name: {
+        endsWith: suffix,
+      },
       ...(query.includeInactive
         ? {}
         : {
@@ -76,12 +137,14 @@ export async function listCategories(query: ListCategoriesQuery = {}) {
 }
 
 export async function createCategory(actorUserId: string, tenantId: string | undefined, input: CreateCategoryInput) {
+  const requiredTenantId = ensureTenantId(tenantId)
   try {
     const normalizedName = normalizedCategoryName(input.name, input.type)
+    const scopedName = scopedCategoryName(normalizedName, requiredTenantId)
 
     const category = await prisma.category.create({
       data: {
-        name: normalizedName,
+        name: scopedName,
       },
     })
 
@@ -105,20 +168,26 @@ export async function createCategory(actorUserId: string, tenantId: string | und
       type: input.type,
       isActive: true,
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof ApiError) throw error
     throw new ApiError(409, 'CATEGORY_EXISTS', 'Nama kategori sudah ada.')
   }
 }
 
 export async function updateCategory(actorUserId: string, tenantId: string | undefined, categoryId: string, input: UpdateCategoryInput) {
+  const requiredTenantId = ensureTenantId(tenantId)
   try {
     const existing = await prisma.category.findUnique({ where: { id: categoryId } })
     if (!existing) {
       throw new ApiError(404, 'CATEGORY_NOT_FOUND', 'Kategori tidak ditemukan.')
     }
+    if (!existing.name.endsWith(tenantItemSuffix(requiredTenantId))) {
+      throw new ApiError(403, 'FORBIDDEN', 'Kategori tidak tersedia untuk tenant aktif ini.')
+    }
 
     const normalizedName = normalizedCategoryName(input.name, input.type)
-    const nextName = isInactiveCategoryName(existing.name) ? toInactiveCategoryName(normalizedName) : normalizedName
+    const scopedNormalized = scopedCategoryName(normalizedName, requiredTenantId)
+    const nextName = isInactiveCategoryName(existing.name) ? toInactiveCategoryName(scopedNormalized) : scopedNormalized
     const category = await prisma.category.update({
       where: { id: categoryId },
       data: {
@@ -147,6 +216,7 @@ export async function updateCategory(actorUserId: string, tenantId: string | und
       isActive: !isInactiveCategoryName(category.name),
     }
   } catch (error) {
+    if (error instanceof ApiError) throw error
     if ((error as { code?: string }).code === 'P2025') {
       throw new ApiError(404, 'CATEGORY_NOT_FOUND', 'Kategori tidak ditemukan.')
     }
@@ -155,10 +225,14 @@ export async function updateCategory(actorUserId: string, tenantId: string | und
 }
 
 export async function updateCategoryStatus(actorUserId: string, tenantId: string | undefined, categoryId: string, isActive: boolean) {
+  const requiredTenantId = ensureTenantId(tenantId)
   try {
     const existing = await prisma.category.findUnique({ where: { id: categoryId } })
     if (!existing) {
       throw new ApiError(404, 'CATEGORY_NOT_FOUND', 'Kategori tidak ditemukan.')
+    }
+    if (!existing.name.endsWith(tenantItemSuffix(requiredTenantId))) {
+      throw new ApiError(403, 'FORBIDDEN', 'Kategori tidak tersedia untuk tenant aktif ini.')
     }
 
     const updated = await prisma.category.update({
@@ -192,8 +266,22 @@ export async function updateCategoryStatus(actorUserId: string, tenantId: string
 }
 
 export async function deleteCategory(actorUserId: string, tenantId: string | undefined, categoryId: string) {
+  const requiredTenantId = ensureTenantId(tenantId)
+  const existing = await prisma.category.findUnique({ where: { id: categoryId } })
+  if (!existing) {
+    throw new ApiError(404, 'CATEGORY_NOT_FOUND', 'Kategori tidak ditemukan.')
+  }
+  if (!existing.name.endsWith(tenantItemSuffix(requiredTenantId))) {
+    throw new ApiError(403, 'FORBIDDEN', 'Kategori tidak tersedia untuk tenant aktif ini.')
+  }
+
   const usageCount = await prisma.item.count({
-    where: { categoryId },
+    where: {
+      categoryId,
+      name: {
+        endsWith: tenantItemSuffix(requiredTenantId),
+      },
+    },
   })
 
   if (usageCount > 0) {
@@ -201,9 +289,9 @@ export async function deleteCategory(actorUserId: string, tenantId: string | und
   }
 
   try {
-    const deleted = await prisma.category.delete({
-      where: { id: categoryId },
-    })
+      const deleted = await prisma.category.delete({
+        where: { id: categoryId },
+      })
 
     await prisma.auditLog.create({
       data: {
@@ -222,7 +310,8 @@ export async function deleteCategory(actorUserId: string, tenantId: string | und
       code: 'CATEGORY_DELETED',
       message: 'Kategori berhasil dihapus.',
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof ApiError) throw error
     throw new ApiError(404, 'CATEGORY_NOT_FOUND', 'Kategori tidak ditemukan.')
   }
 }
@@ -234,6 +323,7 @@ export async function bulkCategoryAction(
   action: BulkCategoryAction,
   payload?: BulkCategoryPayload,
 ) {
+  ensureTenantId(tenantId)
   const uniqueIds = [...new Set(ids)]
   if (!uniqueIds.length) {
     throw new ApiError(400, 'BULK_CATEGORIES_EMPTY', 'Pilih minimal satu kategori untuk aksi pilihan.')

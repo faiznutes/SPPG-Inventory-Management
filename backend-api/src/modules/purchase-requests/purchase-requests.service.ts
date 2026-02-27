@@ -72,13 +72,10 @@ function totalOf(items: Array<{ qty: number; unitPrice: number }>) {
 
 export async function listPurchaseRequests(query: ListPurchaseRequestsQuery = {}, tenantId?: string) {
   const scope = await resolveTenantUserScope(tenantId)
-  if (!scope.userIds.length) return []
   const range = resolveRange(query)
   const rows = await prisma.purchaseRequest.findMany({
     where: {
-      requestedBy: {
-        in: scope.userIds,
-      },
+      tenantId: scope.tenant.id,
       ...(range
         ? {
             createdAt: {
@@ -214,6 +211,7 @@ export async function createPurchaseRequest(userId: string, input: CreatePurchas
     const pr = await tx.purchaseRequest.create({
       data: {
         prNumber,
+        tenantId: scope.tenant.id,
         status: PurchaseRequestStatus.DRAFT,
         requestedBy: userId,
         notes: input.notes,
@@ -263,9 +261,6 @@ export async function createPurchaseRequest(userId: string, input: CreatePurchas
 
 export async function getPurchaseRequestDetail(id: string, tenantId?: string) {
   const scope = await resolveTenantUserScope(tenantId)
-  if (!scope.userIds.length) {
-    throw new ApiError(404, 'PR_NOT_FOUND', 'Purchase request tidak ditemukan.')
-  }
 
   const row = await prisma.purchaseRequest.findUnique({
     where: { id },
@@ -295,7 +290,7 @@ export async function getPurchaseRequestDetail(id: string, tenantId?: string) {
     throw new ApiError(404, 'PR_NOT_FOUND', 'Purchase request tidak ditemukan.')
   }
 
-  if (!scope.userIds.includes(row.requestedBy)) {
+  if (row.tenantId !== scope.tenant.id) {
     throw new ApiError(403, 'FORBIDDEN', 'Purchase request tidak tersedia untuk tenant aktif ini.')
   }
 
@@ -338,7 +333,7 @@ export async function updatePurchaseRequestStatus(
     throw new ApiError(404, 'PR_NOT_FOUND', 'Purchase request tidak ditemukan.')
   }
 
-  if (!scope.userIds.includes(existing.requestedBy)) {
+  if (existing.tenantId !== scope.tenant.id) {
     throw new ApiError(403, 'FORBIDDEN', 'Purchase request tidak tersedia untuk tenant aktif ini.')
   }
 
@@ -406,6 +401,7 @@ export async function bulkUpdatePurchaseRequestStatus(
   const scope = await resolveTenantUserScope(tenantId)
   const existing = await prisma.purchaseRequest.findMany({
     where: {
+      tenantId: scope.tenant.id,
       id: {
         in: ids,
       },
@@ -413,7 +409,6 @@ export async function bulkUpdatePurchaseRequestStatus(
     select: {
       id: true,
       approvedBy: true,
-      requestedBy: true,
     },
   })
 
@@ -421,8 +416,7 @@ export async function bulkUpdatePurchaseRequestStatus(
     throw new ApiError(404, 'PR_NOT_FOUND', 'Purchase request tidak ditemukan.')
   }
 
-  const outOfScope = existing.find((row) => !scope.userIds.includes(row.requestedBy))
-  if (outOfScope) {
+  if (existing.length !== [...new Set(ids)].length) {
     throw new ApiError(403, 'FORBIDDEN', 'Sebagian purchase request tidak tersedia untuk tenant aktif ini.')
   }
 

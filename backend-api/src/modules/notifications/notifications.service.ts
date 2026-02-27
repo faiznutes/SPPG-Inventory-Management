@@ -37,15 +37,6 @@ export async function listNotifications(tenantId?: string, activeLocationId?: st
       })
     : null
 
-  const tenantMembershipUserIds = tenantId
-    ? (
-        await prisma.tenantMembership.findMany({
-          where: { tenantId },
-          select: { userId: true },
-        })
-      ).map((row) => row.userId)
-    : []
-
   const [stockRows, checklistRuns, purchaseRequests] = await Promise.all([
     prisma.stock.findMany({
       where: {
@@ -95,11 +86,9 @@ export async function listNotifications(tenantId?: string, activeLocationId?: st
     }),
     prisma.purchaseRequest.findMany({
       where: {
-        ...(tenantMembershipUserIds.length
+        ...(tenantId
           ? {
-              requestedBy: {
-                in: tenantMembershipUserIds,
-              },
+              tenantId,
             }
           : {}),
         status: {

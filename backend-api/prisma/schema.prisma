@@ -116,6 +116,7 @@ model Tenant {
   updatedAt   DateTime           @updatedAt @map("updated_at")
   memberships TenantMembership[]
   telegramSetting TenantTelegramSetting?
+  purchaseRequests PurchaseRequest[]
 
   @@map("tenants")
 }
@@ -350,6 +351,7 @@ model ChecklistRunItem {
 model PurchaseRequest {
   id          String               @id @default(uuid())
   prNumber    String               @unique @map("pr_number")
+  tenantId    String               @map("tenant_id")
   status      PurchaseRequestStatus @default(DRAFT)
   requestedBy String               @map("requested_by")
   approvedBy  String?              @map("approved_by")
@@ -360,7 +362,9 @@ model PurchaseRequest {
   history     PurchaseRequestStatusHistory[]
   requester   User                 @relation("PurchaseRequestRequestedBy", fields: [requestedBy], references: [id])
   approver    User?                @relation("PurchaseRequestApprovedBy", fields: [approvedBy], references: [id])
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId, createdAt(sort: Desc)])
   @@map("purchase_requests")
 }
 

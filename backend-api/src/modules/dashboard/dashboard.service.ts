@@ -29,15 +29,6 @@ export async function getDashboardSummary(tenantId?: string, activeLocationId?: 
       })
     : null
 
-  const tenantMembershipUserIds = tenantId
-    ? (
-        await prisma.tenantMembership.findMany({
-          where: { tenantId },
-          select: { userId: true },
-        })
-      ).map((row) => row.userId)
-    : []
-
   const [itemCount, stockRows, activePrCount, checklistDraftCount] = await Promise.all([
     prisma.item.count({
       where: {
@@ -83,11 +74,9 @@ export async function getDashboardSummary(tenantId?: string, activeLocationId?: 
     }),
     prisma.purchaseRequest.count({
       where: {
-        ...(tenantMembershipUserIds.length
+        ...(tenantId
           ? {
-              requestedBy: {
-                in: tenantMembershipUserIds,
-              },
+              tenantId,
             }
           : {}),
         status: {
