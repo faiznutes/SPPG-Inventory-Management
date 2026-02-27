@@ -18,6 +18,7 @@ const activeTab = ref('Item')
 const actionType = ref('APPROVED')
 const showActionModal = ref(false)
 const actionNote = ref('')
+const canApprovePr = computed(() => ['SUPER_ADMIN', 'ADMIN'].includes(authStore.user?.role || ''))
 
 const statusLabelMap = {
   DRAFT: 'Draf',
@@ -50,6 +51,11 @@ async function loadDetail() {
 }
 
 function openAction(type) {
+  if (!canApprovePr.value) {
+    notifications.showPopup('Akses ditolak', 'Hanya SUPER_ADMIN/ADMIN yang dapat mengubah status PR.', 'error')
+    return
+  }
+
   actionType.value = type
   actionNote.value = ''
   showActionModal.value = true
@@ -86,9 +92,11 @@ watch(
   <div class="space-y-5">
     <PageHeader :title="`Detail PR ${detail?.prNumber || route.params.id}`" :subtitle="subtitle">
       <template #actions>
-        <button class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700" @click="openAction('REJECTED')">Tolak</button>
-        <button class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700" @click="openAction('APPROVED')">Setujui</button>
-        <button class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white" @click="openAction('RECEIVED')">Tandai Diterima</button>
+        <template v-if="canApprovePr">
+          <button class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700" @click="openAction('REJECTED')">Tolak</button>
+          <button class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700" @click="openAction('APPROVED')">Setujui</button>
+          <button class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white" @click="openAction('RECEIVED')">Tandai Diterima</button>
+        </template>
       </template>
     </PageHeader>
 

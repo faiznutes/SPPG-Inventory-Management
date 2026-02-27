@@ -55,6 +55,7 @@ const dayNameMap = {
 
 const tenantName = computed(() => authStore.user?.tenant?.name || authStore.tenantName || APP_NAME)
 const tenantCode = computed(() => authStore.user?.tenant?.code || '-')
+const canApprovePr = computed(() => ['SUPER_ADMIN', 'ADMIN'].includes(authStore.user?.role || ''))
 const responsibleLine = computed(() => {
   const name = authStore.user?.name || authStore.user?.username || '-'
   const jabatan = authStore.user?.jabatan || authStore.operationalLabel || 'Staff'
@@ -267,6 +268,11 @@ function toggleRowSelection(id) {
 }
 
 function openBulkModal() {
+  if (!canApprovePr.value) {
+    notifications.showPopup('Akses ditolak', 'Hanya SUPER_ADMIN/ADMIN yang dapat mengubah status PR.', 'error')
+    return
+  }
+
   if (!selectedIds.value.length) {
     notifications.showPopup('Belum ada pilihan', 'Pilih minimal 1 PR untuk aksi pilihan.', 'error')
     return
@@ -326,7 +332,7 @@ watch(
         <button class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white" @click="showCreateModal = true">
           Buat PR Baru
         </button>
-        <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="openBulkModal">
+        <button v-if="canApprovePr" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700" @click="openBulkModal">
           Pilih Status
         </button>
       </template>
@@ -364,7 +370,7 @@ watch(
               <p class="text-sm font-bold text-slate-900">{{ row.prNumber }}</p>
               <p class="text-xs text-slate-500">{{ row.peminta }} - {{ row.hari }}, {{ row.tanggal }}</p>
             </div>
-            <input :checked="selectedIds.includes(row.id)" type="checkbox" @change="toggleRowSelection(row.id)" />
+            <input v-if="canApprovePr" :checked="selectedIds.includes(row.id)" type="checkbox" @change="toggleRowSelection(row.id)" />
           </div>
           <p v-if="activePeriod === 'WEEKLY' && row.isSunday" class="mt-2 rounded bg-rose-100 px-2 py-1 text-[11px] font-bold text-rose-700">
             Tanggal merah / libur (Minggu)
@@ -391,12 +397,12 @@ watch(
               <th class="px-3 py-3 text-center font-semibold">Status</th>
               <th class="px-3 py-3 text-center font-semibold">Libur</th>
               <th class="px-3 py-3 text-right font-semibold">Aksi</th>
-              <th class="px-3 py-3 text-center font-semibold">Pilih</th>
+              <th v-if="canApprovePr" class="px-3 py-3 text-center font-semibold">Pilih</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="isLoading">
-              <td class="px-3 py-3 text-slate-500" colspan="9">Memuat data PR...</td>
+              <td class="px-3 py-3 text-slate-500" :colspan="canApprovePr ? 9 : 8">Memuat data PR...</td>
             </tr>
 
             <tr v-for="row in filteredRows" :key="row.id" class="border-b border-slate-100" :class="activePeriod === 'WEEKLY' && row.isSunday ? 'bg-rose-50' : ''">
@@ -417,7 +423,7 @@ watch(
                   Lihat Detail
                 </RouterLink>
               </td>
-              <td class="px-3 py-3 text-center">
+              <td v-if="canApprovePr" class="px-3 py-3 text-center">
                 <input :checked="selectedIds.includes(row.id)" type="checkbox" @change="toggleRowSelection(row.id)" />
               </td>
             </tr>
