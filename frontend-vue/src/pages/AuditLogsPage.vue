@@ -14,6 +14,8 @@ const router = useRouter()
 
 const FILTER_STORAGE_KEY = 'audit_logs_filters_v1'
 const PRESET_STORAGE_KEY = 'audit_logs_presets_v1'
+const MAX_PRESET_IMPORT_BYTES = 1_000_000
+const MAX_PRESET_IMPORT_COUNT = 300
 
 const rows = ref([])
 const stats = ref({
@@ -214,6 +216,24 @@ function buildPresetPayload() {
   }
 }
 
+function isDateOnlyString(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+}
+
+function normalizePresetPayload(payload = {}) {
+  const nextQuickDays = Number(payload.quickDays)
+  return {
+    fromDate: typeof payload.fromDate === 'string' && isDateOnlyString(payload.fromDate) ? payload.fromDate : '',
+    toDate: typeof payload.toDate === 'string' && isDateOnlyString(payload.toDate) ? payload.toDate : '',
+    tenantId: typeof payload.tenantId === 'string' ? payload.tenantId : '',
+    actorUserId: typeof payload.actorUserId === 'string' ? payload.actorUserId : '',
+    entityType: typeof payload.entityType === 'string' ? payload.entityType : '',
+    entityId: typeof payload.entityId === 'string' ? payload.entityId : '',
+    action: typeof payload.action === 'string' ? payload.action : '',
+    quickDays: Number.isInteger(nextQuickDays) && nextQuickDays >= 1 && nextQuickDays <= 365 ? nextQuickDays : 14,
+  }
+}
+
 function buildFilterSignature() {
   return JSON.stringify({
     fromDate: filters.fromDate || '',
@@ -263,7 +283,7 @@ function loadPresetsFromStorage() {
           .map((item) => ({
             id: item.id,
             name: item.name,
-            payload: item.payload && typeof item.payload === 'object' ? item.payload : {},
+            payload: normalizePresetPayload(item.payload && typeof item.payload === 'object' ? item.payload : {}),
             updatedAt: item.updatedAt || null,
             isDefault: Boolean(item.isDefault),
           }))
@@ -371,7 +391,7 @@ function saveCurrentPreset() {
   const nextPreset = {
     id: existingIndex >= 0 ? presetOptions.value[existingIndex].id : `preset-${Date.now()}`,
     name,
-    payload: buildPresetPayload(),
+    payload: normalizePresetPayload(buildPresetPayload()),
     updatedAt: new Date().toISOString(),
     isDefault: existingIndex >= 0 ? Boolean(presetOptions.value[existingIndex].isDefault) : false,
   }
@@ -496,6 +516,11 @@ async function importPresetsFromJson(event) {
   const file = input?.files?.[0]
   if (!file) return
 
+  if (file.size > MAX_PRESET_IMPORT_BYTES) {
+    notifications.showPopup('Import gagal', 'Ukuran file maksimal 1MB.', 'error')
+    return
+  }
+
   try {
     const text = await file.text()
     const parsed = JSON.parse(text)
@@ -510,12 +535,17 @@ async function importPresetsFromJson(event) {
       return
     }
 
+    if (incoming.length > MAX_PRESET_IMPORT_COUNT) {
+      notifications.showPopup('Import gagal', `Maksimal ${MAX_PRESET_IMPORT_COUNT} preset per file.`, 'error')
+      return
+    }
+
     const normalized = incoming
       .filter((item) => item && typeof item === 'object' && typeof item.name === 'string')
       .map((item, index) => ({
         id: typeof item.id === 'string' ? item.id : `import-${Date.now()}-${index}`,
         name: item.name,
-        payload: item.payload && typeof item.payload === 'object' ? item.payload : {},
+        payload: normalizePresetPayload(item.payload && typeof item.payload === 'object' ? item.payload : {}),
         updatedAt: item.updatedAt || new Date().toISOString(),
         isDefault: Boolean(item.isDefault),
       }))
