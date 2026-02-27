@@ -49,6 +49,7 @@ export const useNotificationsStore = defineStore('notifications', {
         time: item.time,
         relativeTime: this.formatRelativeTime(item.time),
         type: item.type,
+        tenantCode: item.tenantCode || '',
       }))
     },
 

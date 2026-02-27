@@ -8,6 +8,7 @@ type NotificationItem = {
   message: string
   time: string
   type: 'warning' | 'info'
+  tenantCode?: string | null
 }
 
 function toIso(date: Date) {
@@ -19,6 +20,12 @@ function displayLocationName(locationName: string, tenantCode?: string) {
   if (!tenantCode) return clean
   const prefix = `${tenantCode}::`
   return clean.startsWith(prefix) ? clean.slice(prefix.length) : clean
+}
+
+function displayTemplateName(templateName: string, tenantCode?: string) {
+  if (!tenantCode) return templateName
+  const suffix = ` - ${tenantCode}`
+  return templateName.endsWith(suffix) ? templateName.slice(0, -suffix.length) : templateName
 }
 
 export async function listNotifications(tenantId?: string, activeLocationId?: string) {
@@ -127,23 +134,26 @@ export async function listNotifications(tenantId?: string, activeLocationId?: st
       message: `${fromTenantScopedItemName(row.item.name)} di ${displayLocationName(row.location.name, tenant?.code)} tersisa ${Number(row.qty)} ${row.item.unit}.`,
       time: toIso(row.updatedAt),
       type: 'warning',
+      tenantCode: tenant?.code || null,
     }))
 
-  const checklistItems: NotificationItem[] = checklistRuns.map((run) => ({
-    id: `checklist-${run.id}`,
-    title: 'Checklist masuk',
-    message: `${run.template.name} sudah disubmit untuk tanggal ${run.runDate.toISOString().slice(0, 10)}.`,
-    time: toIso(run.updatedAt),
-    type: 'info',
-  }))
+const checklistItems: NotificationItem[] = checklistRuns.map((run) => ({
+  id: `checklist-${run.id}`,
+  title: 'Checklist masuk',
+  message: `${displayTemplateName(run.template.name, tenant?.code)} sudah disubmit untuk tanggal ${run.runDate.toISOString().slice(0, 10)}.`,
+  time: toIso(run.updatedAt),
+  type: 'info',
+  tenantCode: tenant?.code || null,
+}))
 
-  const purchaseRequestItems: NotificationItem[] = purchaseRequests.map((row) => ({
-    id: `pr-${row.id}`,
-    title: 'PR aktif',
-    message: `${row.prNumber} berstatus ${row.status} oleh ${row.requester?.name || row.requester?.username || 'pengguna'}.`,
-    time: toIso(row.updatedAt),
-    type: 'info',
-  }))
+const purchaseRequestItems: NotificationItem[] = purchaseRequests.map((row) => ({
+  id: `pr-${row.id}`,
+  title: 'PR aktif',
+  message: `${row.prNumber} berstatus ${row.status} oleh ${row.requester?.name || row.requester?.username || 'pengguna'}.`,
+  time: toIso(row.updatedAt),
+  type: 'info',
+  tenantCode: tenant?.code || null,
+}))
 
   return [...lowStockItems, ...checklistItems, ...purchaseRequestItems]
     .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
