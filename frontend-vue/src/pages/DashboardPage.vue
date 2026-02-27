@@ -12,8 +12,19 @@ const router = useRouter()
 const isLoading = ref(false)
 const stats = ref([])
 const lowStocks = ref([])
+const activeTenantCode = ref('ALL')
 
-const hasLowStock = computed(() => lowStocks.value.length > 0)
+const tenantCodeOptions = computed(() => {
+  const set = new Set(lowStocks.value.map((row) => row.tenantCode).filter(Boolean))
+  return Array.from(set).sort((a, b) => a.localeCompare(b))
+})
+
+const filteredLowStocks = computed(() => {
+  if (activeTenantCode.value === 'ALL') return lowStocks.value.slice(0, 5)
+  return lowStocks.value.filter((row) => row.tenantCode === activeTenantCode.value).slice(0, 5)
+})
+
+const hasLowStock = computed(() => filteredLowStocks.value.length > 0)
 const showTenantCode = computed(() => authStore.isSuperAdmin)
 
 function toNumber(value) {
@@ -82,9 +93,15 @@ watch(
     <section class="grid grid-cols-1 gap-4 xl:grid-cols-3">
       <div class="rounded-xl border border-slate-200 bg-white p-4 xl:col-span-2">
         <p class="text-sm font-bold text-slate-900">Stok Menipis Teratas</p>
+        <div v-if="showTenantCode" class="mt-2">
+          <select v-model="activeTenantCode" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+            <option value="ALL">Semua Kode Tenant</option>
+            <option v-for="code in tenantCodeOptions" :key="`dashboard-tenant-${code}`" :value="code">{{ code }}</option>
+          </select>
+        </div>
         <ul v-if="hasLowStock" class="mt-3 space-y-2 text-sm">
           <li
-            v-for="row in lowStocks"
+            v-for="row in filteredLowStocks"
             :key="row.id"
             class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2"
           >
