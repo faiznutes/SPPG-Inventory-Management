@@ -35,6 +35,21 @@ function isInactiveLocationName(name: string) {
   return name.startsWith('INACTIVE - ') || name.includes('::INACTIVE - ')
 }
 
+function stripTenantPrefix(tenantCode: string, value: string) {
+  const prefix = `${tenantCode}::`
+  return value.startsWith(prefix) ? value.slice(prefix.length) : value
+}
+
+function stripInactivePrefix(value: string) {
+  return value.replace(/^INACTIVE - /i, '')
+}
+
+function displayLocationName(locationName: string | null | undefined, tenantCode?: string) {
+  if (!locationName) return null
+  if (!tenantCode) return stripInactivePrefix(locationName)
+  return stripInactivePrefix(stripTenantPrefix(tenantCode, locationName))
+}
+
 async function resolveTenantLocationSet(tenantId?: string) {
   if (!tenantId) {
     throw new ApiError(400, 'TENANT_CONTEXT_REQUIRED', 'Tenant aktif tidak ditemukan pada sesi pengguna.')
@@ -172,6 +187,12 @@ function validatePayload(input: CreateTransactionInput) {
 
 export async function listTransactions(query: ListTransactionsQuery = {}, tenantId?: string, activeLocationId?: string) {
   const suffix = tenantItemSuffix(tenantId)
+  const tenant = tenantId
+    ? await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { code: true },
+      })
+    : null
   const tenantItems = await prisma.item.findMany({
     where: suffix
       ? {
@@ -227,6 +248,22 @@ export async function listTransactions(query: ListTransactionsQuery = {}, tenant
     take: 200,
   })
 
+  const locationIds = [...new Set(rows.flatMap((row) => [row.fromLocationId, row.toLocationId]).filter(Boolean) as string[])]
+  const locationRows = locationIds.length
+    ? await prisma.location.findMany({
+        where: {
+          id: {
+            in: locationIds,
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+        },
+      })
+    : []
+  const locationNameMap = new Map(locationRows.map((row) => [row.id, displayLocationName(row.name, tenant?.code)]))
+
   return rows.map((row) => ({
     id: row.id,
     trxType: row.trxType,
@@ -237,6 +274,9 @@ export async function listTransactions(query: ListTransactionsQuery = {}, tenant
     reason: row.reason,
     createdAt: row.createdAt,
     actor: row.actor,
+    fromLocationName: row.fromLocationId ? locationNameMap.get(row.fromLocationId) || null : null,
+    toLocationName: row.toLocationId ? locationNameMap.get(row.toLocationId) || null : null,
+    tenantCode: tenant?.code || null,
   }))
 }
 

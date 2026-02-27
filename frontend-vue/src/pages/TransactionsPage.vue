@@ -78,6 +78,17 @@ const filteredRows = computed(() => {
   return rows.value.filter((row) => row.kategoriTrx === activeTab.value)
 })
 
+function formatTrxLocation(row) {
+  if (row.kategoriTrx === 'Masuk') return row.toLocationName ? `Ke ${row.toLocationName}` : '-'
+  if (row.kategoriTrx === 'Keluar') return row.fromLocationName ? `Dari ${row.fromLocationName}` : '-'
+  if (row.kategoriTrx === 'Transfer') {
+    if (row.fromLocationName && row.toLocationName) return `${row.fromLocationName} -> ${row.toLocationName}`
+    return row.fromLocationName || row.toLocationName || '-'
+  }
+  if (row.kategoriTrx === 'Penyesuaian') return row.fromLocationName ? `Di ${row.fromLocationName}` : '-'
+  return '-'
+}
+
 function openAction(type) {
   action.value = type
   form.itemId = ''
@@ -112,9 +123,17 @@ async function loadData() {
       isSunday: new Date(row.createdAt).getDay() === 0,
       kategoriTrx: trxLabelMap[row.trxType] || row.trxType,
       item: itemNameMap[row.itemId] || row.itemId,
+      fromLocationName: row.fromLocationName || '',
+      toLocationName: row.toLocationName || '',
+      lokasi: formatTrxLocation({
+        kategoriTrx: trxLabelMap[row.trxType] || row.trxType,
+        fromLocationName: row.fromLocationName || '',
+        toLocationName: row.toLocationName || '',
+      }),
       qty: row.qty,
       reason: row.reason || '-',
       user: row.actor?.name || row.actor?.username || userNameMap[row.createdBy] || '-',
+      tenantCode: row.tenantCode || authStore.user?.tenant?.code || '',
     }))
 
     items.value = itemsData
@@ -141,7 +160,7 @@ async function changeTypeTab(tab) {
 }
 
 function exportCsv() {
-  const headers = ['Tanggal', 'Hari', 'Kategori', 'Item', 'Qty', 'Penginput', 'Keterangan', 'Minggu/Libur']
+  const headers = ['Tanggal', 'Hari', 'Kategori', 'Item', 'Lokasi', 'Qty', 'Penginput', 'Keterangan', 'Minggu/Libur']
   const today = new Date().toLocaleDateString('id-ID')
   const meta = [
     ['Tenant', tenantName.value],
@@ -157,6 +176,7 @@ function exportCsv() {
     row.hari,
     row.kategoriTrx,
     row.item,
+    row.lokasi,
     row.qty,
     row.user,
     row.reason,
@@ -187,6 +207,7 @@ function exportPdfA4() {
         <td>${row.hari}</td>
         <td>${row.kategoriTrx}</td>
         <td>${row.item}</td>
+        <td>${row.lokasi}</td>
         <td style="text-align:right;">${row.qty}</td>
         <td>${row.user}</td>
         <td>${row.reason}</td>
@@ -224,6 +245,7 @@ function exportPdfA4() {
               <th>Hari</th>
               <th>Kategori</th>
               <th>Item</th>
+              <th>Lokasi</th>
               <th>Qty</th>
               <th>Penginput</th>
               <th>Keterangan</th>
@@ -375,6 +397,7 @@ onMounted(async () => {
             </div>
             <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700">{{ row.kategoriTrx }}</span>
           </div>
+          <p class="mt-2 text-xs text-slate-600">{{ row.lokasi }}</p>
           <p v-if="activePeriod === 'WEEKLY' && row.isSunday" class="mt-2 rounded bg-rose-100 px-2 py-1 text-[11px] font-bold text-rose-700">
             Tanggal merah / libur (Minggu)
           </p>
@@ -391,8 +414,9 @@ onMounted(async () => {
             <tr>
               <th class="px-3 py-3 font-semibold">Tanggal</th>
               <th class="px-3 py-3 font-semibold">Hari</th>
-                <th class="px-3 py-3 font-semibold">Kategori Transaksi</th>
+              <th class="px-3 py-3 font-semibold">Kategori Transaksi</th>
               <th class="px-3 py-3 font-semibold">Item</th>
+              <th class="px-3 py-3 font-semibold">Lokasi</th>
               <th class="px-3 py-3 font-semibold">Jumlah</th>
               <th class="px-3 py-3 font-semibold">Penginput</th>
               <th class="px-3 py-3 font-semibold">Libur</th>
@@ -400,13 +424,14 @@ onMounted(async () => {
           </thead>
           <tbody>
             <tr v-if="isLoading">
-              <td class="px-3 py-3 text-slate-500" colspan="7">Memuat transaksi...</td>
+              <td class="px-3 py-3 text-slate-500" colspan="8">Memuat transaksi...</td>
             </tr>
             <tr v-for="row in filteredRows" :key="row.id" class="border-b border-slate-100" :class="activePeriod === 'WEEKLY' && row.isSunday ? 'bg-rose-50' : ''">
               <td class="px-3 py-3 text-slate-700">{{ row.tanggal }}</td>
               <td class="px-3 py-3 text-slate-700">{{ row.hari }}</td>
               <td class="px-3 py-3 font-bold text-slate-900">{{ row.kategoriTrx }}</td>
               <td class="px-3 py-3 text-slate-700">{{ row.item }}</td>
+              <td class="px-3 py-3 text-slate-700">{{ row.lokasi }}</td>
               <td class="px-3 py-3 font-semibold text-slate-900">{{ row.qty }}</td>
               <td class="px-3 py-3 text-slate-700">{{ row.user }}</td>
               <td class="px-3 py-3 text-slate-700">
