@@ -8,6 +8,7 @@ import {
   submitChecklistSchema,
 } from './checklists.schema.js'
 import {
+  exportChecklistMonitoringPdf,
   getChecklistMonitoring,
   getTodayChecklist,
   sendChecklistExportToTelegram,
@@ -22,8 +23,20 @@ checklistsRouter.use(requireAuth)
 checklistsRouter.get('/monitoring', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req, res, next) => {
   try {
     const query = checklistMonitoringQuerySchema.parse(req.query)
-    const data = await getChecklistMonitoring(req.user!.id, req.user!.tenantId, query)
+    const data = await getChecklistMonitoring(req.user!.id, req.user!.tenantId, req.user!.activeLocationId, query)
     return res.json(data)
+  } catch (error) {
+    return next(error)
+  }
+})
+
+checklistsRouter.get('/monitoring/export/pdf', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req, res, next) => {
+  try {
+    const query = checklistMonitoringQuerySchema.parse(req.query)
+    const data = await exportChecklistMonitoringPdf(req.user!.id, req.user!.tenantId, req.user!.activeLocationId, query)
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="${data.fileName}"`)
+    return res.send(data.pdfBuffer)
   } catch (error) {
     return next(error)
   }
@@ -31,7 +44,7 @@ checklistsRouter.get('/monitoring', requireRole(['SUPER_ADMIN', 'ADMIN']), async
 
 checklistsRouter.get('/today', async (req, res, next) => {
   try {
-    const data = await getTodayChecklist(req.user!.id, req.user!.tenantId)
+    const data = await getTodayChecklist(req.user!.id, req.user!.tenantId, req.user!.activeLocationId)
     return res.json(data)
   } catch (error) {
     return next(error)
@@ -51,7 +64,7 @@ checklistsRouter.post('/today/submit', async (req, res, next) => {
 checklistsRouter.post('/today/export/send-telegram', async (req, res, next) => {
   try {
     const body = sendChecklistExportTelegramSchema.parse(req.body)
-    const data = await sendChecklistExportToTelegram(req.user!.id, req.user!.tenantId, body.runId)
+    const data = await sendChecklistExportToTelegram(req.user!.id, req.user!.tenantId, req.user!.activeLocationId, body.runId)
     return res.json(data)
   } catch (error) {
     return next(error)
@@ -61,9 +74,11 @@ checklistsRouter.post('/today/export/send-telegram', async (req, res, next) => {
 checklistsRouter.post('/monitoring/export/send-telegram', requireRole(['SUPER_ADMIN', 'ADMIN']), async (req, res, next) => {
   try {
     const body = sendChecklistMonitoringExportTelegramSchema.parse(req.body)
-    const data = await sendChecklistMonitoringExportToTelegram(req.user!.id, req.user!.tenantId, {
+    const data = await sendChecklistMonitoringExportToTelegram(req.user!.id, req.user!.tenantId, req.user!.activeLocationId, {
       period: body.period,
       itemType: body.itemType,
+      from: body.from,
+      to: body.to,
     })
     return res.json(data)
   } catch (error) {

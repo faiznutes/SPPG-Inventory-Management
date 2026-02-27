@@ -1,13 +1,13 @@
 import { ChecklistResult, ChecklistRunStatus, ChecklistSchedule } from '../../lib/prisma-client.js'
 import type {
   ChecklistResult as ChecklistResultType,
+  ChecklistTemplateItem,
   ChecklistRunStatus as ChecklistRunStatusType,
 } from '@prisma/client'
 import PDFDocument from 'pdfkit'
 import { prisma } from '../../lib/prisma.js'
 import { env } from '../../config/env.js'
 import { ApiError } from '../../utils/api-error.js'
-import { fromTenantScopedItemName, tenantItemSuffix } from '../../utils/item-scope.js'
 
 const DEFAULT_TEMPLATE_NAME = 'Checklist Harian Operasional'
 const DEFAULT_TEMPLATE_ITEMS = [
@@ -18,13 +18,15 @@ const DEFAULT_TEMPLATE_ITEMS = [
 const ITEM_TITLE_DELIMITER = '::'
 
 type ChecklistItemType = 'ASSET' | 'GAS' | 'CONSUMABLE'
-type ChecklistMonitoringPeriod = 'DAILY' | 'WEEKLY' | 'MONTHLY'
+type ChecklistMonitoringPeriod = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'CUSTOM'
 type ChecklistMonitoringItemType = 'ALL' | ChecklistItemType
 type ChecklistMonitoringCode = 'A' | 'M' | 'H' | 'B'
 
 type ChecklistMonitoringQuery = {
   period?: ChecklistMonitoringPeriod
   itemType?: ChecklistMonitoringItemType
+  from?: string
+  to?: string
 }
 
 type ChecklistMonitoringCell = {
@@ -158,6 +160,16 @@ function checklistPdfFileName(runDate: Date) {
   return `checklist-${yyyy}-${mm}-${dd}.pdf`
 }
 
+function buildExpectedChecklistTitles(templateItems: Array<Pick<ChecklistTemplateItem, 'title'>> = []) {
+  if (templateItems.length) {
+    return templateItems
+      .map((item) => encodeChecklistTitle(detectChecklistItemType(item.title), item.title))
+      .sort((a, b) => a.localeCompare(b))
+  }
+
+  return DEFAULT_TEMPLATE_ITEMS.map((item) => encodeChecklistTitle(item.itemType, item.title)).sort((a, b) => a.localeCompare(b))
+}
+
 async function renderChecklistPdfBuffer(input: {
   tenantName: string
   responsibleLine: string
@@ -216,8 +228,8 @@ async function renderChecklistMonitoringPdfBuffer(input: {
   return new Promise<Buffer>((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',
-      layout: 'landscape',
-      margin: 30,
+      layout: 'portrait',
+      margin: 36,
     })
 
     const chunks: Buffer[] = []
@@ -225,38 +237,45 @@ async function renderChecklistMonitoringPdfBuffer(input: {
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
 
-    doc.fontSize(14).text(input.tenantName)
+    doc.fontSize(14).font('Helvetica-Bold').text(input.tenantName)
     doc.moveDown(0.2)
-    doc.fontSize(10).text(input.responsibleLine)
+    doc.fontSize(10).font('Helvetica').text(input.responsibleLine)
     doc.text(input.monitoring.templateName)
-    doc.text(`Periode: ${input.monitoring.range.fromLabel} s/d ${input.monitoring.range.toLabel}`)
-    doc.text(`Filter: ${monitoringPeriodLabel(input.monitoring.period)} - ${monitoringItemTypeLabel(input.monitoring.itemType)}`)
+    doc.text(`Periode: ${monitoringPeriodLabel(input.monitoring.period)} (${input.monitoring.range.fromLabel} s/d ${input.monitoring.range.toLabel})`)
+    doc.text(`Kategori: ${monitoringItemTypeLabel(input.monitoring.itemType)}`)
     doc.text('Legenda: A=Aman, M=Menipis, H=Habis/Rusak, B=Belum dicek')
     doc.moveDown(0.6)
 
-    const dateHeader = input.monitoring.dates.map((date) => date.dayName).join(' ')
-    doc.fontSize(8).font('Helvetica-Bold').text(`Hari: ${dateHeader}`)
-    doc.font('Helvetica').text(`Tanggal: ${input.monitoring.dates.map((date) => date.label).join(' | ')}`)
-    doc.moveDown(0.4)
-
-    doc.font('Helvetica-Bold').text('Item'.padEnd(46) + 'Kode Harian'.padEnd(32) + 'A  M  H  B')
-    doc.moveDown(0.2)
-    doc.font('Helvetica')
-
     for (const row of input.monitoring.rows) {
-      if (doc.y > 540) {
+      if (doc.y > 700) {
         doc.addPage()
       }
 
-      const title = row.title.length > 42 ? `${row.title.slice(0, 39)}...` : row.title
-      const codes = row.cells.map((cell) => cell.code).join(' ')
-      const line = `${title.padEnd(46)}${codes.padEnd(32)}${String(row.totals.A).padStart(2)} ${String(row.totals.M).padStart(2)} ${String(row.totals.H).padStart(2)} ${String(row.totals.B).padStart(2)}`
-      doc.fontSize(8).text(line)
+      doc.font('Helvetica-Bold').fontSize(10).text(row.title)
+      doc.font('Helvetica').fontSize(9).text(`Kategori: ${row.categoryLabel}`)
+
+      const dateCodes = row.cells.map((cell, index) => `${input.monitoring.dates[index]?.label || cell.date}: ${cell.code}`)
+      const chunks: string[] = []
+      for (let i = 0; i < dateCodes.length; i += 6) {
+        chunks.push(dateCodes.slice(i, i + 6).join(' | '))
+      }
+
+      for (const line of chunks) {
+        doc.fontSize(8).text(line)
+      }
+
+      doc.font('Helvetica-Bold').fontSize(9).text(`Total -> A:${row.totals.A}  M:${row.totals.M}  H:${row.totals.H}  B:${row.totals.B}`)
+      doc.moveDown(0.5)
+      doc.strokeColor('#cbd5e1').lineWidth(0.5).moveTo(doc.x, doc.y).lineTo(560, doc.y).stroke()
+      doc.moveDown(0.4)
     }
 
-    doc.moveDown(0.6)
-    doc.font('Helvetica-Bold').text(
-      `TOTAL${' '.repeat(73)}${String(input.monitoring.totals.A).padStart(2)} ${String(input.monitoring.totals.M).padStart(2)} ${String(input.monitoring.totals.H).padStart(2)} ${String(input.monitoring.totals.B).padStart(2)}`,
+    if (doc.y > 740) doc.addPage()
+    doc.moveDown(0.4)
+    doc.font('Helvetica-Bold').fontSize(11).text('TOTAL KESELURUHAN', { underline: true })
+    doc.moveDown(0.2)
+    doc.font('Helvetica-Bold').fontSize(10).text(
+      `A: ${input.monitoring.totals.A}    M: ${input.monitoring.totals.M}    H: ${input.monitoring.totals.H}    B: ${input.monitoring.totals.B}`,
     )
 
     doc.end()
@@ -319,7 +338,29 @@ function endOfDay(date: Date) {
   return next
 }
 
-function resolveMonitoringRange(period: ChecklistMonitoringPeriod) {
+function resolveMonitoringRange(period: ChecklistMonitoringPeriod, fromRaw?: string, toRaw?: string) {
+  if (period === 'CUSTOM') {
+    if (!fromRaw || !toRaw) {
+      throw new ApiError(400, 'RANGE_REQUIRED', 'Rentang custom wajib mengisi tanggal dari dan sampai.')
+    }
+
+    const fromDate = startOfDay(new Date(`${fromRaw}T00:00:00.000Z`))
+    const toDate = endOfDay(new Date(`${toRaw}T00:00:00.000Z`))
+    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+      throw new ApiError(400, 'RANGE_INVALID', 'Format tanggal custom tidak valid.')
+    }
+    if (fromDate > toDate) {
+      throw new ApiError(400, 'RANGE_INVALID', 'Tanggal akhir harus lebih besar atau sama dengan tanggal awal.')
+    }
+
+    const maxRangeMs = 31 * 24 * 60 * 60 * 1000
+    if (toDate.getTime() - fromDate.getTime() > maxRangeMs) {
+      throw new ApiError(400, 'RANGE_EXCEEDED', 'Rentang custom maksimal 31 hari.')
+    }
+
+    return { from: fromDate, to: toDate }
+  }
+
   const now = new Date()
   if (period === 'DAILY') {
     const today = startOfDay(now)
@@ -377,6 +418,7 @@ function monitoringLabelFromCode(code: ChecklistMonitoringCode) {
 function monitoringPeriodLabel(period: ChecklistMonitoringPeriod) {
   if (period === 'DAILY') return 'Harian'
   if (period === 'WEEKLY') return 'Mingguan'
+  if (period === 'CUSTOM') return 'Custom'
   return 'Bulanan'
 }
 
@@ -387,10 +429,14 @@ function monitoringItemTypeLabel(itemType: ChecklistMonitoringItemType) {
   return 'Semua kategori'
 }
 
-async function buildChecklistMonitoringData(tenantId: string | undefined, query: ChecklistMonitoringQuery = {}): Promise<ChecklistMonitoringData> {
+async function buildChecklistMonitoringData(
+  tenantId: string | undefined,
+  activeLocationId: string | undefined,
+  query: ChecklistMonitoringQuery = {},
+): Promise<ChecklistMonitoringData> {
   const period = query.period || 'WEEKLY'
   const itemType = query.itemType || 'ALL'
-  const range = resolveMonitoringRange(period)
+  const range = resolveMonitoringRange(period, query.from, query.to)
   const from = toDateOnly(range.from)
   const to = toDateOnly(range.to)
 
@@ -403,14 +449,17 @@ async function buildChecklistMonitoringData(tenantId: string | undefined, query:
 
   const templateName = tenant?.code ? `${DEFAULT_TEMPLATE_NAME} - ${tenant.code}` : DEFAULT_TEMPLATE_NAME
 
-  const suffix = tenantItemSuffix(tenantId)
-
-  const [runs, activeItems] = await Promise.all([
+  const [runs, template] = await Promise.all([
     prisma.checklistRun.findMany({
       where: {
         template: {
           name: templateName,
         },
+        ...(activeLocationId
+          ? {
+              locationId: activeLocationId,
+            }
+          : {}),
         runDate: {
           gte: from,
           lte: to,
@@ -423,31 +472,21 @@ async function buildChecklistMonitoringData(tenantId: string | undefined, query:
         runDate: 'asc',
       },
     }),
-    prisma.item.findMany({
+    prisma.checklistTemplate.findFirst({
       where: {
-        isActive: true,
-        ...(suffix
-          ? {
-              name: {
-                endsWith: suffix,
-              },
-            }
-          : {}),
+        name: templateName,
       },
-      select: {
-        name: true,
-        type: true,
-      },
-      orderBy: {
-        name: 'asc',
+      include: {
+        items: {
+          orderBy: {
+            sortOrder: 'asc',
+          },
+        },
       },
     }),
   ])
 
-  const expectedTitles = (activeItems.length
-    ? activeItems.map((item) => encodeChecklistTitle(item.type, fromTenantScopedItemName(item.name)))
-    : DEFAULT_TEMPLATE_ITEMS.map((item) => encodeChecklistTitle(item.itemType, item.title))
-  ).sort((a, b) => a.localeCompare(b))
+  const expectedTitles = buildExpectedChecklistTitles(template?.items)
 
   const knownTitles = new Set(expectedTitles)
   for (const run of runs) {
@@ -549,8 +588,13 @@ async function buildChecklistMonitoringData(tenantId: string | undefined, query:
   }
 }
 
-export async function getChecklistMonitoring(userId: string, tenantId: string | undefined, query: ChecklistMonitoringQuery = {}) {
-  const data = await buildChecklistMonitoringData(tenantId, query)
+export async function getChecklistMonitoring(
+  userId: string,
+  tenantId: string | undefined,
+  activeLocationId: string | undefined,
+  query: ChecklistMonitoringQuery = {},
+) {
+  const data = await buildChecklistMonitoringData(tenantId, activeLocationId, query)
 
   await prisma.auditLog.create({
     data: {
@@ -562,6 +606,7 @@ export async function getChecklistMonitoring(userId: string, tenantId: string | 
       diffJson: {
         period: data.period,
         itemType: data.itemType,
+        activeLocationId: activeLocationId || null,
         from: data.range.from,
         to: data.range.to,
       },
@@ -571,7 +616,7 @@ export async function getChecklistMonitoring(userId: string, tenantId: string | 
   return data
 }
 
-export async function getTodayChecklist(userId: string, tenantId?: string) {
+export async function getTodayChecklist(userId: string, tenantId?: string, activeLocationId?: string) {
   const tenant = tenantId
     ? await prisma.tenant.findUnique({
         where: { id: tenantId },
@@ -581,32 +626,21 @@ export async function getTodayChecklist(userId: string, tenantId?: string) {
   const template = await ensureDefaultTemplate(userId, tenant?.code)
   const runDate = toDateOnly(new Date())
 
-  const tenantItems = await prisma.item.findMany({
-    where: {
-      isActive: true,
-      ...(tenantItemSuffix(tenantId)
-        ? {
-            name: {
-              endsWith: tenantItemSuffix(tenantId),
-            },
-          }
-        : {}),
-    },
-    orderBy: { name: 'asc' },
-    select: {
-      name: true,
-      type: true,
+  const templateWithItems = await prisma.checklistTemplate.findUnique({
+    where: { id: template.id },
+    include: {
+      items: {
+        orderBy: { sortOrder: 'asc' },
+      },
     },
   })
 
-  const expectedTitles = (tenantItems.length
-    ? tenantItems.map((item) => encodeChecklistTitle(item.type, fromTenantScopedItemName(item.name)))
-    : DEFAULT_TEMPLATE_ITEMS.map((item) => encodeChecklistTitle(item.itemType, item.title))
-  ).sort((a, b) => a.localeCompare(b))
+  const expectedTitles = buildExpectedChecklistTitles(templateWithItems?.items)
 
   const existingRun = await prisma.checklistRun.findFirst({
     where: {
       templateId: template.id,
+      locationId: activeLocationId || null,
       runDate,
     },
     include: {
@@ -621,6 +655,7 @@ export async function getTodayChecklist(userId: string, tenantId?: string) {
     run = await prisma.checklistRun.create({
       data: {
         templateId: template.id,
+        locationId: activeLocationId || null,
         runDate,
         createdBy: userId,
         status: ChecklistRunStatus.DRAFT,
@@ -755,7 +790,12 @@ export async function submitChecklist(userId: string, tenantId: string | undefin
   }
 }
 
-export async function sendChecklistExportToTelegram(userId: string, tenantId: string | undefined, runId?: string) {
+export async function sendChecklistExportToTelegram(
+  userId: string,
+  tenantId: string | undefined,
+  activeLocationId: string | undefined,
+  runId?: string,
+) {
   if (!tenantId) {
     throw new ApiError(400, 'TENANT_CONTEXT_REQUIRED', 'Tenant aktif tidak ditemukan pada sesi pengguna.')
   }
@@ -790,6 +830,11 @@ export async function sendChecklistExportToTelegram(userId: string, tenantId: st
       })
     : await prisma.checklistRun.findFirst({
         where: {
+          ...(activeLocationId
+            ? {
+                locationId: activeLocationId,
+              }
+            : {}),
           runDate: toDateOnly(new Date()),
           template: {
             name: tenant?.code ? `${DEFAULT_TEMPLATE_NAME} - ${tenant.code}` : DEFAULT_TEMPLATE_NAME,
@@ -855,6 +900,7 @@ export async function sendChecklistExportToTelegram(userId: string, tenantId: st
       diffJson: {
         tenantId,
         runId: run.id,
+        activeLocationId: activeLocationId || null,
         chatId: settings.chatId,
       },
     },
@@ -870,6 +916,7 @@ export async function sendChecklistExportToTelegram(userId: string, tenantId: st
 export async function sendChecklistMonitoringExportToTelegram(
   userId: string,
   tenantId: string | undefined,
+  activeLocationId: string | undefined,
   query: ChecklistMonitoringQuery = {},
 ) {
   if (!tenantId) {
@@ -889,7 +936,7 @@ export async function sendChecklistMonitoringExportToTelegram(
   }
 
   const [monitoring, user] = await Promise.all([
-    buildChecklistMonitoringData(tenantId, query),
+    buildChecklistMonitoringData(tenantId, activeLocationId, query),
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -928,6 +975,7 @@ export async function sendChecklistMonitoringExportToTelegram(
         tenantId,
         period: monitoring.period,
         itemType: monitoring.itemType,
+        activeLocationId: activeLocationId || null,
         from: monitoring.range.from,
         to: monitoring.range.to,
         chatId: settings.chatId,
@@ -939,5 +987,36 @@ export async function sendChecklistMonitoringExportToTelegram(
     code: 'TELEGRAM_MONITORING_EXPORT_SENT',
     message: 'Monitoring checklist berhasil dikirim ke Telegram.',
     sent: true,
+  }
+}
+
+export async function exportChecklistMonitoringPdf(
+  userId: string,
+  tenantId: string | undefined,
+  activeLocationId: string | undefined,
+  query: ChecklistMonitoringQuery = {},
+) {
+  const [monitoring, user] = await Promise.all([
+    buildChecklistMonitoringData(tenantId, activeLocationId, query),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        name: true,
+        username: true,
+      },
+    }),
+  ])
+
+  const responsibleLine = `${user?.name || user?.username || 'Pengguna'} - ${user?.username || '-'}`
+  const pdfBuffer = await renderChecklistMonitoringPdfBuffer({
+    tenantName: monitoring.tenantName,
+    responsibleLine,
+    monitoring,
+  })
+
+  return {
+    monitoring,
+    fileName: `checklist-monitoring-${monitoring.period.toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`,
+    pdfBuffer,
   }
 }

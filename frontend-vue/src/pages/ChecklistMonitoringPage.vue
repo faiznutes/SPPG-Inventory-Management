@@ -12,6 +12,8 @@ const authStore = useAuthStore()
 const isLoading = ref(false)
 const period = ref('WEEKLY')
 const itemType = ref('ALL')
+const fromDate = ref('')
+const toDate = ref('')
 
 const templateName = ref(DEFAULT_TEMPLATE_NAME)
 const rangeLabel = ref('-')
@@ -37,6 +39,27 @@ const itemTypeLabel = computed(() => {
   if (itemType.value === 'ASSET') return 'Tidak habis tapi bisa rusak'
   return 'Semua kategori'
 })
+
+const rangeWarning = computed(() => {
+  if (period.value !== 'CUSTOM') return ''
+  if (!fromDate.value || !toDate.value) return 'Tanggal custom wajib diisi.'
+  const from = new Date(`${fromDate.value}T00:00:00.000Z`)
+  const to = new Date(`${toDate.value}T23:59:59.999Z`)
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return 'Format tanggal custom tidak valid.'
+  if (to < from) return 'Tanggal akhir harus lebih besar atau sama dengan tanggal awal.'
+  const maxRangeMs = 31 * 24 * 60 * 60 * 1000
+  if (to.getTime() - from.getTime() > maxRangeMs) return 'Rentang custom maksimal 31 hari.'
+  return ''
+})
+
+function toMonitoringQuery() {
+  return {
+    period: period.value,
+    itemType: itemType.value,
+    from: period.value === 'CUSTOM' ? fromDate.value : undefined,
+    to: period.value === 'CUSTOM' ? toDate.value : undefined,
+  }
+}
 
 const summaryCards = computed(() => [
   { key: 'A', label: 'Aman', value: totals.value.A, className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -65,12 +88,13 @@ function dayCellClass(code, isSunday) {
 
 async function loadMonitoring() {
   if (!authStore.accessToken) return
+  if (rangeWarning.value) {
+    notifications.showPopup('Filter custom tidak valid', rangeWarning.value, 'error')
+    return
+  }
   isLoading.value = true
   try {
-    const data = await api.getChecklistMonitoring(authStore.accessToken, {
-      period: period.value,
-      itemType: itemType.value,
-    })
+    const data = await api.getChecklistMonitoring(authStore.accessToken, toMonitoringQuery())
 
     templateName.value = data.templateName || DEFAULT_TEMPLATE_NAME
     rangeLabel.value = `${data.range?.fromLabel || '-'} s/d ${data.range?.toLabel || '-'}`
@@ -118,104 +142,39 @@ function exportCsv() {
   link.download = `checklist-monitoring-${period.value.toLowerCase()}-${new Date().toISOString().slice(0, 10)}.csv`
   link.click()
   URL.revokeObjectURL(url)
-
-  void sendMonitoringExportTelegram()
 }
 
-function exportPdfA4() {
-  const headerCells = dates.value
-    .map((date) => {
-      const className = date.isSunday ? ' class="holiday"' : ''
-      return `<th${className}>${date.dayName}<br/>${date.label}</th>`
-    })
-    .join('')
-  const bodyRows = rows.value
-    .map((row) => {
-      const cells = row.cells
-        .map((cell) => `<td style="text-align:center;font-weight:700;" class="${cell.code === 'A' ? 'code-a' : cell.code === 'M' ? 'code-m' : cell.code === 'H' ? 'code-h' : 'code-b'}">${cell.code}</td>`)
-        .join('')
-      return `<tr><td>${row.title}</td><td>${row.categoryLabel}</td>${cells}<td>${row.totals.A}</td><td>${row.totals.M}</td><td>${row.totals.H}</td><td>${row.totals.B}</td></tr>`
-    })
-    .join('')
-
-  const totalRow = `<tr><td colspan="2" style="font-weight:700;">TOTAL</td>${dates.value.map(() => '<td></td>').join('')}<td style="font-weight:700;">${totals.value.A}</td><td style="font-weight:700;">${totals.value.M}</td><td style="font-weight:700;">${totals.value.H}</td><td style="font-weight:700;">${totals.value.B}</td></tr>`
-
-  const html = `
-    <html>
-      <head>
-        <title>Monitoring Checklist</title>
-        <style>
-          @page { size: A4 landscape; margin: 10mm; }
-          body { font-family: Arial, sans-serif; font-size: 11px; color: #0f172a; }
-          h1 { margin: 0 0 4px; font-size: 18px; }
-          p { margin: 0 0 6px; color: #475569; }
-          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          th, td { border: 1px solid #cbd5e1; padding: 4px 6px; vertical-align: top; }
-          th { background: #f8fafc; text-align: center; }
-          .holiday { background: #fee2e2; color: #b91c1c; }
-          .code-a { background: #ecfdf5; color: #047857; }
-          .code-m { background: #fffbeb; color: #b45309; }
-          .code-h { background: #fef2f2; color: #be123c; }
-          .code-b { background: #f1f5f9; color: #334155; }
-          .sign { margin-top: 18px; width: 280px; }
-          .line { margin-top: 44px; border-top: 1px solid #94a3b8; }
-        </style>
-      </head>
-      <body>
-        <h1>${tenantName.value}</h1>
-        <p>Penanggung Jawab: ${responsibleLine.value}</p>
-        <p>Laporan: ${templateName.value}</p>
-        <p>Periode: ${periodLabel.value} | Kategori: ${itemTypeLabel.value}</p>
-        <p>Rentang: ${rangeLabel.value}</p>
-        <p>Legenda: A=Aman, M=Menipis, H=Habis/Rusak, B=Belum dicek</p>
-        <table>
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Kategori</th>
-              ${headerCells}
-              <th>A</th><th>M</th><th>H</th><th>B</th>
-            </tr>
-          </thead>
-          <tbody>${bodyRows}${totalRow}</tbody>
-        </table>
-        <div class="sign">
-          <p>Mengetahui,</p>
-          <div class="line"></div>
-          <p>${responsibleLine.value}</p>
-        </div>
-      </body>
-    </html>
-  `
-
-  const printWindow = window.open('', '_blank')
-  if (!printWindow) return
-  let didClose = false
-  const closePrintWindow = () => {
-    if (didClose) return
-    didClose = true
-    printWindow.close()
-    window.focus()
+async function exportPdf() {
+  if (!authStore.accessToken) return
+  if (rangeWarning.value) {
+    notifications.showPopup('Filter custom tidak valid', rangeWarning.value, 'error')
+    return
   }
 
-  printWindow.onafterprint = closePrintWindow
-  printWindow.document.open()
-  printWindow.document.write(html)
-  printWindow.document.close()
-  printWindow.focus()
-  printWindow.print()
-  setTimeout(closePrintWindow, 700)
-
-  void sendMonitoringExportTelegram()
+  try {
+    const blob = await api.exportChecklistMonitoringPdf(authStore.accessToken, toMonitoringQuery())
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `checklist-monitoring-${period.value.toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`
+    link.click()
+    URL.revokeObjectURL(url)
+    notifications.showPopup('Export PDF berhasil', 'PDF monitoring berhasil diunduh.', 'success')
+  } catch (error) {
+    notifications.showPopup('Export PDF gagal', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+  }
 }
 
 async function sendMonitoringExportTelegram() {
   if (!authStore.accessToken) return
+  if (rangeWarning.value) {
+    notifications.showPopup('Filter custom tidak valid', rangeWarning.value, 'error')
+    return
+  }
 
   try {
     const response = await api.sendChecklistMonitoringExportTelegram(authStore.accessToken, {
-      period: period.value,
-      itemType: itemType.value,
+      ...toMonitoringQuery(),
     })
 
     if (response?.sent) {
@@ -231,6 +190,12 @@ async function sendMonitoringExportTelegram() {
 }
 
 onMounted(async () => {
+  const now = new Date()
+  const yyyy = now.getUTCFullYear()
+  const mm = `${now.getUTCMonth() + 1}`.padStart(2, '0')
+  const dd = `${now.getUTCDate()}`.padStart(2, '0')
+  fromDate.value = `${yyyy}-${mm}-${dd}`
+  toDate.value = `${yyyy}-${mm}-${dd}`
   await loadMonitoring()
 })
 </script>
@@ -240,14 +205,15 @@ onMounted(async () => {
     <PageHeader title="Monitoring Checklist" :subtitle="subtitle">
       <template #actions>
         <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" @click="exportCsv">Export CSV</button>
-        <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" @click="exportPdfA4">Export PDF A4</button>
+        <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" @click="exportPdf">Export PDF</button>
+        <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" @click="sendMonitoringExportTelegram">Export PDF + Telegram</button>
       </template>
     </PageHeader>
 
     <section class="rounded-xl border border-slate-200 bg-white p-3">
       <div class="flex flex-wrap gap-2">
         <button
-          v-for="value in ['DAILY', 'WEEKLY', 'MONTHLY']"
+          v-for="value in ['DAILY', 'WEEKLY', 'MONTHLY', 'CUSTOM']"
           :key="value"
           class="rounded-lg px-3 py-2 text-sm font-semibold"
           :class="period === value ? 'bg-blue-50 text-blue-700' : 'border border-slate-200 text-slate-600'"
@@ -255,6 +221,18 @@ onMounted(async () => {
         >
           {{ value }}
         </button>
+      </div>
+      <div v-if="period === 'CUSTOM'" class="mt-2 flex flex-wrap items-end gap-2">
+        <label class="block">
+          <span class="mb-1 block text-xs font-semibold text-slate-600">Dari</span>
+          <input v-model="fromDate" type="date" class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm" />
+        </label>
+        <label class="block">
+          <span class="mb-1 block text-xs font-semibold text-slate-600">Sampai</span>
+          <input v-model="toDate" type="date" class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm" />
+        </label>
+        <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" @click="loadMonitoring">Terapkan Custom</button>
+        <p v-if="rangeWarning" class="text-xs font-semibold text-rose-600">{{ rangeWarning }}</p>
       </div>
       <div class="mt-2 flex flex-wrap gap-2">
         <button

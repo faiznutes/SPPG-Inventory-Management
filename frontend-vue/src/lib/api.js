@@ -431,6 +431,11 @@ export const api = {
       headers: authHeader(accessToken),
     }),
 
+  exportChecklistMonitoringPdf: (accessToken, query = {}) =>
+    requestBlob(withQuery('/checklists/monitoring/export/pdf', query), {
+      headers: authHeader(accessToken),
+    }),
+
   submitTodayChecklist: (accessToken, body) =>
     request('/checklists/today/submit', {
       method: 'POST',
