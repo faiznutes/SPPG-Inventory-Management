@@ -66,6 +66,7 @@ export async function listStocks(tenantId?: string, activeLocationId?: string) {
       minStock,
       locationId: row.locationId,
       locationName: displayLocationName(row.location.name, tenant?.code),
+      tenantCode: tenant?.code || null,
       qty,
       status: stockStatus(qty, minStock),
       updatedAt: row.updatedAt,

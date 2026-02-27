@@ -295,6 +295,7 @@ async function loadData() {
       item: row.itemName,
       kategori: typeMap[row.itemType] || row.itemType,
       lokasi: row.locationName,
+      tenantCode: row.tenantCode || authStore.user?.tenant?.code || '',
       qty: Number.isFinite(Number(row.qty)) ? Number(row.qty) : 0,
       unit: cleanUnit(row.unit),
       status: row.status,

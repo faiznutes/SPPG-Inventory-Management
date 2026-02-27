@@ -169,6 +169,7 @@ export async function getLowStockRows(tenantId?: string, activeLocationId?: stri
       itemName: fromTenantScopedItemName(row.item.name),
       locationId: row.locationId,
       locationName: displayLocationName(row.location.name, tenant?.code),
+      tenantCode: tenant?.code || null,
       qty: Number(row.qty),
       minStock: Number(row.item.minStock),
       unit: row.item.unit,

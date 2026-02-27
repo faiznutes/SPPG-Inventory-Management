@@ -102,10 +102,15 @@ const currentRows = computed(() => {
 
 const tableHeaders = computed(() => {
   if (activeTab.value === 'Tenant') return ['Nama Tenant', 'Kode', 'Status']
-  if (activeTab.value === 'Lokasi') return ['Nama', 'Deskripsi', 'Status']
+  if (activeTab.value === 'Lokasi') return ['Nama', 'Kode Tenant', 'Status']
   if (activeTab.value === 'Kategori') return ['Nama', 'Model Kategori', 'Status']
   return ['Nama', 'Role', 'Status']
 })
+
+function secondaryCellValue(row) {
+  if (activeTab.value === 'Lokasi') return row.kode || '-'
+  return row.role || row.deskripsi || row.kode || '-'
+}
 
 function resetForm() {
   form.name = ''
@@ -261,6 +266,7 @@ async function loadData() {
 
     locations.value = locationsData.map((item) => ({
       nama: item.name,
+      kode: item.tenantCode || authStore.user?.tenant?.code || '-',
       deskripsi: item.description || '-',
       status: 'Aktif',
     }))
@@ -952,7 +958,7 @@ onMounted(async () => {
           <div class="flex items-start justify-between gap-2">
             <div>
               <p class="text-sm font-bold text-slate-900">{{ row.nama }}</p>
-              <p class="text-xs text-slate-500">{{ row.role || row.deskripsi || row.kode }}</p>
+              <p class="text-xs text-slate-500">{{ secondaryCellValue(row) }}</p>
             </div>
             <div class="flex items-center gap-2">
               <input
@@ -1011,7 +1017,7 @@ onMounted(async () => {
               @click="activeTab === 'Tenant' ? openTenantDetail(row) : null"
             >
               <td class="px-3 py-3 font-semibold text-slate-900">{{ row.nama }}</td>
-              <td class="px-3 py-3 text-slate-700">{{ row.role || row.deskripsi || row.kode }}</td>
+              <td class="px-3 py-3 text-slate-700">{{ secondaryCellValue(row) }}</td>
               <td class="px-3 py-3">
                 <input
                   v-if="activeTab === 'Tenant'"
