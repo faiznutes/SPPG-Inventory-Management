@@ -26,29 +26,49 @@ export const bulkTenantActionSchema = z.object({
   action: z.enum(['DEACTIVATE', 'ACTIVATE', 'ARCHIVE', 'RESTORE']),
 })
 
-export const createTenantUserSchema = z.object({
-  name: z.string().min(2),
-  username: z.string().min(3),
-  email: z.string().email().optional(),
-  role: z.enum(['ADMIN', 'STAFF']),
-  jabatan: z.string().min(2),
-  canView: z.boolean().default(true),
-  canEdit: z.boolean().default(false),
-  locationIds: z.array(z.string().uuid()).optional(),
-  password: z.string().min(6),
-})
+export const createTenantUserSchema = z
+  .object({
+    name: z.string().min(2),
+    username: z.string().min(3),
+    email: z.string().email().optional(),
+    role: z.enum(['ADMIN', 'STAFF']),
+    jabatan: z.string().min(2),
+    canView: z.boolean().default(true),
+    canEdit: z.boolean().default(false),
+    locationIds: z.array(z.string().uuid()).optional(),
+    password: z.string().min(6),
+  })
+  .superRefine((value, ctx) => {
+    if (value.role === 'STAFF' && (!value.locationIds || value.locationIds.length < 1)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['locationIds'],
+        message: 'STAFF wajib punya minimal 1 lokasi.',
+      })
+    }
+  })
 
-export const updateTenantUserSchema = z.object({
-  name: z.string().min(2),
-  username: z.string().min(3),
-  email: z.string().email().optional(),
-  role: z.enum(['ADMIN', 'STAFF']),
-  jabatan: z.string().min(2),
-  canView: z.boolean(),
-  canEdit: z.boolean(),
-  locationIds: z.array(z.string().uuid()).optional(),
-  password: z.string().min(6).optional(),
-})
+export const updateTenantUserSchema = z
+  .object({
+    name: z.string().min(2),
+    username: z.string().min(3),
+    email: z.string().email().optional(),
+    role: z.enum(['ADMIN', 'STAFF']),
+    jabatan: z.string().min(2),
+    canView: z.boolean(),
+    canEdit: z.boolean(),
+    locationIds: z.array(z.string().uuid()).optional(),
+    password: z.string().min(6).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.role === 'STAFF' && (!value.locationIds || value.locationIds.length < 1)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['locationIds'],
+        message: 'STAFF wajib punya minimal 1 lokasi.',
+      })
+    }
+  })
 
 export const setTenantUserLocationAccessSchema = z.object({
   locationIds: z.array(z.string().uuid()),

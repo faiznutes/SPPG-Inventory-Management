@@ -118,12 +118,16 @@ async function resolveTenantLocationIds(tenantCode: string, locationIds: string[
   return rows.map((row) => row.id)
 }
 
-async function resolveDefaultTenantLocationIds(tenantCode: string) {
+async function resolveRequiredStaffLocationIds(tenantCode: string, locationIds?: string[]) {
+  if (!locationIds?.length) {
+    throw new ApiError(400, 'STAFF_LOCATION_REQUIRED', 'User STAFF wajib memiliki minimal 1 lokasi aktif.')
+  }
+
+  const scopedLocationIds = await resolveTenantLocationIds(tenantCode, locationIds)
+
   const rows = await prisma.location.findMany({
     where: {
-      name: {
-        startsWith: `${tenantCode}::`,
-      },
+      id: { in: scopedLocationIds },
     },
     select: {
       id: true,
@@ -131,9 +135,15 @@ async function resolveDefaultTenantLocationIds(tenantCode: string) {
     },
   })
 
-  return rows
-    .filter((row) => !isInactiveTenantLocationName(stripTenantPrefix(tenantCode, row.name)))
+  const inactiveLocationIds = rows
+    .filter((row) => isInactiveTenantLocationName(stripTenantPrefix(tenantCode, row.name)))
     .map((row) => row.id)
+
+  if (inactiveLocationIds.length) {
+    throw new ApiError(400, 'STAFF_LOCATION_INACTIVE', 'Lokasi STAFF harus aktif.')
+  }
+
+  return scopedLocationIds
 }
 
 function maskToken(token?: string | null) {
@@ -671,11 +681,9 @@ export async function addTenantUser(actorUserId: string, tenantId: string, input
   if (existing) throw new ApiError(409, 'USER_EXISTS', 'Username atau email sudah digunakan.')
 
   const passwordHash = await bcrypt.hash(input.password, 10)
-  const scopedLocationIds = (input.locationIds && input.locationIds.length)
-    ? await resolveTenantLocationIds(tenant.code, input.locationIds)
-    : input.role === 'STAFF'
-      ? await resolveDefaultTenantLocationIds(tenant.code)
-      : []
+  const scopedLocationIds = input.role === 'STAFF'
+    ? await resolveRequiredStaffLocationIds(tenant.code, input.locationIds)
+    : []
 
   const created = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
@@ -765,11 +773,9 @@ export async function updateTenantUser(
   })
   if (duplicate) throw new ApiError(409, 'USER_EXISTS', 'Username atau email sudah digunakan.')
 
-  const scopedLocationIds = (input.locationIds && input.locationIds.length)
-    ? await resolveTenantLocationIds(tenant.code, input.locationIds)
-    : input.role === 'STAFF'
-      ? await resolveDefaultTenantLocationIds(tenant.code)
-      : []
+  const scopedLocationIds = input.role === 'STAFF'
+    ? await resolveRequiredStaffLocationIds(tenant.code, input.locationIds)
+    : []
 
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
