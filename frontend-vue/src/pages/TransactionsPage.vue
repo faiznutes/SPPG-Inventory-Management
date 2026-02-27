@@ -18,6 +18,7 @@ const action = ref('Masuk')
 const showActionModal = ref(false)
 const activeTab = ref('Semua')
 const activePeriod = ref('MONTHLY')
+const activeTenantCode = ref('ALL')
 
 const form = reactive({
   itemId: '',
@@ -74,8 +75,16 @@ const responsibleLine = computed(() => {
 const periodLabel = computed(() => periodLabelMap[activePeriod.value] || activePeriod.value)
 
 const filteredRows = computed(() => {
-  if (activeTab.value === 'Semua') return rows.value
-  return rows.value.filter((row) => row.kategoriTrx === activeTab.value)
+  return rows.value.filter((row) => {
+    const passType = activeTab.value === 'Semua' || row.kategoriTrx === activeTab.value
+    const passTenant = activeTenantCode.value === 'ALL' || row.tenantCode === activeTenantCode.value
+    return passType && passTenant
+  })
+})
+
+const tenantCodeOptions = computed(() => {
+  const set = new Set(rows.value.map((row) => row.tenantCode).filter(Boolean))
+  return Array.from(set).sort((a, b) => a.localeCompare(b))
 })
 
 function formatTrxLocation(row) {
@@ -392,6 +401,14 @@ watch(
         >
           {{ tab }}
         </button>
+        <select
+          v-if="authStore.isSuperAdmin"
+          v-model="activeTenantCode"
+          class="ml-auto rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+        >
+          <option value="ALL">Semua Kode Tenant</option>
+          <option v-for="code in tenantCodeOptions" :key="`tenant-code-${code}`" :value="code">{{ code }}</option>
+        </select>
       </div>
 
       <div class="space-y-2 p-3 sm:hidden">

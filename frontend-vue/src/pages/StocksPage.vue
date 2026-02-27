@@ -15,6 +15,7 @@ const locations = ref([])
 const categories = ref([])
 const isLoading = ref(false)
 const activeType = ref('Semua')
+const activeTenantCode = ref('ALL')
 const search = ref('')
 const showAdjustModal = ref(false)
 const showBulkAdjustModal = ref(false)
@@ -96,13 +97,19 @@ const filteredRows = computed(() => {
 
   return rows.value.filter((row) => {
     const passType = activeType.value === 'Semua' || row.kategori === activeType.value
+    const passTenant = activeTenantCode.value === 'ALL' || row.tenantCode === activeTenantCode.value
     const passSearch =
       !normalizedSearch ||
       row.item.toLowerCase().includes(normalizedSearch) ||
       row.lokasi.toLowerCase().includes(normalizedSearch)
 
-    return passType && passSearch
+    return passType && passTenant && passSearch
   })
+})
+
+const tenantCodeOptions = computed(() => {
+  const set = new Set(rows.value.map((row) => row.tenantCode).filter(Boolean))
+  return Array.from(set).sort((a, b) => a.localeCompare(b))
 })
 
 const selectedStockRows = computed(() => rows.value.filter((row) => selectedStockIds.value.includes(row.id)))
@@ -482,6 +489,14 @@ watch(
           >
             {{ type }}
           </button>
+          <select
+            v-if="authStore.isSuperAdmin"
+            v-model="activeTenantCode"
+            class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+          >
+            <option value="ALL">Semua Kode Tenant</option>
+            <option v-for="code in tenantCodeOptions" :key="`stock-tenant-code-${code}`" :value="code">{{ code }}</option>
+          </select>
         </div>
       </div>
 
