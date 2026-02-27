@@ -23,6 +23,7 @@ const totals = ref({ A: 0, M: 0, H: 0, B: 0 })
 
 const subtitle = computed(() => `${templateName.value} - ${rangeLabel.value}`)
 const tenantName = computed(() => authStore.user?.tenant?.name || authStore.tenantName || APP_NAME)
+const tenantCode = computed(() => authStore.user?.tenant?.code || '-')
 const responsibleLine = computed(() => {
   const name = authStore.user?.name || authStore.user?.username || '-'
   const jabatan = authStore.user?.jabatan || authStore.operationalLabel || 'Staff'
@@ -122,6 +123,7 @@ function exportCsv() {
 
   const meta = [
     ['Tenant', tenantName.value],
+    ['Kode Tenant', tenantCode.value],
     ['Penanggung Jawab', responsibleLine.value],
     ['Template', templateName.value],
     ['Periode', periodLabel.value],
