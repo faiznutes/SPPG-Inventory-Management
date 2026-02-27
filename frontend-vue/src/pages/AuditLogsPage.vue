@@ -13,6 +13,7 @@ const route = useRoute()
 const router = useRouter()
 
 const FILTER_STORAGE_KEY = 'audit_logs_filters_v1'
+const PRESET_STORAGE_KEY = 'audit_logs_presets_v1'
 
 const rows = ref([])
 const stats = ref({
@@ -25,6 +26,10 @@ const selectedLog = ref(null)
 const isLoadingDetail = ref(false)
 const isLoading = ref(false)
 const quickDays = ref(14)
+const presetName = ref('')
+const selectedPresetId = ref('')
+const presetOptions = ref([])
+const autoApplyNotice = ref('')
 const lastAppliedFilterSignature = ref('')
 const suppressAutoApply = ref(false)
 const isActorDebouncing = ref(false)
@@ -32,6 +37,7 @@ const isEntityDebouncing = ref(false)
 
 let actorDebounceTimer = null
 let entityDebounceTimer = null
+let autoApplyNoticeTimer = null
 const pagination = reactive({
   page: 1,
   pageSize: 25,
@@ -194,6 +200,19 @@ function buildFilterSnapshot() {
   }
 }
 
+function buildPresetPayload() {
+  return {
+    fromDate: filters.fromDate || '',
+    toDate: filters.toDate || '',
+    tenantId: filters.tenantId || '',
+    actorUserId: filters.actorUserId || '',
+    entityType: filters.entityType || '',
+    entityId: filters.entityId || '',
+    action: filters.action || '',
+    quickDays: quickDays.value,
+  }
+}
+
 function buildFilterSignature() {
   return JSON.stringify({
     fromDate: filters.fromDate || '',
@@ -227,6 +246,32 @@ function applyFilterSnapshot(snapshot = {}) {
 
 function persistFilters() {
   localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(buildFilterSnapshot()))
+}
+
+function loadPresetsFromStorage() {
+  try {
+    const raw = localStorage.getItem(PRESET_STORAGE_KEY)
+    if (!raw) {
+      presetOptions.value = []
+      return
+    }
+    const parsed = JSON.parse(raw)
+    presetOptions.value = Array.isArray(parsed) ? parsed : []
+  } catch {
+    presetOptions.value = []
+  }
+}
+
+function persistPresetsToStorage() {
+  localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presetOptions.value))
+}
+
+function showAutoApplyNotice(message) {
+  autoApplyNotice.value = message
+  if (autoApplyNoticeTimer) clearTimeout(autoApplyNoticeTimer)
+  autoApplyNoticeTimer = setTimeout(() => {
+    autoApplyNotice.value = ''
+  }, 2000)
 }
 
 function syncQuery() {
@@ -287,6 +332,57 @@ async function clearSingleFilter(key) {
   markFiltersAsApplied()
 }
 
+function saveCurrentPreset() {
+  const name = presetName.value.trim()
+  if (!name) {
+    notifications.showPopup('Nama preset kosong', 'Isi nama preset sebelum menyimpan.', 'error')
+    return
+  }
+
+  const existingIndex = presetOptions.value.findIndex((item) => item.name.toLowerCase() === name.toLowerCase())
+  const nextPreset = {
+    id: existingIndex >= 0 ? presetOptions.value[existingIndex].id : `preset-${Date.now()}`,
+    name,
+    payload: buildPresetPayload(),
+    updatedAt: new Date().toISOString(),
+  }
+
+  if (existingIndex >= 0) {
+    presetOptions.value.splice(existingIndex, 1, nextPreset)
+  } else {
+    presetOptions.value.unshift(nextPreset)
+  }
+
+  selectedPresetId.value = nextPreset.id
+  persistPresetsToStorage()
+  presetName.value = ''
+  notifications.showPopup('Preset disimpan', `Preset "${name}" berhasil disimpan.`, 'success')
+}
+
+async function applySelectedPreset() {
+  if (!selectedPresetId.value) return
+  const found = presetOptions.value.find((item) => item.id === selectedPresetId.value)
+  if (!found) return
+
+  applyFilterSnapshot({
+    ...found.payload,
+    page: 1,
+    pageSize: pagination.pageSize,
+  })
+  await applyFilters({ source: 'preset' })
+}
+
+function deleteSelectedPreset() {
+  if (!selectedPresetId.value) return
+  const found = presetOptions.value.find((item) => item.id === selectedPresetId.value)
+  presetOptions.value = presetOptions.value.filter((item) => item.id !== selectedPresetId.value)
+  persistPresetsToStorage()
+  selectedPresetId.value = ''
+  if (found) {
+    notifications.showPopup('Preset dihapus', `Preset "${found.name}" telah dihapus.`, 'success')
+  }
+}
+
 function restoreFilters() {
   const querySnapshot = {
     fromDate: typeof route.query.fromDate === 'string' ? route.query.fromDate : '',
@@ -334,12 +430,16 @@ async function loadStats() {
   }
 }
 
-async function applyFilters() {
+async function applyFilters(options = {}) {
+  const source = options.source || 'manual'
   pagination.page = 1
   persistFilters()
   syncQuery()
   await Promise.all([loadData(), loadStats()])
   markFiltersAsApplied()
+  if (source === 'auto') {
+    showAutoApplyNotice('Filter otomatis diterapkan')
+  }
 }
 
 async function resetFilters() {
@@ -470,7 +570,7 @@ watch(
     actorDebounceTimer = setTimeout(() => {
       isActorDebouncing.value = false
       if (hasPendingFilterChanges.value) {
-        applyFilters()
+        applyFilters({ source: 'auto' })
       }
     }, 600)
   },
@@ -485,7 +585,7 @@ watch(
     entityDebounceTimer = setTimeout(() => {
       isEntityDebouncing.value = false
       if (hasPendingFilterChanges.value) {
-        applyFilters()
+        applyFilters({ source: 'auto' })
       }
     }, 600)
   },
@@ -494,11 +594,13 @@ watch(
 onBeforeUnmount(() => {
   if (actorDebounceTimer) clearTimeout(actorDebounceTimer)
   if (entityDebounceTimer) clearTimeout(entityDebounceTimer)
+  if (autoApplyNoticeTimer) clearTimeout(autoApplyNoticeTimer)
   isActorDebouncing.value = false
   isEntityDebouncing.value = false
 })
 
 onMounted(async () => {
+  loadPresetsFromStorage()
   restoreFilters()
   persistFilters()
   syncQuery()
@@ -580,8 +682,26 @@ onMounted(async () => {
         </div>
       </div>
 
+      <div class="mt-2 flex flex-wrap items-center gap-2">
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Preset</span>
+        <input
+          v-model="presetName"
+          type="text"
+          placeholder="Nama preset"
+          class="w-40 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs"
+        />
+        <button class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700" @click="saveCurrentPreset">Simpan Preset</button>
+        <select v-model="selectedPresetId" class="min-w-40 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs">
+          <option value="">Pilih preset...</option>
+          <option v-for="preset in presetOptions" :key="preset.id" :value="preset.id">{{ preset.name }}</option>
+        </select>
+        <button class="rounded-lg border border-cyan-200 px-2.5 py-1.5 text-xs font-semibold text-cyan-700" :disabled="!selectedPresetId" @click="applySelectedPreset">Gunakan</button>
+        <button class="rounded-lg border border-rose-200 px-2.5 py-1.5 text-xs font-semibold text-rose-700" :disabled="!selectedPresetId" @click="deleteSelectedPreset">Hapus</button>
+      </div>
+
       <div class="mt-2 flex flex-wrap justify-end gap-2">
         <p v-if="exportRangeWarning" class="mr-auto self-center text-xs font-semibold text-amber-700">{{ exportRangeWarning }}</p>
+        <p v-if="autoApplyNotice" class="mr-auto self-center text-xs font-semibold text-emerald-700">{{ autoApplyNotice }}</p>
         <button class="rounded-lg border border-violet-200 px-3 py-2 text-sm font-semibold text-violet-700" @click="openShareLinkInNewTab">Open Share Link</button>
         <button class="rounded-lg border border-indigo-200 px-3 py-2 text-sm font-semibold text-indigo-700" @click="copyShareLink">Copy Share Link</button>
         <button class="rounded-lg border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700" @click="exportCsv">Export CSV</button>
