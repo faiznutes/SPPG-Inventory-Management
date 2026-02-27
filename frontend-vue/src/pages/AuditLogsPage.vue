@@ -35,6 +35,40 @@ const filters = reactive({
   action: '',
 })
 
+const actionOptions = [
+  { value: '', label: 'Semua action' },
+  { value: 'CREATE', label: 'CREATE' },
+  { value: 'UPDATE', label: 'UPDATE' },
+  { value: 'DELETE', label: 'DELETE' },
+  { value: 'ACTIVATE', label: 'ACTIVATE' },
+  { value: 'DEACTIVATE', label: 'DEACTIVATE' },
+  { value: 'STATUS_UPDATE', label: 'STATUS_UPDATE' },
+  { value: 'SUBMIT', label: 'SUBMIT' },
+  { value: 'VIEW', label: 'VIEW' },
+  { value: 'SEND_TELEGRAM', label: 'SEND_TELEGRAM' },
+  { value: 'BULK_ACTIVATE', label: 'BULK_ACTIVATE' },
+  { value: 'BULK_DEACTIVATE', label: 'BULK_DEACTIVATE' },
+  { value: 'BULK_DELETE', label: 'BULK_DELETE' },
+  { value: 'BULK_UPDATE', label: 'BULK_UPDATE' },
+  { value: 'BULK_ADJUST', label: 'BULK_ADJUST' },
+]
+
+const entityTypeOptions = [
+  { value: '', label: 'Semua entity' },
+  { value: 'items', label: 'items' },
+  { value: 'categories', label: 'categories' },
+  { value: 'inventory_transactions', label: 'inventory_transactions' },
+  { value: 'purchase_requests', label: 'purchase_requests' },
+  { value: 'checklist_runs', label: 'checklist_runs' },
+  { value: 'checklist_monitoring', label: 'checklist_monitoring' },
+  { value: 'checklist_exports', label: 'checklist_exports' },
+  { value: 'checklist_monitoring_exports', label: 'checklist_monitoring_exports' },
+  { value: 'tenants', label: 'tenants' },
+  { value: 'tenant_users', label: 'tenant_users' },
+  { value: 'tenant_locations', label: 'tenant_locations' },
+  { value: 'tenant_telegram_settings', label: 'tenant_telegram_settings' },
+]
+
 const canFilterTenant = computed(() => authStore.user?.role === 'SUPER_ADMIN')
 const totalPages = computed(() => Math.max(1, Math.ceil((pagination.total || 0) / pagination.pageSize)))
 const exportRangeWarning = computed(() => {
@@ -150,6 +184,21 @@ async function goToPage(nextPage) {
   await loadData()
 }
 
+function formatDateOnly(date) {
+  const year = date.getUTCFullYear()
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getUTCDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+async function applyQuickRange(days) {
+  const end = new Date()
+  const start = new Date(end.getTime() - (days - 1) * 24 * 60 * 60 * 1000)
+  filters.fromDate = formatDateOnly(start)
+  filters.toDate = formatDateOnly(end)
+  await applyFilters()
+}
+
 function buildExportQuery() {
   return {
     from: toIsoStart(filters.fromDate),
@@ -228,7 +277,9 @@ onMounted(async () => {
         </label>
         <label class="block">
           <span class="mb-1 block text-xs font-semibold text-slate-600">Entity type</span>
-          <input v-model="filters.entityType" placeholder="contoh: items" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          <select v-model="filters.entityType" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+            <option v-for="item in entityTypeOptions" :key="`entity-${item.value || 'all'}`" :value="item.value">{{ item.label }}</option>
+          </select>
         </label>
         <label class="block">
           <span class="mb-1 block text-xs font-semibold text-slate-600">Entity ID</span>
@@ -236,7 +287,9 @@ onMounted(async () => {
         </label>
         <label class="block">
           <span class="mb-1 block text-xs font-semibold text-slate-600">Action</span>
-          <input v-model="filters.action" placeholder="contoh: UPDATE" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          <select v-model="filters.action" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+            <option v-for="item in actionOptions" :key="`action-${item.value || 'all'}`" :value="item.value">{{ item.label }}</option>
+          </select>
         </label>
         <label class="block">
           <span class="mb-1 block text-xs font-semibold text-slate-600">Actor User ID</span>
@@ -244,7 +297,14 @@ onMounted(async () => {
         </label>
       </div>
 
-      <div class="mt-3 flex flex-wrap justify-end gap-2">
+      <div class="mt-3 flex flex-wrap items-center justify-end gap-2">
+        <span class="mr-auto text-xs font-semibold uppercase tracking-wide text-slate-500">Quick range</span>
+        <button class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700" @click="applyQuickRange(1)">Hari ini</button>
+        <button class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700" @click="applyQuickRange(7)">7 hari</button>
+        <button class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700" @click="applyQuickRange(30)">30 hari</button>
+      </div>
+
+      <div class="mt-2 flex flex-wrap justify-end gap-2">
         <p v-if="exportRangeWarning" class="mr-auto self-center text-xs font-semibold text-amber-700">{{ exportRangeWarning }}</p>
         <button class="rounded-lg border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700" @click="exportCsv">Export CSV</button>
         <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" @click="resetFilters">Reset</button>
