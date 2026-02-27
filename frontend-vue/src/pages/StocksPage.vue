@@ -125,7 +125,13 @@ function formatQty(value) {
 function cleanUnit(value) {
   return String(value || '')
     .trim()
-    .replace(/^0+(?=[A-Za-z])/g, '')
+    .replace(/^\d+\s*(?=[A-Za-z])/g, '')
+}
+
+function formatQtyUnit(qty, unit) {
+  const cleanedUnit = cleanUnit(unit)
+  if (!cleanedUnit) return formatQty(qty)
+  return `${formatQty(qty)} ${cleanedUnit}`
 }
 
 function openCategoryPicker() {
@@ -481,7 +487,7 @@ onMounted(async () => {
               <span class="rounded-full px-2 py-0.5 text-[11px] font-bold" :class="statusClass(row.status)">{{ row.status }}</span>
             </div>
           </div>
-          <p class="mt-2 text-sm font-semibold text-slate-800">{{ formatQty(row.qty) }} {{ row.unit }}</p>
+          <p class="mt-2 text-sm font-semibold text-slate-800">{{ formatQtyUnit(row.qty, row.unit) }}</p>
         </article>
       </div>
 
@@ -502,7 +508,7 @@ onMounted(async () => {
             <tr v-for="row in filteredRows" :key="`${row.item}-${row.lokasi}`" class="border-b border-slate-100">
               <td class="px-3 py-3 font-semibold text-slate-900">{{ row.item }}</td>
               <td class="px-3 py-3 text-slate-600">{{ row.kategori }} - {{ row.lokasi }}</td>
-              <td class="px-3 py-3 text-right font-semibold text-slate-900">{{ formatQty(row.qty) }} {{ row.unit }}</td>
+              <td class="px-3 py-3 text-right font-semibold text-slate-900">{{ formatQtyUnit(row.qty, row.unit) }}</td>
               <td class="px-3 py-3 text-center">
                 <input class="mr-2 align-middle" :checked="selectedStockIds.includes(row.id)" type="checkbox" @change="toggleStockSelection(row.id)" />
                 <span class="rounded-full px-2.5 py-1 text-xs font-bold" :class="statusClass(row.status)">
@@ -577,7 +583,7 @@ onMounted(async () => {
           >
             <div>
               <p class="text-sm font-semibold text-slate-900">{{ row.item }} - {{ row.lokasi }}</p>
-              <p class="text-xs text-slate-500">Stok saat ini: {{ formatQty(row.qty) }} {{ row.unit }}</p>
+              <p class="text-xs text-slate-500">Stok saat ini: {{ formatQtyUnit(row.qty, row.unit) }}</p>
             </div>
             <input
               v-model="bulkAdjustForm.qtyByStockId[row.id]"
