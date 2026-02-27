@@ -78,6 +78,10 @@ const passwordForm = reactive({
 
 const canManageUsers = computed(() => authStore.user?.role === 'SUPER_ADMIN')
 const canAddInTab = computed(() => activeTab.value !== 'Pengguna' || canManageUsers.value)
+const tenantLocationNameById = computed(() => {
+  const pairs = tenantLocations.value.map((location) => [location.id, location.name])
+  return new Map(pairs)
+})
 
 const categoryModelLabelMap = {
   CONSUMABLE: 'Barang habis beli lagi',
@@ -180,6 +184,14 @@ function handleTenantUserRoleChange() {
   if (tenantUserForm.role !== 'STAFF') {
     tenantUserForm.locationIds = []
   }
+}
+
+function formatTenantUserLocationAccess(user) {
+  if (user.role !== 'STAFF') return 'Semua lokasi tenant aktif'
+  const names = (user.locationAccessIds || [])
+    .map((locationId) => tenantLocationNameById.value.get(locationId))
+    .filter(Boolean)
+  return names.length ? names.join(', ') : '-'
 }
 
 function resetTenantLocationForm() {
@@ -1162,6 +1174,9 @@ onMounted(async () => {
           </div>
           <div v-if="tenantUserForm.role === 'STAFF'" class="mt-2 rounded-lg border border-slate-200 p-2">
             <p class="text-[11px] font-semibold text-slate-700">Akses Lokasi STAFF (wajib pilih minimal 1)</p>
+            <p v-if="!activeTenantLocations().length" class="mt-1 text-[11px] text-rose-600">
+              Belum ada lokasi aktif. Aktifkan atau tambah lokasi tenant terlebih dahulu.
+            </p>
             <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               <label
                 v-for="loc in tenantLocations.filter((location) => location.isActive)"
@@ -1220,6 +1235,7 @@ onMounted(async () => {
               </div>
               <p class="mt-1 text-slate-600">Jabatan: {{ u.jabatan || '-' }}</p>
               <p class="text-slate-600">Mode: {{ u.canView ? (u.canEdit ? 'Bisa Edit' : 'Lihat Saja') : 'Tidak Bisa Akses' }}</p>
+              <p class="text-slate-600">Akses Lokasi: {{ formatTenantUserLocationAccess(u) }}</p>
               <p class="text-slate-600">Email: {{ u.email || '-' }}</p>
               <div class="mt-2 text-right">
                 <button class="rounded border border-slate-200 px-2 py-1 font-semibold text-slate-700" @click="editTenantUser(u)">Edit</button>
@@ -1235,6 +1251,7 @@ onMounted(async () => {
                   <th class="px-2 py-2">Email</th>
                   <th class="px-2 py-2">Role</th>
                   <th class="px-2 py-2">Jabatan</th>
+                  <th class="px-2 py-2">Akses Lokasi</th>
                   <th class="px-2 py-2">Mode</th>
                   <th class="px-2 py-2">Status</th>
                   <th class="px-2 py-2 text-right">Aksi</th>
@@ -1247,6 +1264,7 @@ onMounted(async () => {
                   <td class="px-2 py-2">{{ u.email || '-' }}</td>
                   <td class="px-2 py-2">{{ u.role }}</td>
                   <td class="px-2 py-2">{{ u.jabatan || '-' }}</td>
+                  <td class="px-2 py-2">{{ formatTenantUserLocationAccess(u) }}</td>
                   <td class="px-2 py-2">{{ u.canView ? (u.canEdit ? 'Bisa Edit' : 'Lihat Saja') : 'Tidak Bisa Akses' }}</td>
                   <td class="px-2 py-2">
                     <input class="mr-2 align-middle" :checked="selectedTenantUserIds.includes(u.id)" type="checkbox" @change="toggleTenantUserSelection(u.id)" />
