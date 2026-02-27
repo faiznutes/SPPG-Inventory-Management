@@ -256,7 +256,26 @@ function loadPresetsFromStorage() {
       return
     }
     const parsed = JSON.parse(raw)
-    presetOptions.value = Array.isArray(parsed) ? parsed : []
+    const normalized = Array.isArray(parsed)
+      ? parsed
+          .filter((item) => item && typeof item === 'object' && typeof item.id === 'string' && typeof item.name === 'string')
+          .map((item) => ({
+            id: item.id,
+            name: item.name,
+            payload: item.payload && typeof item.payload === 'object' ? item.payload : {},
+            updatedAt: item.updatedAt || null,
+            isDefault: Boolean(item.isDefault),
+          }))
+      : []
+
+    const defaultIndex = normalized.findIndex((item) => item.isDefault)
+    if (defaultIndex >= 0) {
+      normalized.forEach((item, index) => {
+        if (index !== defaultIndex) item.isDefault = false
+      })
+    }
+
+    presetOptions.value = normalized
   } catch {
     presetOptions.value = []
   }
@@ -272,6 +291,14 @@ function showAutoApplyNotice(message) {
   autoApplyNoticeTimer = setTimeout(() => {
     autoApplyNotice.value = ''
   }, 2000)
+}
+
+function hasQueryFilters() {
+  return Object.values(route.query).some((value) => value !== undefined && value !== null && String(value).length)
+}
+
+function getDefaultPreset() {
+  return presetOptions.value.find((item) => item.isDefault) || null
 }
 
 function syncQuery() {
@@ -345,6 +372,7 @@ function saveCurrentPreset() {
     name,
     payload: buildPresetPayload(),
     updatedAt: new Date().toISOString(),
+    isDefault: existingIndex >= 0 ? Boolean(presetOptions.value[existingIndex].isDefault) : false,
   }
 
   if (existingIndex >= 0) {
@@ -357,6 +385,34 @@ function saveCurrentPreset() {
   persistPresetsToStorage()
   presetName.value = ''
   notifications.showPopup('Preset disimpan', `Preset "${name}" berhasil disimpan.`, 'success')
+}
+
+function setSelectedPresetAsDefault() {
+  if (!selectedPresetId.value) return
+  let targetName = ''
+  presetOptions.value = presetOptions.value.map((item) => {
+    const isTarget = item.id === selectedPresetId.value
+    if (isTarget) targetName = item.name
+    return {
+      ...item,
+      isDefault: isTarget,
+    }
+  })
+  persistPresetsToStorage()
+  if (targetName) {
+    notifications.showPopup('Preset default diperbarui', `Preset "${targetName}" dijadikan default.`, 'success')
+  }
+}
+
+function clearDefaultPreset() {
+  const hasDefault = presetOptions.value.some((item) => item.isDefault)
+  if (!hasDefault) return
+  presetOptions.value = presetOptions.value.map((item) => ({
+    ...item,
+    isDefault: false,
+  }))
+  persistPresetsToStorage()
+  notifications.showPopup('Default preset dilepas', 'Halaman audit tidak lagi memakai preset default otomatis.', 'success')
 }
 
 async function applySelectedPreset() {
@@ -601,7 +657,20 @@ onBeforeUnmount(() => {
 
 onMounted(async () => {
   loadPresetsFromStorage()
+  const hasQuery = hasQueryFilters()
   restoreFilters()
+
+  const defaultPreset = getDefaultPreset()
+  if (!hasQuery && defaultPreset) {
+    applyFilterSnapshot({
+      ...defaultPreset.payload,
+      page: 1,
+      pageSize: pagination.pageSize,
+    })
+    selectedPresetId.value = defaultPreset.id
+    showAutoApplyNotice(`Preset default aktif: ${defaultPreset.name}`)
+  }
+
   persistFilters()
   syncQuery()
   await loadTenants()
@@ -693,9 +762,11 @@ onMounted(async () => {
         <button class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700" @click="saveCurrentPreset">Simpan Preset</button>
         <select v-model="selectedPresetId" class="min-w-40 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs">
           <option value="">Pilih preset...</option>
-          <option v-for="preset in presetOptions" :key="preset.id" :value="preset.id">{{ preset.name }}</option>
+          <option v-for="preset in presetOptions" :key="preset.id" :value="preset.id">{{ preset.isDefault ? `★ ${preset.name}` : preset.name }}</option>
         </select>
         <button class="rounded-lg border border-cyan-200 px-2.5 py-1.5 text-xs font-semibold text-cyan-700" :disabled="!selectedPresetId" @click="applySelectedPreset">Gunakan</button>
+        <button class="rounded-lg border border-amber-200 px-2.5 py-1.5 text-xs font-semibold text-amber-700" :disabled="!selectedPresetId" @click="setSelectedPresetAsDefault">Jadikan Default</button>
+        <button class="rounded-lg border border-orange-200 px-2.5 py-1.5 text-xs font-semibold text-orange-700" :disabled="!presetOptions.some((item) => item.isDefault)" @click="clearDefaultPreset">Lepas Default</button>
         <button class="rounded-lg border border-rose-200 px-2.5 py-1.5 text-xs font-semibold text-rose-700" :disabled="!selectedPresetId" @click="deleteSelectedPreset">Hapus</button>
       </div>
 
