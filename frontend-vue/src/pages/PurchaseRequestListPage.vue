@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import PageHeader from '../components/common/PageHeader.vue'
 import BaseModal from '../components/common/BaseModal.vue'
@@ -54,6 +54,7 @@ const dayNameMap = {
 }
 
 const tenantName = computed(() => authStore.user?.tenant?.name || authStore.tenantName || APP_NAME)
+const tenantCode = computed(() => authStore.user?.tenant?.code || '-')
 const responsibleLine = computed(() => {
   const name = authStore.user?.name || authStore.user?.username || '-'
   const jabatan = authStore.user?.jabatan || authStore.operationalLabel || 'Staff'
@@ -111,6 +112,7 @@ function exportCsv() {
   const today = new Date().toLocaleDateString('id-ID')
   const meta = [
     ['Tenant', tenantName.value],
+    ['Kode Tenant', tenantCode.value],
     ['Penanggung Jawab', responsibleLine.value],
     ['Periode', periodLabel.value],
     ['Tanggal Export', today],
@@ -177,6 +179,7 @@ function exportPdfA4() {
         <h1>${tenantName.value}</h1>
         <h2>${responsibleLine.value}</h2>
         <p>Laporan: Permintaan Pembelian</p>
+        <p>Kode Tenant: ${tenantCode.value}</p>
         <p>Periode: ${periodLabel.value}</p>
         <p>Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}</p>
         <table>
@@ -301,6 +304,13 @@ function removeItemRow(index) {
 onMounted(async () => {
   await loadRows()
 })
+
+watch(
+  () => [authStore.user?.tenant?.id, authStore.user?.activeLocationId],
+  async () => {
+    await loadRows()
+  },
+)
 </script>
 
 <template>

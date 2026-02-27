@@ -21,7 +21,7 @@ purchaseRequestsRouter.use(requireAuth)
 purchaseRequestsRouter.get('/', async (req, res, next) => {
   try {
     const query = listPurchaseRequestsQuerySchema.parse(req.query)
-    const data = await listPurchaseRequests(query)
+    const data = await listPurchaseRequests(query, req.user?.tenantId)
     return res.json(data)
   } catch (error) {
     return next(error)
@@ -31,7 +31,7 @@ purchaseRequestsRouter.get('/', async (req, res, next) => {
 purchaseRequestsRouter.post('/', async (req, res, next) => {
   try {
     const body = createPurchaseRequestSchema.parse(req.body)
-    const data = await createPurchaseRequest(req.user!.id, body)
+    const data = await createPurchaseRequest(req.user!.id, body, req.user?.tenantId)
     return res.status(201).json(data)
   } catch (error) {
     return next(error)
@@ -40,7 +40,7 @@ purchaseRequestsRouter.post('/', async (req, res, next) => {
 
 purchaseRequestsRouter.get('/:id', async (req, res, next) => {
   try {
-    const data = await getPurchaseRequestDetail(req.params.id)
+    const data = await getPurchaseRequestDetail(req.params.id, req.user?.tenantId)
     return res.json(data)
   } catch (error) {
     return next(error)
