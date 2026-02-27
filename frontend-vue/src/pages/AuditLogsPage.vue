@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '../components/common/PageHeader.vue'
 import BaseModal from '../components/common/BaseModal.vue'
 import { useAuthStore } from '../stores/auth'
@@ -8,6 +9,10 @@ import { api } from '../lib/api'
 
 const authStore = useAuthStore()
 const notifications = useNotificationsStore()
+const route = useRoute()
+const router = useRouter()
+
+const FILTER_STORAGE_KEY = 'audit_logs_filters_v1'
 
 const rows = ref([])
 const stats = ref({
@@ -145,6 +150,87 @@ async function loadData() {
   }
 }
 
+function parsePositiveInt(value, fallback) {
+  const next = Number(value)
+  if (!Number.isInteger(next) || next < 1) return fallback
+  return next
+}
+
+function buildFilterSnapshot() {
+  return {
+    fromDate: filters.fromDate || '',
+    toDate: filters.toDate || '',
+    tenantId: filters.tenantId || '',
+    actorUserId: filters.actorUserId || '',
+    entityType: filters.entityType || '',
+    entityId: filters.entityId || '',
+    action: filters.action || '',
+    page: pagination.page,
+    pageSize: pagination.pageSize,
+    quickDays: quickDays.value,
+  }
+}
+
+function applyFilterSnapshot(snapshot = {}) {
+  filters.fromDate = typeof snapshot.fromDate === 'string' ? snapshot.fromDate : ''
+  filters.toDate = typeof snapshot.toDate === 'string' ? snapshot.toDate : ''
+  filters.tenantId = typeof snapshot.tenantId === 'string' ? snapshot.tenantId : ''
+  filters.actorUserId = typeof snapshot.actorUserId === 'string' ? snapshot.actorUserId : ''
+  filters.entityType = typeof snapshot.entityType === 'string' ? snapshot.entityType : ''
+  filters.entityId = typeof snapshot.entityId === 'string' ? snapshot.entityId : ''
+  filters.action = typeof snapshot.action === 'string' ? snapshot.action : ''
+  pagination.page = parsePositiveInt(snapshot.page, 1)
+  pagination.pageSize = parsePositiveInt(snapshot.pageSize, 25)
+  quickDays.value = parsePositiveInt(snapshot.quickDays, 14)
+}
+
+function persistFilters() {
+  localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(buildFilterSnapshot()))
+}
+
+function syncQuery() {
+  const query = {}
+  const snapshot = buildFilterSnapshot()
+  Object.entries(snapshot).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '' || value === 1 || (key === 'pageSize' && value === 25) || (key === 'quickDays' && value === 14)) return
+    query[key] = String(value)
+  })
+
+  router.replace({
+    query,
+  })
+}
+
+function restoreFilters() {
+  const querySnapshot = {
+    fromDate: typeof route.query.fromDate === 'string' ? route.query.fromDate : '',
+    toDate: typeof route.query.toDate === 'string' ? route.query.toDate : '',
+    tenantId: typeof route.query.tenantId === 'string' ? route.query.tenantId : '',
+    actorUserId: typeof route.query.actorUserId === 'string' ? route.query.actorUserId : '',
+    entityType: typeof route.query.entityType === 'string' ? route.query.entityType : '',
+    entityId: typeof route.query.entityId === 'string' ? route.query.entityId : '',
+    action: typeof route.query.action === 'string' ? route.query.action : '',
+    page: typeof route.query.page === 'string' ? route.query.page : undefined,
+    pageSize: typeof route.query.pageSize === 'string' ? route.query.pageSize : undefined,
+    quickDays: typeof route.query.quickDays === 'string' ? route.query.quickDays : undefined,
+  }
+
+  const hasQuery = Object.values(querySnapshot).some((value) => value !== '' && value !== undefined)
+  if (hasQuery) {
+    applyFilterSnapshot(querySnapshot)
+    return
+  }
+
+  try {
+    const raw = localStorage.getItem(FILTER_STORAGE_KEY)
+    if (!raw) return
+    const parsed = JSON.parse(raw)
+    applyFilterSnapshot(parsed)
+  } catch {
+    // ignore invalid persisted filters
+  }
+}
+
 async function loadStats() {
   if (!authStore.accessToken) return
   try {
@@ -164,6 +250,8 @@ async function loadStats() {
 
 async function applyFilters() {
   pagination.page = 1
+  persistFilters()
+  syncQuery()
   await Promise.all([loadData(), loadStats()])
 }
 
@@ -176,12 +264,16 @@ async function resetFilters() {
   filters.entityId = ''
   filters.action = ''
   pagination.page = 1
+  persistFilters()
+  syncQuery()
   await Promise.all([loadData(), loadStats()])
 }
 
 async function goToPage(nextPage) {
   if (nextPage < 1 || nextPage > totalPages.value || nextPage === pagination.page) return
   pagination.page = nextPage
+  persistFilters()
+  syncQuery()
   await loadData()
 }
 
@@ -259,6 +351,9 @@ async function openDetail(row) {
 }
 
 onMounted(async () => {
+  restoreFilters()
+  persistFilters()
+  syncQuery()
   await loadTenants()
   await Promise.all([loadData(), loadStats()])
 })
