@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '../components/common/PageHeader.vue'
 import BaseModal from '../components/common/BaseModal.vue'
@@ -25,6 +25,11 @@ const selectedLog = ref(null)
 const isLoadingDetail = ref(false)
 const isLoading = ref(false)
 const quickDays = ref(14)
+const lastAppliedFilterSignature = ref('')
+const suppressAutoApply = ref(false)
+
+let actorDebounceTimer = null
+let entityDebounceTimer = null
 const pagination = reactive({
   page: 1,
   pageSize: 25,
@@ -92,6 +97,7 @@ const activeFilterEntries = computed(() => {
   return entries
 })
 const activeFilterCount = computed(() => activeFilterEntries.value.length)
+const hasPendingFilterChanges = computed(() => buildFilterSignature() !== lastAppliedFilterSignature.value)
 const exportRangeWarning = computed(() => {
   if (!filters.fromDate || !filters.toDate) return ''
   const from = new Date(`${filters.fromDate}T00:00:00.000Z`)
@@ -186,7 +192,24 @@ function buildFilterSnapshot() {
   }
 }
 
+function buildFilterSignature() {
+  return JSON.stringify({
+    fromDate: filters.fromDate || '',
+    toDate: filters.toDate || '',
+    tenantId: filters.tenantId || '',
+    actorUserId: filters.actorUserId || '',
+    entityType: filters.entityType || '',
+    entityId: filters.entityId || '',
+    action: filters.action || '',
+  })
+}
+
+function markFiltersAsApplied() {
+  lastAppliedFilterSignature.value = buildFilterSignature()
+}
+
 function applyFilterSnapshot(snapshot = {}) {
+  suppressAutoApply.value = true
   filters.fromDate = typeof snapshot.fromDate === 'string' ? snapshot.fromDate : ''
   filters.toDate = typeof snapshot.toDate === 'string' ? snapshot.toDate : ''
   filters.tenantId = typeof snapshot.tenantId === 'string' ? snapshot.tenantId : ''
@@ -197,6 +220,7 @@ function applyFilterSnapshot(snapshot = {}) {
   pagination.page = parsePositiveInt(snapshot.page, 1)
   pagination.pageSize = parsePositiveInt(snapshot.pageSize, 25)
   quickDays.value = parsePositiveInt(snapshot.quickDays, 14)
+  suppressAutoApply.value = false
 }
 
 function persistFilters() {
@@ -251,11 +275,14 @@ async function resetToDefaultRange() {
 
 async function clearSingleFilter(key) {
   if (!(key in filters)) return
+  suppressAutoApply.value = true
   filters[key] = ''
+  suppressAutoApply.value = false
   pagination.page = 1
   persistFilters()
   syncQuery()
   await Promise.all([loadData(), loadStats()])
+  markFiltersAsApplied()
 }
 
 function restoreFilters() {
@@ -310,9 +337,11 @@ async function applyFilters() {
   persistFilters()
   syncQuery()
   await Promise.all([loadData(), loadStats()])
+  markFiltersAsApplied()
 }
 
 async function resetFilters() {
+  suppressAutoApply.value = true
   filters.fromDate = ''
   filters.toDate = ''
   filters.tenantId = ''
@@ -320,10 +349,12 @@ async function resetFilters() {
   filters.entityType = ''
   filters.entityId = ''
   filters.action = ''
+  suppressAutoApply.value = false
   pagination.page = 1
   persistFilters()
   syncQuery()
   await Promise.all([loadData(), loadStats()])
+  markFiltersAsApplied()
 }
 
 async function goToPage(nextPage) {
@@ -407,12 +438,44 @@ async function openDetail(row) {
   }
 }
 
+watch(
+  () => filters.actorUserId,
+  () => {
+    if (suppressAutoApply.value) return
+    if (actorDebounceTimer) clearTimeout(actorDebounceTimer)
+    actorDebounceTimer = setTimeout(() => {
+      if (hasPendingFilterChanges.value) {
+        applyFilters()
+      }
+    }, 600)
+  },
+)
+
+watch(
+  () => filters.entityId,
+  () => {
+    if (suppressAutoApply.value) return
+    if (entityDebounceTimer) clearTimeout(entityDebounceTimer)
+    entityDebounceTimer = setTimeout(() => {
+      if (hasPendingFilterChanges.value) {
+        applyFilters()
+      }
+    }, 600)
+  },
+)
+
+onBeforeUnmount(() => {
+  if (actorDebounceTimer) clearTimeout(actorDebounceTimer)
+  if (entityDebounceTimer) clearTimeout(entityDebounceTimer)
+})
+
 onMounted(async () => {
   restoreFilters()
   persistFilters()
   syncQuery()
   await loadTenants()
   await Promise.all([loadData(), loadStats()])
+  markFiltersAsApplied()
 })
 </script>
 
@@ -483,7 +546,13 @@ onMounted(async () => {
         <button class="rounded-lg border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700" @click="exportCsv">Export CSV</button>
         <button class="rounded-lg border border-sky-200 px-3 py-2 text-sm font-semibold text-sky-700" @click="resetToDefaultRange">Reset Default 7 Hari</button>
         <button class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" @click="resetFilters">Reset</button>
-        <button class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white" @click="applyFilters">Terapkan Filter</button>
+        <button
+          class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="!hasPendingFilterChanges || isLoading"
+          @click="applyFilters"
+        >
+          Terapkan Filter
+        </button>
       </div>
 
       <div class="mt-3 flex flex-wrap items-center gap-2">
