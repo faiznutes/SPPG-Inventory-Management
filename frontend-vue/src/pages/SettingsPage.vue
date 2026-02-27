@@ -46,6 +46,7 @@ const tenantUserForm = reactive({
   role: 'ADMIN',
   jabatan: '',
   visibilityMode: 'edit',
+  locationIds: [],
   password: '',
 })
 
@@ -159,7 +160,26 @@ function resetTenantUserForm() {
   tenantUserForm.role = 'ADMIN'
   tenantUserForm.jabatan = ''
   tenantUserForm.visibilityMode = 'edit'
+  tenantUserForm.locationIds = []
   tenantUserForm.password = ''
+}
+
+function activeTenantLocations() {
+  return tenantLocations.value.filter((location) => location?.isActive)
+}
+
+function toggleTenantUserLocationAccess(locationId) {
+  if (tenantUserForm.locationIds.includes(locationId)) {
+    tenantUserForm.locationIds = tenantUserForm.locationIds.filter((id) => id !== locationId)
+    return
+  }
+  tenantUserForm.locationIds = [...tenantUserForm.locationIds, locationId]
+}
+
+function handleTenantUserRoleChange() {
+  if (tenantUserForm.role !== 'STAFF') {
+    tenantUserForm.locationIds = []
+  }
 }
 
 function resetTenantLocationForm() {
@@ -599,6 +619,14 @@ async function addUserToTenant() {
     }
 
     const visibility = modeToFlags(tenantUserForm.visibilityMode)
+    const validLocationIds = new Set(activeTenantLocations().map((location) => location.id))
+    const scopedLocationIds = (tenantUserForm.locationIds || []).filter((id) => validLocationIds.has(id))
+
+    if (tenantUserForm.role === 'STAFF' && !scopedLocationIds.length) {
+      notifications.showPopup('Akses lokasi wajib', 'Pilih minimal 1 lokasi aktif untuk user STAFF.', 'error')
+      return
+    }
+
     const payload = {
       name,
       username,
@@ -607,6 +635,7 @@ async function addUserToTenant() {
       jabatan,
       canView: visibility.canView,
       canEdit: visibility.canEdit,
+      locationIds: tenantUserForm.role === 'STAFF' ? scopedLocationIds : [],
       password,
     }
 
@@ -743,6 +772,7 @@ function editTenantUser(user) {
   tenantUserForm.role = user.role === 'STAFF' ? 'STAFF' : 'ADMIN'
   tenantUserForm.jabatan = user.jabatan || ''
   tenantUserForm.visibilityMode = flagsToMode(user.canView, user.canEdit)
+  tenantUserForm.locationIds = Array.isArray(user.locationAccessIds) ? [...user.locationAccessIds] : []
   tenantUserForm.password = ''
 }
 
@@ -1118,7 +1148,7 @@ onMounted(async () => {
             <input v-model="tenantUserForm.name" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" placeholder="Nama" />
             <input v-model="tenantUserForm.username" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" placeholder="Username" />
             <input v-model="tenantUserForm.email" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" placeholder="Email" />
-            <select v-model="tenantUserForm.role" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs">
+            <select v-model="tenantUserForm.role" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" @change="handleTenantUserRoleChange">
               <option value="ADMIN">ADMIN</option>
               <option value="STAFF">STAFF</option>
             </select>
@@ -1129,6 +1159,23 @@ onMounted(async () => {
               <option value="edit">Bisa Edit</option>
             </select>
             <input v-model="tenantUserForm.password" type="password" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" placeholder="Password (isi saat tambah/reset)" />
+          </div>
+          <div v-if="tenantUserForm.role === 'STAFF'" class="mt-2 rounded-lg border border-slate-200 p-2">
+            <p class="text-[11px] font-semibold text-slate-700">Akses Lokasi STAFF (wajib pilih minimal 1)</p>
+            <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <label
+                v-for="loc in tenantLocations.filter((location) => location.isActive)"
+                :key="`staff-loc-${loc.id}`"
+                class="inline-flex items-center gap-2 rounded border border-slate-200 px-2 py-1 text-[11px] text-slate-700"
+              >
+                <input
+                  :checked="tenantUserForm.locationIds.includes(loc.id)"
+                  type="checkbox"
+                  @change="toggleTenantUserLocationAccess(loc.id)"
+                />
+                <span>{{ loc.name }}</span>
+              </label>
+            </div>
           </div>
           <div class="mt-2 flex justify-end gap-2">
             <button class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700" @click="resetTenantUserForm">Reset</button>
