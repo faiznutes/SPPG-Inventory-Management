@@ -27,6 +27,74 @@ function expectedTemplateName(tenantCode?: string) {
   return tenantCode ? `${DEFAULT_TEMPLATE_NAME} - ${tenantCode}` : DEFAULT_TEMPLATE_NAME
 }
 
+function stripTenantPrefix(tenantCode: string | undefined, value: string) {
+  if (!tenantCode) return value
+  const prefix = `${tenantCode}::`
+  return value.startsWith(prefix) ? value.slice(prefix.length) : value
+}
+
+function stripInactivePrefix(value: string) {
+  return value.replace(/^INACTIVE - /i, '')
+}
+
+async function resolveChecklistHeaderContext(input: {
+  userId: string
+  tenantId: string
+  tenantName: string
+  tenantCode?: string
+  activeLocationId?: string
+  fallbackLocationId?: string | null
+}) {
+  const locationId = input.activeLocationId || input.fallbackLocationId || null
+  const [user, tenant, location] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: input.userId },
+      select: {
+        name: true,
+        username: true,
+        tenantMemberships: {
+          where: {
+            tenantId: input.tenantId,
+          },
+          select: {
+            jabatan: true,
+          },
+          take: 1,
+        },
+      },
+    }),
+    input.tenantCode
+      ? Promise.resolve(null)
+      : prisma.tenant.findUnique({
+          where: { id: input.tenantId },
+          select: { code: true },
+        }),
+    locationId
+      ? prisma.location.findUnique({
+          where: {
+            id: locationId,
+          },
+          select: {
+            name: true,
+          },
+        })
+      : Promise.resolve(null),
+  ])
+
+  const userName = user?.name || user?.username || 'Pengguna'
+  const jabatan = user?.tenantMemberships?.[0]?.jabatan || 'Staff'
+  const resolvedTenantCode = input.tenantCode || tenant?.code
+  const locationName = location?.name
+    ? stripInactivePrefix(stripTenantPrefix(resolvedTenantCode, location.name))
+    : 'Semua Lokasi'
+
+  return {
+    tenantHeader: `${input.tenantName} - ${locationName}`,
+    responsibleLine: `${userName} - ${jabatan}`,
+    locationName,
+  }
+}
+
 type ChecklistItemType = 'ASSET' | 'GAS' | 'CONSUMABLE'
 type ChecklistMonitoringPeriod = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'CUSTOM'
 type ChecklistMonitoringItemType = 'ALL' | ChecklistItemType
@@ -181,7 +249,7 @@ function buildExpectedChecklistTitles(templateItems: Array<Pick<ChecklistTemplat
 }
 
 async function renderChecklistPdfBuffer(input: {
-  tenantName: string
+  tenantHeader: string
   responsibleLine: string
   templateName: string
   runDate: Date
@@ -216,7 +284,7 @@ async function renderChecklistPdfBuffer(input: {
     const headerHeight = 22
 
     const drawHeader = () => {
-      doc.fontSize(16).font('Helvetica-Bold').text(input.tenantName)
+      doc.fontSize(16).font('Helvetica-Bold').text(input.tenantHeader)
       doc.moveDown(0.25)
       doc.fontSize(11).font('Helvetica').text(input.responsibleLine)
       doc.text(input.templateName)
@@ -301,7 +369,7 @@ async function renderChecklistPdfBuffer(input: {
 }
 
 async function renderChecklistMonitoringPdfBuffer(input: {
-  tenantName: string
+  tenantHeader: string
   responsibleLine: string
   monitoring: ChecklistMonitoringData
 }) {
@@ -330,7 +398,7 @@ async function renderChecklistMonitoringPdfBuffer(input: {
     const headerHeight = 22
 
     const drawHeader = () => {
-      doc.fontSize(14).font('Helvetica-Bold').text(input.tenantName)
+      doc.fontSize(14).font('Helvetica-Bold').text(input.tenantHeader)
       doc.moveDown(0.2)
       doc.fontSize(10).font('Helvetica').text(input.responsibleLine)
       doc.text(input.monitoring.templateName)
@@ -1024,21 +1092,18 @@ export async function sendChecklistExportToTelegram(
     throw new ApiError(403, 'FORBIDDEN', 'Checklist run tidak tersedia untuk lokasi aktif ini.')
   }
 
-  const [user] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        name: true,
-        username: true,
-      },
-    }),
-  ])
-
-  const responsibleLine = `${user?.name || user?.username || 'Pengguna'} - ${user?.username || '-'}`
+  const header = await resolveChecklistHeaderContext({
+    userId,
+    tenantId,
+    tenantName: tenant?.name || env.APP_NAME,
+    tenantCode: tenant?.code,
+    activeLocationId,
+    fallbackLocationId: run.locationId,
+  })
 
   const pdfBuffer = await renderChecklistPdfBuffer({
-    tenantName: tenant?.name || env.APP_NAME,
-    responsibleLine,
+    tenantHeader: header.tenantHeader,
+    responsibleLine: header.responsibleLine,
     templateName: displayTemplateName(run.template.name, tenant?.code),
     runDate: run.runDate,
     items: run.items
@@ -1056,7 +1121,7 @@ export async function sendChecklistExportToTelegram(
   await sendTelegramChecklistPdf({
     botToken: settings.botToken,
     chatId: settings.chatId,
-    caption: `Laporan checklist ${formatDateId(run.runDate)} - ${tenant?.name || 'Tenant'}`,
+    caption: `Laporan checklist ${formatDateId(run.runDate)} - ${tenant?.name || 'Tenant'} - ${header.locationName}`,
     fileName: checklistPdfFileName(run.runDate),
     pdfBuffer,
   })
@@ -1106,22 +1171,20 @@ export async function sendChecklistMonitoringExportToTelegram(
     }
   }
 
-  const [monitoring, user] = await Promise.all([
-    buildChecklistMonitoringData(tenantId, activeLocationId, query),
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        name: true,
-        username: true,
-      },
-    }),
-  ])
+  const monitoring = await buildChecklistMonitoringData(tenantId, activeLocationId, query)
 
-  const responsibleLine = `${user?.name || user?.username || 'Pengguna'} - ${user?.username || '-'}`
+  const header = await resolveChecklistHeaderContext({
+    userId,
+    tenantId,
+    tenantName: monitoring.tenantName,
+    tenantCode: undefined,
+    activeLocationId,
+    fallbackLocationId: null,
+  })
 
   const pdfBuffer = await renderChecklistMonitoringPdfBuffer({
-    tenantName: monitoring.tenantName,
-    responsibleLine,
+    tenantHeader: header.tenantHeader,
+    responsibleLine: header.responsibleLine,
     monitoring,
   })
 
@@ -1130,7 +1193,7 @@ export async function sendChecklistMonitoringExportToTelegram(
   await sendTelegramChecklistPdf({
     botToken: settings.botToken,
     chatId: settings.chatId,
-    caption: `Monitoring checklist ${monitoringPeriodLabel(monitoring.period)} (${monitoring.range.fromLabel} - ${monitoring.range.toLabel}) - ${monitoring.tenantName}`,
+    caption: `Monitoring checklist ${monitoringPeriodLabel(monitoring.period)} (${monitoring.range.fromLabel} - ${monitoring.range.toLabel}) - ${monitoring.tenantName} - ${header.locationName}`,
     fileName,
     pdfBuffer,
   })
@@ -1167,21 +1230,23 @@ export async function exportChecklistMonitoringPdf(
   activeLocationId: string | undefined,
   query: ChecklistMonitoringQuery = {},
 ) {
-  const [monitoring, user] = await Promise.all([
-    buildChecklistMonitoringData(tenantId, activeLocationId, query),
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        name: true,
-        username: true,
-      },
-    }),
-  ])
+  if (!tenantId) {
+    throw new ApiError(400, 'TENANT_CONTEXT_REQUIRED', 'Tenant aktif tidak ditemukan pada sesi pengguna.')
+  }
 
-  const responsibleLine = `${user?.name || user?.username || 'Pengguna'} - ${user?.username || '-'}`
-  const pdfBuffer = await renderChecklistMonitoringPdfBuffer({
+  const monitoring = await buildChecklistMonitoringData(tenantId, activeLocationId, query)
+
+  const header = await resolveChecklistHeaderContext({
+    userId,
+    tenantId,
     tenantName: monitoring.tenantName,
-    responsibleLine,
+    tenantCode: undefined,
+    activeLocationId,
+    fallbackLocationId: null,
+  })
+  const pdfBuffer = await renderChecklistMonitoringPdfBuffer({
+    tenantHeader: header.tenantHeader,
+    responsibleLine: header.responsibleLine,
     monitoring,
   })
 

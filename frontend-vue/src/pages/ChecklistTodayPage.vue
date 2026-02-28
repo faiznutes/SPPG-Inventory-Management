@@ -55,6 +55,7 @@ function itemTypeLabel(itemType) {
 }
 
 const tenantName = computed(() => authStore.user?.tenant?.name || authStore.tenantName || APP_NAME)
+const locationName = computed(() => authStore.locationName || 'Semua Lokasi')
 const tenantCode = computed(() => authStore.user?.tenant?.code || '-')
 const responsibleLine = computed(() => {
   const name = authStore.user?.name || authStore.user?.username || '-'
@@ -142,7 +143,7 @@ function openChecklistPrintWindow() {
         </style>
       </head>
       <body>
-        <h1>${tenantName.value}</h1>
+        <h1>${tenantName.value} - ${locationName.value}</h1>
         <h2>${responsibleLine.value}</h2>
         <p>${templateName.value}</p>
         <p>Kode Tenant: ${tenantCode.value}</p>

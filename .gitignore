@@ -9,3 +9,4 @@ frontend-vue/.DS_Store
 backend-api/.DS_Store
 *.log
 coolify_*.json
+docs/local-notes/
