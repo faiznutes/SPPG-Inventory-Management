@@ -24,6 +24,24 @@ type ListPurchaseRequestsQuery = {
   to?: string
 }
 
+let purchaseRequestTenantColumnCache: boolean | null = null
+
+async function hasPurchaseRequestTenantColumn() {
+  if (purchaseRequestTenantColumnCache !== null) return purchaseRequestTenantColumnCache
+
+  const rows = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_name = 'purchase_requests'
+        AND column_name = 'tenant_id'
+    ) AS "exists"
+  `
+
+  purchaseRequestTenantColumnCache = Boolean(rows[0]?.exists)
+  return purchaseRequestTenantColumnCache
+}
+
 async function resolveTenantUserScope(tenantId?: string) {
   if (!tenantId) {
     throw new ApiError(400, 'TENANT_CONTEXT_REQUIRED', 'Tenant aktif tidak ditemukan pada sesi pengguna.')
@@ -72,10 +90,19 @@ function totalOf(items: Array<{ qty: number; unitPrice: number }>) {
 
 export async function listPurchaseRequests(query: ListPurchaseRequestsQuery = {}, tenantId?: string) {
   const scope = await resolveTenantUserScope(tenantId)
+  const hasTenantColumn = await hasPurchaseRequestTenantColumn()
   const range = resolveRange(query)
   const rows = await prisma.purchaseRequest.findMany({
     where: {
-      tenantId: scope.tenant.id,
+      ...(hasTenantColumn
+        ? {
+            tenantId: scope.tenant.id,
+          }
+        : {
+            requestedBy: {
+              in: scope.userIds,
+            },
+          }),
       ...(range
         ? {
             createdAt: {
@@ -168,6 +195,7 @@ function endOfDay(date: Date) {
 
 export async function createPurchaseRequest(userId: string, input: CreatePurchaseRequestInput, tenantId?: string) {
   const scope = await resolveTenantUserScope(tenantId)
+  const hasTenantColumn = await hasPurchaseRequestTenantColumn()
   if (!scope.userIds.includes(userId)) {
     throw new ApiError(403, 'FORBIDDEN', 'User tidak terdaftar pada tenant aktif ini.')
   }
@@ -208,40 +236,87 @@ export async function createPurchaseRequest(userId: string, input: CreatePurchas
   const prNumber = toPrNumber(total + 1)
 
   const created = await prisma.$transaction(async (tx) => {
-    const pr = await tx.purchaseRequest.create({
-      data: {
-        prNumber,
-        tenantId: scope.tenant.id,
-        status: PurchaseRequestStatus.DRAFT,
-        requestedBy: userId,
-        notes: input.notes,
-        items: {
-          create: input.items.map((item) => {
-            const scopedItem = item.itemId ? tenantItemMap.get(item.itemId) : null
-            return {
-              itemId: item.itemId,
-              itemName: scopedItem ? fromTenantScopedItemName(scopedItem.name) : item.itemName,
-              qty: item.qty,
-              unitPrice: item.unitPrice,
-            }
-          }),
+    let prId = ''
+    let prStatus: PurchaseRequestStatusType = PurchaseRequestStatus.DRAFT
+    let prNotes: string | null = input.notes || null
+    let prCreatedAt = new Date()
+
+    if (hasTenantColumn) {
+      const pr = await tx.purchaseRequest.create({
+        data: {
+          prNumber,
+          tenantId: scope.tenant.id,
+          status: PurchaseRequestStatus.DRAFT,
+          requestedBy: userId,
+          notes: input.notes,
         },
+        select: {
+          id: true,
+          status: true,
+          notes: true,
+          createdAt: true,
+        },
+      })
+      prId = pr.id
+      prStatus = pr.status
+      prNotes = pr.notes
+      prCreatedAt = pr.createdAt
+    } else {
+      const inserted = await tx.$queryRaw<Array<{ id: string; status: PurchaseRequestStatusType; notes: string | null; created_at: Date }>>`
+        INSERT INTO purchase_requests (pr_number, status, requested_by, notes)
+        VALUES (${prNumber}, ${PurchaseRequestStatus.DRAFT}::"PurchaseRequestStatus", ${userId}, ${input.notes || null})
+        RETURNING id, status, notes, created_at
+      `
+      const row = inserted[0]
+      if (!row) {
+        throw new ApiError(500, 'PR_CREATE_FAILED', 'Gagal membuat purchase request.')
+      }
+      prId = row.id
+      prStatus = row.status
+      prNotes = row.notes
+      prCreatedAt = row.created_at
+    }
+
+    await tx.purchaseRequestItem.createMany({
+      data: input.items.map((item) => {
+        const scopedItem = item.itemId ? tenantItemMap.get(item.itemId) : null
+        return {
+          purchaseRequestId: prId,
+          itemId: item.itemId,
+          itemName: scopedItem ? fromTenantScopedItemName(scopedItem.name) : item.itemName,
+          qty: item.qty,
+          unitPrice: item.unitPrice,
+        }
+      }),
+    })
+
+    const createdItems = await tx.purchaseRequestItem.findMany({
+      where: {
+        purchaseRequestId: prId,
       },
-      include: {
-        items: true,
+      select: {
+        qty: true,
+        unitPrice: true,
       },
     })
 
     await tx.purchaseRequestStatusHistory.create({
       data: {
-        purchaseRequestId: pr.id,
+        purchaseRequestId: prId,
         status: PurchaseRequestStatus.DRAFT,
         notes: 'PR dibuat',
         changedBy: userId,
       },
     })
 
-    return pr
+    return {
+      id: prId,
+      prNumber,
+      status: prStatus,
+      notes: prNotes,
+      createdAt: prCreatedAt,
+      items: createdItems,
+    }
   })
 
   return {
@@ -261,6 +336,7 @@ export async function createPurchaseRequest(userId: string, input: CreatePurchas
 
 export async function getPurchaseRequestDetail(id: string, tenantId?: string) {
   const scope = await resolveTenantUserScope(tenantId)
+  const hasTenantColumn = await hasPurchaseRequestTenantColumn()
 
   const row = await prisma.purchaseRequest.findUnique({
     where: { id },
@@ -290,7 +366,7 @@ export async function getPurchaseRequestDetail(id: string, tenantId?: string) {
     throw new ApiError(404, 'PR_NOT_FOUND', 'Purchase request tidak ditemukan.')
   }
 
-  if (row.tenantId !== scope.tenant.id) {
+  if (hasTenantColumn ? row.tenantId !== scope.tenant.id : !scope.userIds.includes(row.requestedBy)) {
     throw new ApiError(403, 'FORBIDDEN', 'Purchase request tidak tersedia untuk tenant aktif ini.')
   }
 
@@ -328,12 +404,13 @@ export async function updatePurchaseRequestStatus(
   notes?: string,
 ) {
   const scope = await resolveTenantUserScope(tenantId)
+  const hasTenantColumn = await hasPurchaseRequestTenantColumn()
   const existing = await prisma.purchaseRequest.findUnique({ where: { id } })
   if (!existing) {
     throw new ApiError(404, 'PR_NOT_FOUND', 'Purchase request tidak ditemukan.')
   }
 
-  if (existing.tenantId !== scope.tenant.id) {
+  if (hasTenantColumn ? existing.tenantId !== scope.tenant.id : !scope.userIds.includes(existing.requestedBy)) {
     throw new ApiError(403, 'FORBIDDEN', 'Purchase request tidak tersedia untuk tenant aktif ini.')
   }
 
@@ -399,9 +476,18 @@ export async function bulkUpdatePurchaseRequestStatus(
   notes?: string,
 ) {
   const scope = await resolveTenantUserScope(tenantId)
+  const hasTenantColumn = await hasPurchaseRequestTenantColumn()
   const existing = await prisma.purchaseRequest.findMany({
     where: {
-      tenantId: scope.tenant.id,
+      ...(hasTenantColumn
+        ? {
+            tenantId: scope.tenant.id,
+          }
+        : {
+            requestedBy: {
+              in: scope.userIds,
+            },
+          }),
       id: {
         in: ids,
       },
@@ -409,6 +495,7 @@ export async function bulkUpdatePurchaseRequestStatus(
     select: {
       id: true,
       approvedBy: true,
+      requestedBy: true,
     },
   })
 
