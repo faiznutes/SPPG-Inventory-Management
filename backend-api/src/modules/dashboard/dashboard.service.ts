@@ -2,6 +2,22 @@ import { ChecklistRunStatus, PurchaseRequestStatus } from '../../lib/prisma-clie
 import { prisma } from '../../lib/prisma.js'
 import { fromTenantScopedItemName, tenantItemSuffix } from '../../utils/item-scope.js'
 
+let purchaseRequestTenantColumnCache: boolean | null = null
+
+async function hasPurchaseRequestTenantColumn() {
+  if (purchaseRequestTenantColumnCache !== null) return purchaseRequestTenantColumnCache
+  const rows = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_name = 'purchase_requests'
+        AND column_name = 'tenant_id'
+    ) AS "exists"
+  `
+  purchaseRequestTenantColumnCache = Boolean(rows[0]?.exists)
+  return purchaseRequestTenantColumnCache
+}
+
 function toDateOnly(date: Date) {
   const yyyy = date.getFullYear()
   const mm = String(date.getMonth() + 1).padStart(2, '0')
@@ -28,6 +44,16 @@ export async function getDashboardSummary(tenantId?: string, activeLocationId?: 
         select: { id: true, code: true },
       })
     : null
+
+  const hasTenantColumn = await hasPurchaseRequestTenantColumn()
+  const tenantMembershipUserIds = tenantId && !hasTenantColumn
+    ? (
+        await prisma.tenantMembership.findMany({
+          where: { tenantId },
+          select: { userId: true },
+        })
+      ).map((row) => row.userId)
+    : []
 
   const [itemCount, stockRows, activePrCount, checklistDraftCount] = await Promise.all([
     prisma.item.count({
@@ -74,9 +100,16 @@ export async function getDashboardSummary(tenantId?: string, activeLocationId?: 
     }),
     prisma.purchaseRequest.count({
       where: {
-        ...(tenantId
+        ...(tenantId && hasTenantColumn
           ? {
               tenantId,
+            }
+          : {}),
+        ...(tenantId && !hasTenantColumn
+          ? {
+              requestedBy: {
+                in: tenantMembershipUserIds,
+              },
             }
           : {}),
         status: {

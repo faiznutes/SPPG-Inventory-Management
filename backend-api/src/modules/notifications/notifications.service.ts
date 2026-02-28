@@ -2,6 +2,22 @@ import { ChecklistRunStatus, PurchaseRequestStatus } from '../../lib/prisma-clie
 import { prisma } from '../../lib/prisma.js'
 import { fromTenantScopedItemName, tenantItemSuffix } from '../../utils/item-scope.js'
 
+let purchaseRequestTenantColumnCache: boolean | null = null
+
+async function hasPurchaseRequestTenantColumn() {
+  if (purchaseRequestTenantColumnCache !== null) return purchaseRequestTenantColumnCache
+  const rows = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_name = 'purchase_requests'
+        AND column_name = 'tenant_id'
+    ) AS "exists"
+  `
+  purchaseRequestTenantColumnCache = Boolean(rows[0]?.exists)
+  return purchaseRequestTenantColumnCache
+}
+
 type NotificationItem = {
   id: string
   title: string
@@ -36,6 +52,16 @@ export async function listNotifications(tenantId?: string, activeLocationId?: st
         select: { id: true, code: true },
       })
     : null
+
+  const hasTenantColumn = await hasPurchaseRequestTenantColumn()
+  const tenantMembershipUserIds = tenantId && !hasTenantColumn
+    ? (
+        await prisma.tenantMembership.findMany({
+          where: { tenantId },
+          select: { userId: true },
+        })
+      ).map((row) => row.userId)
+    : []
 
   const [stockRows, checklistRuns, purchaseRequests] = await Promise.all([
     prisma.stock.findMany({
@@ -86,9 +112,16 @@ export async function listNotifications(tenantId?: string, activeLocationId?: st
     }),
     prisma.purchaseRequest.findMany({
       where: {
-        ...(tenantId
+        ...(tenantId && hasTenantColumn
           ? {
               tenantId,
+            }
+          : {}),
+        ...(tenantId && !hasTenantColumn
+          ? {
+              requestedBy: {
+                in: tenantMembershipUserIds,
+              },
             }
           : {}),
         status: {
