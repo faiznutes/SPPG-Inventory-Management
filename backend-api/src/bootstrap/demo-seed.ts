@@ -1,4 +1,4 @@
-import { ChecklistResult, ChecklistRunStatus, ChecklistSchedule, PurchaseRequestStatus, TransactionType } from '../lib/prisma-client.js'
+import { ChecklistResult, ChecklistRunStatus, ChecklistSchedule, Prisma, PurchaseRequestStatus, TransactionType } from '../lib/prisma-client.js'
 import type { ChecklistResult as ChecklistResultType, ItemType, TransactionType as TransactionTypeType } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
 import { tenantItemSuffix } from '../utils/item-scope.js'
@@ -90,6 +90,7 @@ async function hasPurchaseRequestTenantColumn() {
       FROM information_schema.columns
       WHERE table_name = 'purchase_requests'
         AND column_name = 'tenant_id'
+        AND table_schema = ANY (current_schemas(false))
     ) AS "exists"
   `
   return Boolean(rows[0]?.exists)
@@ -467,6 +468,29 @@ export async function runDemoSeedIfNeeded() {
       include: { items: true },
     })
   }
+  if (!template) {
+    console.log('[DEMO] template checklist gagal dipersiapkan, seed checklist dilewati.')
+    return
+  }
+
+  const desiredTitles = items.slice(0, Math.min(8, items.length)).map((item) => item.name.replace(suffix, ''))
+  const existingTitleSet = new Set(template.items.map((item) => item.title))
+  const missingTitles = desiredTitles.filter((title) => !existingTitleSet.has(title))
+  if (missingTitles.length) {
+    const templateBase = template
+    await prisma.checklistTemplateItem.createMany({
+      data: missingTitles.map((title, index) => ({
+        templateId: templateBase.id,
+        title,
+        sortOrder: templateBase.items.length + index,
+      })),
+      skipDuplicates: true,
+    })
+    template = await prisma.checklistTemplate.findUniqueOrThrow({
+      where: { id: templateBase.id },
+      include: { items: true },
+    })
+  }
 
   let checklistCount = 0
   day = toDateOnly(from)
@@ -532,19 +556,31 @@ export async function runDemoSeedIfNeeded() {
         const createdAt = randomDateTimeOnDay(day, 9, 13)
         let prId = ''
         if (hasTenantColumn) {
-          const pr = await prisma.purchaseRequest.create({
-            data: {
-              prNumber,
-              tenantId: tenant.id,
-              requestedBy: user.id,
-              status: PurchaseRequestStatus.SUBMITTED,
-              notes: `${DEMO_MARKER} Pengadaan periodik`,
-              createdAt,
-              updatedAt: createdAt,
-            },
-            select: { id: true },
-          })
-          prId = pr.id
+          try {
+            const pr = await prisma.purchaseRequest.create({
+              data: {
+                prNumber,
+                tenantId: tenant.id,
+                requestedBy: user.id,
+                status: PurchaseRequestStatus.SUBMITTED,
+                notes: `${DEMO_MARKER} Pengadaan periodik`,
+                createdAt,
+                updatedAt: createdAt,
+              },
+              select: { id: true },
+            })
+            prId = pr.id
+          } catch (error) {
+            const isMissingTenantColumn =
+              error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2022'
+            if (!isMissingTenantColumn) throw error
+            const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+              INSERT INTO purchase_requests (pr_number, status, requested_by, notes, created_at, updated_at)
+              VALUES (${prNumber}, ${PurchaseRequestStatus.SUBMITTED}::"PurchaseRequestStatus", ${user.id}, ${`${DEMO_MARKER} Pengadaan periodik`}, ${createdAt}, ${createdAt})
+              RETURNING id
+            `
+            prId = rows[0]?.id || ''
+          }
         } else {
           const rows = await prisma.$queryRaw<Array<{ id: string }>>`
             INSERT INTO purchase_requests (pr_number, status, requested_by, notes, created_at, updated_at)
