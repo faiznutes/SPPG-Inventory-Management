@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "test:guards": "tsx scripts/guard-regression-check.ts",
+    "test:phase-final": "tsx scripts/phase-final-check.ts",
     "db:reset:superadmin": "tsx scripts/reset-db-to-superadmin.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

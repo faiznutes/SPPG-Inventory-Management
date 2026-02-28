@@ -34,6 +34,13 @@
 - Transaction service validates tenant-owned locations for create/bulk-adjust and rejects out-of-scope IDs.
 - Location names returned to UI-facing operational flows are cleaned from tenant prefix.
 
+## Automated Checks (Latest)
+
+- `npm run test:guards` (backend): PASS
+- `npm run test:phase-final` (backend): PASS
+- `npm run build` (backend): PASS
+- `npm run build` (frontend): PASS
+
 ## Remaining Hardening (Optional)
 
 - Add automated API integration tests for role + tenant/location guard paths.
