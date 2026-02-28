@@ -13,6 +13,11 @@ const form = reactive({
   password: '',
 })
 
+function fillDemoLogin() {
+  form.username = 'demo'
+  form.password = 'demo12345'
+}
+
 async function submitLogin() {
   const ok = await authStore.login(form.username, form.password)
   if (!ok) return
@@ -29,6 +34,14 @@ async function submitLogin() {
         <p class="text-sm font-semibold text-blue-600">{{ APP_NAME }}</p>
         <h1 class="mt-1 text-2xl font-extrabold text-slate-900">Masuk Sistem</h1>
         <p class="mt-1 text-sm text-slate-500">Gunakan akun petugas untuk melanjutkan</p>
+        <p class="mt-2 text-xs font-semibold text-slate-600">Login demo: username <span class="font-extrabold">demo</span> password <span class="font-extrabold">demo12345</span></p>
+        <button
+          type="button"
+          class="mt-2 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+          @click="fillDemoLogin"
+        >
+          Isi Akun Demo
+        </button>
       </div>
 
       <form class="space-y-4" @submit.prevent="submitLogin">
