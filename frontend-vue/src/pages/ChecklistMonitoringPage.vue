@@ -87,6 +87,27 @@ function dayCellClass(code, isSunday) {
   return cellClass(code)
 }
 
+function cellNoteText(cell) {
+  return String(cell?.notes || '').trim()
+}
+
+function rowNotes(row) {
+  return (row?.cells || [])
+    .map((cell) => {
+      const note = cellNoteText(cell)
+      if (!note) return null
+      const dateMeta = dates.value.find((date) => date.key === cell.date)
+      const day = dateMeta?.dayName || '-'
+      const label = dateMeta?.label || cell.date
+      return {
+        key: `${row.title}-${cell.date}`,
+        dateLabel: `${day} ${label}`,
+        note,
+      }
+    })
+    .filter(Boolean)
+}
+
 async function loadMonitoring() {
   if (!authStore.accessToken) return
   if (rangeWarning.value) {
@@ -110,11 +131,14 @@ async function loadMonitoring() {
 }
 
 function exportCsv() {
-  const headers = ['Item', 'Kategori', ...dates.value.map((date) => `${date.dayName} ${date.label}${date.isSunday ? ' (MINGGU)' : ''}`), 'A', 'M', 'H', 'B']
+  const dayHeaders = dates.value.map((date) => `${date.dayName} ${date.label}${date.isSunday ? ' (MINGGU)' : ''}`)
+  const noteHeaders = dates.value.map((date) => `Catatan ${date.dayName} ${date.label}${date.isSunday ? ' (MINGGU)' : ''}`)
+  const headers = ['Item', 'Kategori', ...dayHeaders, ...noteHeaders, 'A', 'M', 'H', 'B']
   const lines = rows.value.map((row) => [
     row.title,
     row.categoryLabel,
     ...row.cells.map((cell) => cell.code),
+    ...row.cells.map((cell) => cellNoteText(cell) || '-'),
     row.totals.A,
     row.totals.M,
     row.totals.H,
@@ -294,6 +318,14 @@ watch(
           <div class="rounded bg-rose-50 px-1 py-1 text-rose-700">H {{ row.totals.H }}</div>
           <div class="rounded bg-slate-100 px-1 py-1 text-slate-700">B {{ row.totals.B }}</div>
         </div>
+        <div v-if="rowNotes(row).length" class="mt-2 rounded border border-slate-200 bg-slate-50 p-2">
+          <p class="text-[11px] font-bold text-slate-700">Catatan Harian</p>
+          <ul class="mt-1 space-y-1 text-[11px] text-slate-600">
+            <li v-for="note in rowNotes(row)" :key="`mobile-note-${note.key}`">
+              <span class="font-semibold">{{ note.dateLabel }}:</span> {{ note.note }}
+            </li>
+          </ul>
+        </div>
       </article>
       <article v-if="!isLoading && rows.length" class="rounded-xl border border-slate-200 bg-slate-50 p-3">
         <p class="text-xs font-black text-slate-700">TOTAL SEMUA ITEM</p>
@@ -332,7 +364,13 @@ watch(
             <td class="sticky left-0 z-10 bg-white px-3 py-2 font-semibold text-slate-900" style="min-width: 220px;">{{ row.title }}</td>
             <td class="sticky left-[220px] z-10 bg-white px-3 py-2 text-slate-600" style="min-width: 170px;">{{ row.categoryLabel }}</td>
             <td v-for="cell in row.cells" :key="`${row.title}-${cell.date}`" class="px-2 py-2 text-center">
-              <span class="inline-flex min-w-6 justify-center rounded px-1.5 py-0.5 text-[11px] font-black" :class="cellClass(cell.code)">{{ cell.code }}</span>
+              <span
+                class="inline-flex min-w-6 justify-center rounded px-1.5 py-0.5 text-[11px] font-black"
+                :class="cellClass(cell.code)"
+                :title="cellNoteText(cell) || undefined"
+              >
+                {{ cell.code }}
+              </span>
             </td>
             <td class="px-2 py-2 text-center font-bold text-emerald-700">{{ row.totals.A }}</td>
             <td class="px-2 py-2 text-center font-bold text-amber-700">{{ row.totals.M }}</td>
@@ -350,6 +388,25 @@ watch(
           </tr>
         </tbody>
       </table>
+    </section>
+
+    <section v-if="!isLoading && rows.length" class="rounded-xl border border-slate-200 bg-white p-3">
+      <p class="text-sm font-bold text-slate-900">Catatan Harian Per Item</p>
+      <p class="mt-1 text-xs text-slate-500">Ringkasan kendala/catatan dari checklist setiap tanggal.</p>
+
+      <div class="mt-3 space-y-3">
+        <article v-for="row in rows" :key="`notes-${row.title}`" class="rounded-lg border border-slate-200 p-3">
+          <p class="text-sm font-bold text-slate-900">{{ row.title }}</p>
+          <p class="text-xs text-slate-500">{{ row.categoryLabel }}</p>
+
+          <ul v-if="rowNotes(row).length" class="mt-2 list-disc space-y-1 pl-4 text-xs text-slate-700">
+            <li v-for="note in rowNotes(row)" :key="`note-${note.key}`">
+              <span class="font-semibold">{{ note.dateLabel }}:</span> {{ note.note }}
+            </li>
+          </ul>
+          <p v-else class="mt-2 text-xs text-slate-400">Tidak ada catatan harian pada periode ini.</p>
+        </article>
+      </div>
     </section>
   </div>
 </template>

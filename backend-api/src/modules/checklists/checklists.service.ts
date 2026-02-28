@@ -470,6 +470,52 @@ async function renderChecklistMonitoringPdfBuffer(input: {
         }
       }
       doc.y = y + rowHeight
+
+      const noteLines = row.cells
+        .map((cell, index) => {
+          const note = String(cell.notes || '').trim()
+          if (!note) return null
+          const dateMeta = input.monitoring.dates[index]
+          const day = dateMeta?.dayName || '-'
+          const label = dateMeta?.label || cell.date
+          return `${day} ${label}: ${note}`
+        })
+        .filter(Boolean) as string[]
+
+      if (noteLines.length) {
+        const blockPadding = 6
+        const lineHeight = 10
+        const headingHeight = 11
+        const notesBlockHeight = blockPadding * 2 + headingHeight + lineHeight * noteLines.length
+        ensureSpace(notesBlockHeight + 6)
+
+        const blockY = doc.y + 2
+        doc.save()
+        doc.rect(tableX, blockY, contentWidth, notesBlockHeight).fill('#f8fafc').restore()
+        doc.strokeColor('#e2e8f0').lineWidth(0.6).rect(tableX, blockY, contentWidth, notesBlockHeight).stroke()
+
+        let lineY = blockY + blockPadding
+        doc.font('Helvetica-Bold').fontSize(8).fillColor('#334155').text('Catatan Harian:', tableX + 6, lineY, {
+          width: contentWidth - 12,
+          align: 'left',
+        })
+        lineY += headingHeight
+
+        doc.font('Helvetica').fontSize(8).fillColor('#334155')
+        for (const line of noteLines) {
+          doc.text(line, tableX + 6, lineY, {
+            width: contentWidth - 12,
+            align: 'left',
+            lineGap: 0,
+          })
+          lineY += lineHeight
+        }
+
+        doc.fillColor('#000000')
+        doc.y = blockY + notesBlockHeight
+      }
+
+      doc.moveDown(0.2)
     }
 
     ensureSpace(70)
