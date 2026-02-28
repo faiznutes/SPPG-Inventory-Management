@@ -35,6 +35,7 @@ async function hasPurchaseRequestTenantColumn() {
       FROM information_schema.columns
       WHERE table_name = 'purchase_requests'
         AND column_name = 'tenant_id'
+        AND table_schema = ANY (current_schemas(false))
     ) AS "exists"
   `
 
@@ -254,7 +255,6 @@ function endOfDay(date: Date) {
 
 export async function createPurchaseRequest(userId: string, input: CreatePurchaseRequestInput, tenantId?: string) {
   const scope = await resolveTenantUserScope(tenantId)
-  const hasTenantColumn = await hasPurchaseRequestTenantColumn()
   if (!scope.userIds.includes(userId)) {
     throw new ApiError(403, 'FORBIDDEN', 'User tidak terdaftar pada tenant aktif ini.')
   }
@@ -300,7 +300,7 @@ export async function createPurchaseRequest(userId: string, input: CreatePurchas
     let prNotes: string | null = input.notes || null
     let prCreatedAt = new Date()
 
-    if (hasTenantColumn) {
+    try {
       const pr = await tx.purchaseRequest.create({
         data: {
           prNumber,
@@ -320,7 +320,11 @@ export async function createPurchaseRequest(userId: string, input: CreatePurchas
       prStatus = pr.status
       prNotes = pr.notes
       prCreatedAt = pr.createdAt
-    } else {
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2022') {
+        throw error
+      }
+
       const inserted = await tx.$queryRaw<Array<{ id: string; status: PurchaseRequestStatusType; notes: string | null; created_at: Date }>>`
         INSERT INTO purchase_requests (pr_number, status, requested_by, notes)
         VALUES (${prNumber}, ${PurchaseRequestStatus.DRAFT}::"PurchaseRequestStatus", ${userId}, ${input.notes || null})
