@@ -42,7 +42,16 @@ async function hasPurchaseRequestTenantColumn() {
   return purchaseRequestTenantColumnCache
 }
 
-async function resolveTenantUserScope(tenantId?: string) {
+type TenantUserScope = {
+  tenant: {
+    id: string
+    code: string
+    isActive: boolean
+  }
+  userIds: string[]
+}
+
+async function resolveTenantUserScope(tenantId?: string): Promise<TenantUserScope> {
   if (!tenantId) {
     throw new ApiError(400, 'TENANT_CONTEXT_REQUIRED', 'Tenant aktif tidak ditemukan pada sesi pengguna.')
   }
@@ -75,6 +84,11 @@ async function resolveTenantUserScope(tenantId?: string) {
   }
 }
 
+async function resolveTenantUserScopeOrNull(tenantId?: string): Promise<TenantUserScope | null> {
+  if (!tenantId) return null
+  return resolveTenantUserScope(tenantId)
+}
+
 function toPrNumber(sequence: number) {
   const now = new Date()
   const yyyy = now.getFullYear()
@@ -89,7 +103,8 @@ function totalOf(items: Array<{ qty: number; unitPrice: number }>) {
 }
 
 export async function listPurchaseRequests(query: ListPurchaseRequestsQuery = {}, tenantId?: string) {
-  const scope = await resolveTenantUserScope(tenantId)
+  const scope = await resolveTenantUserScopeOrNull(tenantId)
+  if (!scope) return []
   const hasTenantColumn = await hasPurchaseRequestTenantColumn()
   const range = resolveRange(query)
   if (!hasTenantColumn) {
