@@ -82,6 +82,12 @@ const filteredRows = computed(() => {
 async function loadRows() {
   if (!authStore.accessToken) return
 
+  const activeTenantId = authStore.user?.tenant?.id
+  if (!activeTenantId) {
+    rows.value = []
+    return
+  }
+
   isLoading.value = true
   try {
     const data = await api.listPurchaseRequests(authStore.accessToken, { period: activePeriod.value })
@@ -98,7 +104,12 @@ async function loadRows() {
       statusLabel: statusMap[row.status] || row.status,
     }))
   } catch (error) {
-    notifications.showPopup('Gagal memuat PR', error instanceof Error ? error.message : 'Terjadi kesalahan.', 'error')
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan.'
+    if (message.includes('Tenant aktif tidak ditemukan')) {
+      rows.value = []
+      return
+    }
+    notifications.showPopup('Gagal memuat PR', message, 'error')
   } finally {
     isLoading.value = false
   }
