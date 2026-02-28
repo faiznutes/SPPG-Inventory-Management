@@ -130,6 +130,17 @@ router.beforeEach(async (to) => {
   }
 
   if (!isLoginPage && authStore.isAuthenticated) {
+    const meOk = await authStore.fetchMe()
+    if (!meOk) {
+      const refreshed = await authStore.refreshSession()
+      if (!refreshed) {
+        return {
+          path: '/login',
+          query: { redirect: to.fullPath },
+        }
+      }
+    }
+
     if (!authStore.canViewTenantData) {
       return { path: '/login' }
     }
