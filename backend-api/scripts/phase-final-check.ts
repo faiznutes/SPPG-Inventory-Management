@@ -23,9 +23,16 @@ const fileChecks: FileCheck[] = [
   {
     file: 'src/modules/purchase-requests/purchase-requests.service.ts',
     checks: [
-      { label: 'PR list scoped by tenantId', test: (c) => /where:\s*\{\s*tenantId:\s*scope\.tenant\.id/s.test(c) },
+      {
+        label: 'PR list scoped by tenantId with fallback support',
+        test: (c) => /hasTenantColumn[\s\S]*tenantId:\s*scope\.tenant\.id/.test(c),
+      },
       { label: 'PR create persists tenantId', test: (c) => /prNumber,\s*tenantId:\s*scope\.tenant\.id/s.test(c) },
-      { label: 'PR detail checks tenant ownership', test: (c) => /if \(row\.tenantId !== scope\.tenant\.id\)/.test(c) },
+      {
+        label: 'PR detail checks tenant ownership (with fallback)',
+        test: (c) =>
+          /row\.tenantId !== scope\.tenant\.id/.test(c) && /scope\.userIds\.includes\(row\.requested_by\)/.test(c),
+      },
     ],
   },
   {

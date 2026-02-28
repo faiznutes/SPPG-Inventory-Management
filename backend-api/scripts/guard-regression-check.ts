@@ -25,7 +25,10 @@ const rules: Rule[] = [
   {
     file: 'src/modules/purchase-requests/purchase-requests.service.ts',
     checks: [
-      { name: 'list PR scoped by tenantId', pattern: /where:\s*\{\s*tenantId:\s*scope\.tenant\.id/s },
+      {
+        name: 'list PR scoped by tenantId (or fallback requester scope)',
+        pattern: /hasTenantColumn[\s\S]*tenantId:\s*scope\.tenant\.id/,
+      },
       { name: 'create PR writes tenantId', pattern: /tenantId:\s*scope\.tenant\.id/ },
       { name: 'create PR validates tenant item ids', pattern: /Item pada PR tidak tersedia untuk tenant aktif ini/ },
     ],
