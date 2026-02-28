@@ -230,22 +230,65 @@ export async function runDemoSeedIfNeeded() {
     return
   }
 
-  const marker = await prisma.inventoryTransaction.findFirst({
-    where: {
-      reason: {
-        startsWith: DEMO_MARKER,
+  const hasTenantColumn = await hasPurchaseRequestTenantColumn()
+  const days = Math.max(1, Math.floor((today.getTime() - from.getTime()) / (24 * 60 * 60 * 1000)) + 1)
+  const [demoTxCount, checklistRunCount, demoPrCount] = await Promise.all([
+    prisma.inventoryTransaction.count({
+      where: {
+        reason: {
+          startsWith: DEMO_MARKER,
+        },
+        createdAt: {
+          gte: from,
+        },
+        itemId: {
+          in: items.map((item) => item.id),
+        },
       },
-      createdAt: {
-        gte: from,
+    }),
+    prisma.checklistRun.count({
+      where: {
+        createdBy: user.id,
+        runDate: {
+          gte: from,
+        },
+        locationId: {
+          in: locations.map((location) => location.id),
+        },
       },
-      itemId: {
-        in: items.map((item) => item.id),
-      },
-    },
-    select: { id: true },
-  })
-  if (marker) {
-    console.log('[DEMO] seed marker ditemukan, data demo sudah ada.')
+    }),
+    hasTenantColumn
+      ? prisma.purchaseRequest.count({
+          where: {
+            tenantId: tenant.id,
+            notes: {
+              startsWith: DEMO_MARKER,
+            },
+            createdAt: {
+              gte: from,
+            },
+          },
+        })
+      : prisma.purchaseRequest.count({
+          where: {
+            requestedBy: user.id,
+            notes: {
+              startsWith: DEMO_MARKER,
+            },
+            createdAt: {
+              gte: from,
+            },
+          },
+        }),
+  ])
+
+  const expectedChecklistRuns = days * Math.max(1, locations.length)
+  const minTx = Math.max(60, Math.floor(days * 3))
+  const minChecklistRuns = Math.max(20, Math.floor(expectedChecklistRuns * 0.6))
+  const minPr = Math.max(6, Math.floor(days / 8))
+
+  if (demoTxCount >= minTx && checklistRunCount >= minChecklistRuns && demoPrCount >= minPr) {
+    console.log('[DEMO] data historis demo sudah memadai, seed dilewati.')
     return
   }
 
@@ -477,7 +520,6 @@ export async function runDemoSeedIfNeeded() {
     day = addDays(day, 1)
   }
 
-  const hasTenantColumn = await hasPurchaseRequestTenantColumn()
   let prCount = 0
   let prSeq = await prisma.purchaseRequest.count()
   day = toDateOnly(from)
