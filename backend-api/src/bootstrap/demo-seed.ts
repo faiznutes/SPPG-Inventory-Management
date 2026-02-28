@@ -9,6 +9,19 @@ const DEMO_MARKER = '[DEMO]'
 const INACTIVE_PREFIX = 'INACTIVE - '
 const DEFAULT_TEMPLATE_NAME = 'Checklist Harian Operasional'
 
+const DEFAULT_CATEGORY_NAMES = ['Bahan Pokok', 'Protein', 'Minuman', 'Peralatan Operasional']
+
+const DEFAULT_ITEMS: Array<{ name: string; category: string; type: ItemType; unit: string; minStock: number; reorderQty: number }> = [
+  { name: 'Beras Premium', category: 'Bahan Pokok', type: 'CONSUMABLE', unit: 'kg', minStock: 120, reorderQty: 180 },
+  { name: 'Minyak Goreng', category: 'Bahan Pokok', type: 'CONSUMABLE', unit: 'liter', minStock: 60, reorderQty: 100 },
+  { name: 'Telur Ayam', category: 'Protein', type: 'CONSUMABLE', unit: 'kg', minStock: 50, reorderQty: 80 },
+  { name: 'Ayam Potong', category: 'Protein', type: 'CONSUMABLE', unit: 'kg', minStock: 40, reorderQty: 70 },
+  { name: 'Galon Air', category: 'Minuman', type: 'CONSUMABLE', unit: 'galon', minStock: 18, reorderQty: 30 },
+  { name: 'Gas LPG 12kg', category: 'Peralatan Operasional', type: 'GAS', unit: 'tabung', minStock: 8, reorderQty: 14 },
+  { name: 'Kompor Industri', category: 'Peralatan Operasional', type: 'ASSET', unit: 'unit', minStock: 2, reorderQty: 2 },
+  { name: 'Regulator Gas', category: 'Peralatan Operasional', type: 'ASSET', unit: 'unit', minStock: 3, reorderQty: 4 },
+]
+
 function isInactiveLocation(name: string) {
   return name.startsWith(INACTIVE_PREFIX) || name.includes(`::${INACTIVE_PREFIX}`)
 }
@@ -123,7 +136,7 @@ export async function runDemoSeedIfNeeded() {
   }
 
   const suffix = tenantItemSuffix(tenant.id)
-  const items = await prisma.item.findMany({
+  let items = await prisma.item.findMany({
     where: {
       name: { endsWith: suffix },
       isActive: true,
@@ -135,7 +148,7 @@ export async function runDemoSeedIfNeeded() {
       minStock: true,
     },
   })
-  const locationsRaw = await prisma.location.findMany({
+  let locationsRaw = await prisma.location.findMany({
     where: {
       name: {
         startsWith: `${tenant.code}::`,
@@ -146,7 +159,71 @@ export async function runDemoSeedIfNeeded() {
       name: true,
     },
   })
-  const locations = locationsRaw.filter((location) => !isInactiveLocation(location.name))
+  let locations = locationsRaw.filter((location) => !isInactiveLocation(location.name))
+
+  if (!locations.length) {
+    const fallbackLocation = await prisma.location.upsert({
+      where: {
+        name: `${tenant.code}::SPPG Pusat`,
+      },
+      update: {},
+      create: {
+        name: `${tenant.code}::SPPG Pusat`,
+        description: 'Lokasi default bootstrap demo',
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    })
+    locationsRaw = [fallbackLocation]
+    locations = [fallbackLocation]
+  }
+
+  if (!items.length) {
+    const scopedCategoryNames = DEFAULT_CATEGORY_NAMES.map((name) => `${name}${suffix}`)
+    await prisma.category.createMany({
+      data: scopedCategoryNames.map((name) => ({ name })),
+      skipDuplicates: true,
+    })
+    const categories = await prisma.category.findMany({
+      where: {
+        name: {
+          in: scopedCategoryNames,
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    })
+    const categoryIdByScopedName = new Map(categories.map((category) => [category.name, category.id]))
+    await prisma.item.createMany({
+      data: DEFAULT_ITEMS.map((item, index) => ({
+        name: `${item.name}${suffix}`,
+        sku: `DEMO-${tenant.code.toUpperCase()}-${String(index + 1).padStart(3, '0')}`,
+        categoryId: categoryIdByScopedName.get(`${item.category}${suffix}`) || null,
+        type: item.type,
+        unit: item.unit,
+        minStock: item.minStock,
+        reorderQty: item.reorderQty,
+        isActive: true,
+      })),
+      skipDuplicates: true,
+    })
+    items = await prisma.item.findMany({
+      where: {
+        name: { endsWith: suffix },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        minStock: true,
+      },
+    })
+  }
 
   if (!items.length || !locations.length) {
     console.log('[DEMO] item/lokasi tenant demo belum siap, seed dilewati.')
