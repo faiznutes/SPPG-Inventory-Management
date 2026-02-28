@@ -474,10 +474,14 @@ async function renderChecklistMonitoringPdfBuffer(input: {
 
     ensureSpace(70)
     doc.moveDown(0.5)
-    doc.font('Helvetica-Bold').fontSize(10).text('TOTAL KESELURUHAN', { underline: true })
+    doc.x = tableX
+    doc.font('Helvetica-Bold').fontSize(10).text('TOTAL KESELURUHAN', tableX, doc.y, { width: contentWidth, align: 'left', underline: true })
     doc.moveDown(0.2)
     doc.font('Helvetica-Bold').fontSize(10).text(
       `A: ${input.monitoring.totals.A}    M: ${input.monitoring.totals.M}    H: ${input.monitoring.totals.H}    B: ${input.monitoring.totals.B}`,
+      tableX,
+      doc.y,
+      { width: contentWidth, align: 'left' },
     )
 
     doc.end()

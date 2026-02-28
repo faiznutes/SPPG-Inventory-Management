@@ -324,6 +324,29 @@ function exportPdfA4() {
   printWindow.focus()
   printWindow.print()
   setTimeout(closePrintWindow, 700)
+
+  void sendTransactionsExportTelegram()
+}
+
+async function sendTransactionsExportTelegram() {
+  if (!authStore.accessToken) return
+
+  try {
+    const payload = {
+      period: activePeriod.value,
+      trxType: trxTypeQueryMap[activeTab.value],
+    }
+    const response = await api.sendTransactionsExportTelegram(authStore.accessToken, payload)
+    if (response?.sent) {
+      notifications.showPopup('Export Telegram berhasil', 'Laporan transaksi PDF terkirim ke Telegram tenant.', 'success')
+    }
+  } catch (error) {
+    notifications.showPopup(
+      'Export Telegram gagal',
+      error instanceof Error ? error.message : 'PDF lokal tetap tersedia, tetapi kirim Telegram gagal.',
+      'error',
+    )
+  }
 }
 
 async function submitTransaction() {

@@ -421,6 +421,13 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  sendTransactionsExportTelegram: (accessToken, body) =>
+    request('/transactions/export/send-telegram', {
+      method: 'POST',
+      headers: authHeader(accessToken),
+      body: JSON.stringify(body),
+    }),
+
   getTodayChecklist: (accessToken) =>
     request('/checklists/today', {
       headers: authHeader(accessToken),

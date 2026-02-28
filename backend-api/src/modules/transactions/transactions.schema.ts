@@ -47,3 +47,15 @@ export const listTransactionsQuerySchema = z
     message: 'Rentang tanggal tidak valid.',
     path: ['to'],
   })
+
+export const sendTransactionsExportTelegramSchema = z
+  .object({
+    period: periodEnum.optional(),
+    trxType: z.nativeEnum(TransactionType).optional(),
+    from: z.string().optional(),
+    to: z.string().optional(),
+  })
+  .refine((value) => !(value.from && value.to) || new Date(value.from) <= new Date(value.to), {
+    message: 'Rentang tanggal tidak valid.',
+    path: ['to'],
+  })
