@@ -3,6 +3,12 @@ const ACCESS_TOKEN_KEY = 'sppg_access_token'
 const USER_KEY = 'sppg_user'
 
 let refreshPromise = null
+const RETRYABLE_STATUS = new Set([502, 503, 504])
+const MAX_RETRY_ATTEMPTS = 2
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 function getStoredAccessToken() {
   return localStorage.getItem(ACCESS_TOKEN_KEY) || ''
@@ -57,6 +63,7 @@ function shouldSkipRefresh(path) {
 }
 
 async function request(path, options = {}) {
+  const attempt = Number(options.__attempt || 0)
   const mergedHeaders = {
     'Content-Type': 'application/json',
     ...(options.headers || {}),
@@ -69,6 +76,14 @@ async function request(path, options = {}) {
   })
 
   const payload = await response.json().catch(() => ({}))
+
+  if (RETRYABLE_STATUS.has(response.status) && attempt < MAX_RETRY_ATTEMPTS) {
+    await wait(350 * (attempt + 1))
+    return request(path, {
+      ...options,
+      __attempt: attempt + 1,
+    })
+  }
 
   if (response.status === 401 && !options._retry && !shouldSkipRefresh(path)) {
     try {
@@ -96,10 +111,19 @@ async function request(path, options = {}) {
 }
 
 async function requestBlob(path, options = {}) {
+  const attempt = Number(options.__attempt || 0)
   const response = await fetch(`${API_BASE_URL}${path}`, {
     credentials: 'include',
     ...options,
   })
+
+  if (RETRYABLE_STATUS.has(response.status) && attempt < MAX_RETRY_ATTEMPTS) {
+    await wait(350 * (attempt + 1))
+    return requestBlob(path, {
+      ...options,
+      __attempt: attempt + 1,
+    })
+  }
 
   if (response.status === 401 && !options._retry && !shouldSkipRefresh(path)) {
     try {
