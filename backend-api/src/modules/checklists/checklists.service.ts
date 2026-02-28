@@ -196,7 +196,7 @@ async function renderChecklistPdfBuffer(input: {
   return new Promise<Buffer>((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',
-      margin: 40,
+      margin: 36,
     })
 
     const chunks: Buffer[] = []
@@ -204,26 +204,96 @@ async function renderChecklistPdfBuffer(input: {
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
 
-    doc.fontSize(16).text(input.tenantName)
-    doc.moveDown(0.3)
-    doc.fontSize(12).text(input.responsibleLine)
-    doc.moveDown(0.5)
-    doc.fontSize(11).text(input.templateName)
-    doc.text(`Tanggal: ${formatDateId(input.runDate)}`)
-    doc.moveDown(0.8)
+    const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right
+    const tableX = doc.page.margins.left
+    const widths = {
+      item: Math.round(contentWidth * 0.30),
+      category: Math.round(contentWidth * 0.18),
+      status: Math.round(contentWidth * 0.16),
+      condition: Math.round(contentWidth * 0.13),
+      notes: Math.round(contentWidth * 0.23),
+    }
+    const headerHeight = 22
 
-    input.items.forEach((item, index) => {
-      if (doc.y > 760) {
-        doc.addPage()
+    const drawHeader = () => {
+      doc.fontSize(16).font('Helvetica-Bold').text(input.tenantName)
+      doc.moveDown(0.25)
+      doc.fontSize(11).font('Helvetica').text(input.responsibleLine)
+      doc.text(input.templateName)
+      doc.text(`Tanggal: ${formatDateId(input.runDate)}`)
+      doc.moveDown(0.5)
+
+      const y = doc.y
+      doc.save()
+      doc.rect(tableX, y, contentWidth, headerHeight).fill('#f8fafc').restore()
+      doc.strokeColor('#cbd5e1').lineWidth(0.7).rect(tableX, y, contentWidth, headerHeight).stroke()
+
+      let x = tableX
+      const columns = [
+        { key: 'item', label: 'Item' },
+        { key: 'category', label: 'Model Kategori' },
+        { key: 'status', label: 'Status' },
+        { key: 'condition', label: 'Kondisi (%)' },
+        { key: 'notes', label: 'Catatan' },
+      ] as const
+
+      doc.fontSize(9).font('Helvetica-Bold')
+      for (const col of columns) {
+        const w = widths[col.key]
+        doc.text(col.label, x + 5, y + 7, { width: w - 10, align: 'left' })
+        x += w
+        if (x < tableX + contentWidth) {
+          doc.moveTo(x, y).lineTo(x, y + headerHeight).stroke('#cbd5e1')
+        }
       }
 
-      doc.fontSize(10).font('Helvetica-Bold').text(`${index + 1}. ${item.title}`)
-      doc.font('Helvetica')
-      doc.text(`Kategori: ${checklistItemTypeLabel(item.itemType)}`)
-      doc.text(`Status: ${checklistResultLabel(item.result)}`)
-      doc.text(`Kondisi (%): ${item.itemType === 'ASSET' ? (item.conditionPercent ?? '-') : '-'}`)
-      doc.text(`Catatan: ${(item.notes || '-').replaceAll('\n', ' ')}`)
-      doc.moveDown(0.5)
+      doc.y = y + headerHeight
+    }
+
+    const ensureSpace = (neededHeight: number) => {
+      const bottom = doc.page.height - doc.page.margins.bottom
+      if (doc.y + neededHeight > bottom) {
+        doc.addPage()
+        drawHeader()
+      }
+    }
+
+    drawHeader()
+
+    input.items.forEach((item) => {
+      const category = checklistItemTypeLabel(item.itemType)
+      const status = checklistResultLabel(item.result)
+      const condition = item.itemType === 'ASSET' ? String(item.conditionPercent ?? '-') : '-'
+      const notes = (item.notes || '-').replaceAll('\n', ' ')
+
+      const baseY = doc.y
+      const hItem = doc.heightOfString(item.title, { width: widths.item - 10, align: 'left' })
+      const hCategory = doc.heightOfString(category, { width: widths.category - 10, align: 'left' })
+      const hStatus = doc.heightOfString(status, { width: widths.status - 10, align: 'left' })
+      const hCondition = doc.heightOfString(condition, { width: widths.condition - 10, align: 'left' })
+      const hNotes = doc.heightOfString(notes, { width: widths.notes - 10, align: 'left' })
+      const rowHeight = Math.max(20, hItem, hCategory, hStatus, hCondition, hNotes) + 10
+
+      ensureSpace(rowHeight)
+      const y = doc.y
+      doc.strokeColor('#e2e8f0').lineWidth(0.6).rect(tableX, y, contentWidth, rowHeight).stroke()
+
+      let x = tableX
+      const cells = [item.title, category, status, condition, notes]
+      const colWidths = [widths.item, widths.category, widths.status, widths.condition, widths.notes]
+      doc.fontSize(9).font('Helvetica')
+
+      for (let i = 0; i < cells.length; i += 1) {
+        const w = colWidths[i]
+        doc.text(cells[i], x + 5, y + 5, { width: w - 10, align: 'left' })
+        x += w
+        if (x < tableX + contentWidth) {
+          doc.moveTo(x, y).lineTo(x, y + rowHeight).stroke('#e2e8f0')
+        }
+      }
+
+      doc.y = y + rowHeight
+      if (doc.y <= baseY) doc.y = baseY + rowHeight
     })
 
     doc.end()
@@ -247,42 +317,96 @@ async function renderChecklistMonitoringPdfBuffer(input: {
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
 
-    doc.fontSize(14).font('Helvetica-Bold').text(input.tenantName)
-    doc.moveDown(0.2)
-    doc.fontSize(10).font('Helvetica').text(input.responsibleLine)
-    doc.text(input.monitoring.templateName)
-    doc.text(`Periode: ${monitoringPeriodLabel(input.monitoring.period)} (${input.monitoring.range.fromLabel} s/d ${input.monitoring.range.toLabel})`)
-    doc.text(`Kategori: ${monitoringItemTypeLabel(input.monitoring.itemType)}`)
-    doc.text('Legenda: A=Aman, M=Menipis, H=Habis/Rusak, B=Belum dicek')
-    doc.moveDown(0.6)
+    const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right
+    const tableX = doc.page.margins.left
+    const widths = {
+      item: Math.round(contentWidth * 0.40),
+      category: Math.round(contentWidth * 0.22),
+      a: Math.round(contentWidth * 0.095),
+      m: Math.round(contentWidth * 0.095),
+      h: Math.round(contentWidth * 0.095),
+      b: contentWidth - Math.round(contentWidth * 0.40) - Math.round(contentWidth * 0.22) - Math.round(contentWidth * 0.095) * 3,
+    }
+    const headerHeight = 22
 
-    for (const row of input.monitoring.rows) {
-      if (doc.y > 700) {
-        doc.addPage()
+    const drawHeader = () => {
+      doc.fontSize(14).font('Helvetica-Bold').text(input.tenantName)
+      doc.moveDown(0.2)
+      doc.fontSize(10).font('Helvetica').text(input.responsibleLine)
+      doc.text(input.monitoring.templateName)
+      doc.text(`Periode: ${monitoringPeriodLabel(input.monitoring.period)} (${input.monitoring.range.fromLabel} s/d ${input.monitoring.range.toLabel})`)
+      doc.text(`Kategori: ${monitoringItemTypeLabel(input.monitoring.itemType)}`)
+      doc.text('Legenda: A=Aman, M=Menipis, H=Habis/Rusak, B=Belum dicek')
+      doc.moveDown(0.45)
+
+      const y = doc.y
+      doc.save()
+      doc.rect(tableX, y, contentWidth, headerHeight).fill('#f8fafc').restore()
+      doc.strokeColor('#cbd5e1').lineWidth(0.7).rect(tableX, y, contentWidth, headerHeight).stroke()
+
+      let x = tableX
+      const columns = [
+        { key: 'item', label: 'Item' },
+        { key: 'category', label: 'Kategori' },
+        { key: 'a', label: 'A' },
+        { key: 'm', label: 'M' },
+        { key: 'h', label: 'H' },
+        { key: 'b', label: 'B' },
+      ] as const
+
+      doc.fontSize(9).font('Helvetica-Bold')
+      for (const col of columns) {
+        const w = widths[col.key]
+        doc.text(col.label, x + 5, y + 7, { width: w - 10, align: col.key.length === 1 ? 'center' : 'left' })
+        x += w
+        if (x < tableX + contentWidth) {
+          doc.moveTo(x, y).lineTo(x, y + headerHeight).stroke('#cbd5e1')
+        }
       }
 
-      doc.font('Helvetica-Bold').fontSize(10).text(row.title)
-      doc.font('Helvetica').fontSize(9).text(`Kategori: ${row.categoryLabel}`)
-
-      const dateCodes = row.cells.map((cell, index) => `${input.monitoring.dates[index]?.label || cell.date}: ${cell.code}`)
-      const chunks: string[] = []
-      for (let i = 0; i < dateCodes.length; i += 6) {
-        chunks.push(dateCodes.slice(i, i + 6).join(' | '))
-      }
-
-      for (const line of chunks) {
-        doc.fontSize(8).text(line)
-      }
-
-      doc.font('Helvetica-Bold').fontSize(9).text(`Total -> A:${row.totals.A}  M:${row.totals.M}  H:${row.totals.H}  B:${row.totals.B}`)
-      doc.moveDown(0.5)
-      doc.strokeColor('#cbd5e1').lineWidth(0.5).moveTo(doc.x, doc.y).lineTo(560, doc.y).stroke()
-      doc.moveDown(0.4)
+      doc.y = y + headerHeight
     }
 
-    if (doc.y > 740) doc.addPage()
-    doc.moveDown(0.4)
-    doc.font('Helvetica-Bold').fontSize(11).text('TOTAL KESELURUHAN', { underline: true })
+    const ensureSpace = (neededHeight: number) => {
+      const bottom = doc.page.height - doc.page.margins.bottom
+      if (doc.y + neededHeight > bottom) {
+        doc.addPage()
+        drawHeader()
+      }
+    }
+
+    drawHeader()
+
+    for (const row of input.monitoring.rows) {
+      const itemText = row.title
+      const categoryText = row.categoryLabel
+      const hItem = doc.heightOfString(itemText, { width: widths.item - 10 })
+      const hCategory = doc.heightOfString(categoryText, { width: widths.category - 10 })
+      const rowHeight = Math.max(20, hItem, hCategory) + 10
+
+      ensureSpace(rowHeight)
+      const y = doc.y
+      doc.strokeColor('#e2e8f0').lineWidth(0.6).rect(tableX, y, contentWidth, rowHeight).stroke()
+
+      let x = tableX
+      const cells = [itemText, categoryText, String(row.totals.A), String(row.totals.M), String(row.totals.H), String(row.totals.B)]
+      const colWidths = [widths.item, widths.category, widths.a, widths.m, widths.h, widths.b]
+      doc.fontSize(9).font('Helvetica')
+      for (let i = 0; i < cells.length; i += 1) {
+        const w = colWidths[i]
+        const align = i >= 2 ? 'center' : 'left'
+        doc.text(cells[i], x + 5, y + 5, { width: w - 10, align })
+        x += w
+        if (x < tableX + contentWidth) {
+          doc.moveTo(x, y).lineTo(x, y + rowHeight).stroke('#e2e8f0')
+        }
+      }
+      doc.y = y + rowHeight
+    }
+
+    ensureSpace(70)
+    doc.moveDown(0.5)
+    doc.font('Helvetica-Bold').fontSize(10).text('TOTAL KESELURUHAN', { underline: true })
     doc.moveDown(0.2)
     doc.font('Helvetica-Bold').fontSize(10).text(
       `A: ${input.monitoring.totals.A}    M: ${input.monitoring.totals.M}    H: ${input.monitoring.totals.H}    B: ${input.monitoring.totals.B}`,
