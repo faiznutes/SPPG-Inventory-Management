@@ -1,4 +1,5 @@
 import { ChecklistRunStatus, PurchaseRequestStatus } from '../../lib/prisma-client.js'
+import type { PurchaseRequestStatus as PurchaseRequestStatusType } from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
 import { fromTenantScopedItemName, tenantItemSuffix } from '../../utils/item-scope.js'
 
@@ -16,6 +17,98 @@ async function hasPurchaseRequestTenantColumn() {
   `
   purchaseRequestTenantColumnCache = Boolean(rows[0]?.exists)
   return purchaseRequestTenantColumnCache
+}
+
+async function listActivePurchaseRequests(tenantId?: string, useTenantColumn = true) {
+  if (useTenantColumn) {
+    return prisma.purchaseRequest.findMany({
+      where: {
+        ...(tenantId
+          ? {
+              tenantId,
+            }
+          : {}),
+        status: {
+          in: [
+            PurchaseRequestStatus.SUBMITTED,
+            PurchaseRequestStatus.APPROVED,
+            PurchaseRequestStatus.ORDERED,
+            PurchaseRequestStatus.RECEIVED,
+          ],
+        },
+      },
+      include: {
+        requester: {
+          select: {
+            name: true,
+            username: true,
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 12,
+    })
+  }
+
+  const rows = tenantId
+    ? await prisma.$queryRaw<Array<{
+        id: string
+        pr_number: string
+        status: string
+        updated_at: Date
+        requester_name: string | null
+        requester_username: string | null
+      }>>`
+        SELECT
+          pr.id,
+          pr.pr_number,
+          pr.status::text AS status,
+          pr.updated_at,
+          u.name AS requester_name,
+          u.username AS requester_username
+        FROM purchase_requests pr
+        JOIN users u ON u.id = pr.requested_by
+        WHERE pr.status::text IN ('SUBMITTED','APPROVED','ORDERED','RECEIVED')
+          AND pr.requested_by IN (
+            SELECT tm.user_id
+            FROM tenant_memberships tm
+            WHERE tm.tenant_id = ${tenantId}
+          )
+        ORDER BY pr.updated_at DESC
+        LIMIT 12
+      `
+    : await prisma.$queryRaw<Array<{
+        id: string
+        pr_number: string
+        status: string
+        updated_at: Date
+        requester_name: string | null
+        requester_username: string | null
+      }>>`
+        SELECT
+          pr.id,
+          pr.pr_number,
+          pr.status::text AS status,
+          pr.updated_at,
+          u.name AS requester_name,
+          u.username AS requester_username
+        FROM purchase_requests pr
+        JOIN users u ON u.id = pr.requested_by
+        WHERE pr.status::text IN ('SUBMITTED','APPROVED','ORDERED','RECEIVED')
+        ORDER BY pr.updated_at DESC
+        LIMIT 12
+      `
+
+  return rows.map((row) => ({
+    id: row.id,
+    prNumber: row.pr_number,
+    status: row.status as PurchaseRequestStatusType,
+    updatedAt: row.updated_at,
+    requester: {
+      name: row.requester_name,
+      username: row.requester_username,
+    },
+  }))
 }
 
 type NotificationItem = {
@@ -54,14 +147,6 @@ export async function listNotifications(tenantId?: string, activeLocationId?: st
     : null
 
   const hasTenantColumn = await hasPurchaseRequestTenantColumn()
-  const tenantMembershipUserIds = tenantId && !hasTenantColumn
-    ? (
-        await prisma.tenantMembership.findMany({
-          where: { tenantId },
-          select: { userId: true },
-        })
-      ).map((row) => row.userId)
-    : []
 
   const [stockRows, checklistRuns, purchaseRequests] = await Promise.all([
     prisma.stock.findMany({
@@ -110,40 +195,7 @@ export async function listNotifications(tenantId?: string, activeLocationId?: st
       orderBy: { updatedAt: 'desc' },
       take: 10,
     }),
-    prisma.purchaseRequest.findMany({
-      where: {
-        ...(tenantId && hasTenantColumn
-          ? {
-              tenantId,
-            }
-          : {}),
-        ...(tenantId && !hasTenantColumn
-          ? {
-              requestedBy: {
-                in: tenantMembershipUserIds,
-              },
-            }
-          : {}),
-        status: {
-          in: [
-            PurchaseRequestStatus.SUBMITTED,
-            PurchaseRequestStatus.APPROVED,
-            PurchaseRequestStatus.ORDERED,
-            PurchaseRequestStatus.RECEIVED,
-          ],
-        },
-      },
-      include: {
-        requester: {
-          select: {
-            name: true,
-            username: true,
-          },
-        },
-      },
-      orderBy: { updatedAt: 'desc' },
-      take: 12,
-    }),
+    listActivePurchaseRequests(tenantId, hasTenantColumn),
   ])
 
   const lowStockItems: NotificationItem[] = stockRows

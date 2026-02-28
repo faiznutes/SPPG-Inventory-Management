@@ -18,6 +18,51 @@ async function hasPurchaseRequestTenantColumn() {
   return purchaseRequestTenantColumnCache
 }
 
+async function countActivePurchaseRequests(tenantId?: string, useTenantColumn = true, tenantMembershipUserIds: string[] = []) {
+  const statuses = [
+    PurchaseRequestStatus.SUBMITTED,
+    PurchaseRequestStatus.APPROVED,
+    PurchaseRequestStatus.ORDERED,
+    PurchaseRequestStatus.RECEIVED,
+  ]
+
+  if (useTenantColumn) {
+    return prisma.purchaseRequest.count({
+      where: {
+        ...(tenantId
+          ? {
+              tenantId,
+            }
+          : {}),
+        status: {
+          in: statuses,
+        },
+      },
+    })
+  }
+
+  if (tenantId && !tenantMembershipUserIds.length) return 0
+
+  const rows = tenantId
+    ? await prisma.$queryRaw<Array<{ count: bigint }>>`
+        SELECT COUNT(*)::bigint AS count
+        FROM purchase_requests pr
+        WHERE pr.status::text IN ('SUBMITTED','APPROVED','ORDERED','RECEIVED')
+          AND pr.requested_by IN (
+            SELECT tm.user_id
+            FROM tenant_memberships tm
+            WHERE tm.tenant_id = ${tenantId}
+          )
+      `
+    : await prisma.$queryRaw<Array<{ count: bigint }>>`
+        SELECT COUNT(*)::bigint AS count
+        FROM purchase_requests pr
+        WHERE pr.status::text IN ('SUBMITTED','APPROVED','ORDERED','RECEIVED')
+      `
+
+  return Number(rows[0]?.count || 0n)
+}
+
 function toDateOnly(date: Date) {
   const yyyy = date.getFullYear()
   const mm = String(date.getMonth() + 1).padStart(2, '0')
@@ -98,30 +143,7 @@ export async function getDashboardSummary(tenantId?: string, activeLocationId?: 
         },
       },
     }),
-    prisma.purchaseRequest.count({
-      where: {
-        ...(tenantId && hasTenantColumn
-          ? {
-              tenantId,
-            }
-          : {}),
-        ...(tenantId && !hasTenantColumn
-          ? {
-              requestedBy: {
-                in: tenantMembershipUserIds,
-              },
-            }
-          : {}),
-        status: {
-          in: [
-            PurchaseRequestStatus.SUBMITTED,
-            PurchaseRequestStatus.APPROVED,
-            PurchaseRequestStatus.ORDERED,
-            PurchaseRequestStatus.RECEIVED,
-          ],
-        },
-      },
-    }),
+    countActivePurchaseRequests(tenantId, hasTenantColumn, tenantMembershipUserIds),
     prisma.checklistRun.count({
       where: {
         ...(tenant?.code
